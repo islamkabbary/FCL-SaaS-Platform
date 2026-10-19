@@ -4,6 +4,7 @@ use App\Actions\Tenancy\ProvisioningResult;
 use App\Actions\Tenancy\ProvisionTenant;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
+use App\Enums\TenantStatus;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,6 +73,25 @@ function provisionTenant(string $subdomain = 'acme', array $attributes = []): Pr
         'admin_email' => "admin@{$subdomain}.test",
         ...$attributes,
     ]);
+}
+
+/**
+ * Register a tenant in the central database only (no tenant database is created),
+ * for tests that need tenants in a given lifecycle state without provisioning them.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function centralTenant(string $subdomain, TenantStatus $status = TenantStatus::Ready, array $attributes = []): Tenant
+{
+    $tenant = Tenant::create([
+        'name' => Str::headline($subdomain).' Freight',
+        'status' => $status,
+        ...$attributes,
+    ]);
+
+    $tenant->domains()->create(['domain' => $subdomain]);
+
+    return $tenant->load('domains');
 }
 
 /**
