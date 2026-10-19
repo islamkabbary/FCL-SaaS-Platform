@@ -16,6 +16,22 @@
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
+
+                @if (auth()->user()->can('viewAny', App\Models\User::class) || auth()->user()->can('viewAny', Spatie\Permission\Models\Role::class))
+                    <flux:sidebar.group :heading="__('Administration')" class="grid">
+                        @can('viewAny', App\Models\User::class)
+                            <flux:sidebar.item icon="users" :href="route('employees.index')" :current="request()->routeIs('employees.*')" wire:navigate>
+                                {{ __('Employees') }}
+                            </flux:sidebar.item>
+                        @endcan
+
+                        @can('viewAny', Spatie\Permission\Models\Role::class)
+                            <flux:sidebar.item icon="shield-check" :href="route('roles.index')" :current="request()->routeIs('roles.*')" wire:navigate>
+                                {{ __('Roles & Permissions') }}
+                            </flux:sidebar.item>
+                        @endcan
+                    </flux:sidebar.group>
+                @endif
             </flux:sidebar.nav>
 
             <flux:spacer />

@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Models\Role;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,6 +22,16 @@ Route::redirect('/', '/dashboard')->name('home');
 
 Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
+
+    // Tenant administration. The "can" middleware is re-applied to Livewire updates,
+    // and every action authorizes again in the backend.
+    Route::livewire('employees', 'pages::employees.index')
+        ->middleware('can:viewAny,'.User::class)
+        ->name('employees.index');
+
+    Route::livewire('roles', 'pages::roles.index')
+        ->middleware('can:viewAny,'.Role::class)
+        ->name('roles.index');
 });
 
 require __DIR__.'/settings.php';
