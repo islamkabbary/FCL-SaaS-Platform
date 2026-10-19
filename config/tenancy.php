@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Tenant;
+use App\Tenancy\PermissionCacheBootstrapper;
 use Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper;
 use Stancl\Tenancy\Bootstrappers\FilesystemTenancyBootstrapper;
 use Stancl\Tenancy\Bootstrappers\QueueTenancyBootstrapper;
@@ -38,6 +39,7 @@ return [
         // CacheTenancyBootstrapper requires a cache store that supports tags (e.g. Redis). Cache is central for now.
         FilesystemTenancyBootstrapper::class,
         QueueTenancyBootstrapper::class,
+        PermissionCacheBootstrapper::class, // Tenant-scoped spatie/laravel-permission cache key and in-memory state.
         // Stancl\Tenancy\Bootstrappers\RedisTenancyBootstrapper::class, // Note: phpredis is needed
     ],
 

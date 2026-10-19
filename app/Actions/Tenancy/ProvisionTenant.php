@@ -26,6 +26,8 @@ use Throwable;
  */
 class ProvisionTenant
 {
+    public function __construct(protected SyncTenantAuthorization $syncTenantAuthorization) {}
+
     /**
      * Register a new tenant in the central database and provision it.
      *
@@ -115,7 +117,8 @@ class ProvisionTenant
     }
 
     /**
-     * Create the Default Branch and the initial Tenant Admin inside the tenant database.
+     * Create the Default Branch, the roles and permissions, and the initial Tenant Admin
+     * (holding the Tenant Admin role) inside the tenant database.
      *
      * Returns the admin's newly generated temporary password.
      */
@@ -143,6 +146,9 @@ class ProvisionTenant
                         'email_verified_at' => now(),
                     ])
                     ->save();
+
+                // Roles and permissions; gives the Tenant Admin role to the admin above.
+                $this->syncTenantAuthorization->handle();
 
                 return $temporaryPassword;
             });

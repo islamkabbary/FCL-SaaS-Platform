@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TenantRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property int $id
@@ -19,7 +21,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property int $primary_branch_id
- * @property bool $is_tenant_admin
+ * @property bool $is_tenant_admin Legacy marker of the initial Tenant Admin; authorization uses the Tenant Admin role.
  * @property bool $must_change_password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
@@ -34,7 +36,12 @@ use Illuminate\Support\Str;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
+
+    /**
+     * The guard used for roles and permissions. Tenant users always authenticate through "web".
+     */
+    protected string $guard_name = 'web';
 
     /**
      * Get the attributes that should be cast.
@@ -49,6 +56,14 @@ class User extends Authenticatable
             'is_tenant_admin' => 'boolean',
             'must_change_password' => 'boolean',
         ];
+    }
+
+    /**
+     * Determine whether the user holds the built-in Tenant Admin role.
+     */
+    public function isTenantAdmin(): bool
+    {
+        return $this->hasRole(TenantRole::TenantAdmin->value);
     }
 
     /**
