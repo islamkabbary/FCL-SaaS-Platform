@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\TenantAccessStatus;
 use App\Enums\TenantStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDomains;
@@ -16,6 +19,10 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  * A freight forwarding company. Stored in the central database; its own data
  * lives in a dedicated tenant database.
  *
+ * Two independent lifecycles: "status" tracks provisioning (pending → provisioning →
+ * ready | failed), "suspended_at" tracks whether the platform allows access. Only a
+ * ready, non-suspended tenant can be accessed.
+ *
  * Attributes that are not custom columns are stored in the "data" JSON column.
  *
  * @property string $id
@@ -23,9 +30,14 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  * @property TenantStatus $status
  * @property string|null $provisioning_error
  * @property Carbon|null $provisioned_at
+ * @property Carbon|null $suspended_at
+ * @property string|null $suspension_reason
  * @property string|null $initial_admin_name
  * @property string|null $initial_admin_email
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property-read Collection<int, Domain> $domains
+ * @property-read Collection<int, PlatformAuditLog> $auditLogs
  */
 class Tenant extends BaseTenant implements TenantWithDatabase
 {
@@ -44,6 +56,8 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'status',
             'provisioning_error',
             'provisioned_at',
+            'suspended_at',
+            'suspension_reason',
         ];
     }
 
@@ -57,6 +71,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         return [
             'status' => TenantStatus::class,
             'provisioned_at' => 'datetime',
+            'suspended_at' => 'datetime',
         ];
     }
 
@@ -73,11 +88,105 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     }
 
     /**
-     * Determine whether the tenant finished provisioning and may be accessed.
+     * Get the platform administration history of the tenant.
+     *
+     * @return HasMany<PlatformAuditLog, $this>
+     */
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(PlatformAuditLog::class, 'tenant_id');
+    }
+
+    /**
+     * Search by company name or subdomain.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeSearch(Builder $query, string $term): void
+    {
+        $like = '%'.addcslashes($term, '\%_').'%';
+
+        $query->where(fn (Builder $query) => $query
+            ->where('name', 'like', $like)
+            ->orWhereHas('domains', fn (Builder $query) => $query->where('domain', 'like', $like)));
+    }
+
+    /**
+     * Limit to tenants with the given access status.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWhereAccessStatus(Builder $query, TenantAccessStatus $accessStatus): void
+    {
+        $accessStatus === TenantAccessStatus::Suspended
+            ? $query->whereNotNull('suspended_at')
+            : $query->whereNull('suspended_at');
+    }
+
+    /**
+     * Determine whether the tenant finished provisioning.
      */
     public function isReady(): bool
     {
         return $this->status === TenantStatus::Ready;
+    }
+
+    /**
+     * Determine whether the platform has suspended the tenant's access.
+     */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    /**
+     * Get the tenant's access status.
+     */
+    public function accessStatus(): TenantAccessStatus
+    {
+        return $this->isSuspended() ? TenantAccessStatus::Suspended : TenantAccessStatus::Active;
+    }
+
+    /**
+     * Determine whether the tenant's users may use the application.
+     */
+    public function isAccessible(): bool
+    {
+        return $this->isReady() && ! $this->isSuspended();
+    }
+
+    /**
+     * Only a ready tenant that is currently active can be suspended.
+     */
+    public function canBeSuspended(): bool
+    {
+        return $this->isAccessible();
+    }
+
+    /**
+     * Only a suspended tenant can be reactivated.
+     */
+    public function canBeReactivated(): bool
+    {
+        return $this->isSuspended();
+    }
+
+    /**
+     * A short, display-safe summary of the last provisioning failure.
+     *
+     * Connection details and SQL that database exceptions append to their message are
+     * cut off, and anything that looks like a credential is redacted.
+     */
+    public function provisioningFailureSummary(): ?string
+    {
+        if ($this->provisioning_error === null || $this->provisioning_error === '') {
+            return null;
+        }
+
+        $summary = (string) preg_replace('/\s*\((?:Connection|SQL|Host):.*$/s', '', $this->provisioning_error);
+        $summary = (string) preg_replace('/\b(password|passwd|pwd|secret|token|key)\b(\s*[=:]\s*)\S+/i', '$1$2[redacted]', $summary);
+
+        return Str::limit(trim($summary), 300);
     }
 
     /**
