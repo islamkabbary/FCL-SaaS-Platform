@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\PlatformAdmin;
 use App\Policies\RolePolicy;
 use App\Session\TenantAwareDatabaseSessionHandler;
 use Carbon\CarbonImmutable;
@@ -33,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
         $this->configureSessions();
 
         Gate::policy(Role::class, RolePolicy::class);
+
+        // Plans, subscriptions, seat requests and billing records on the central platform.
+        // The type hint denies every identity other than a Platform Admin.
+        Gate::define('manage-billing', fn (PlatformAdmin $admin): bool => true);
     }
 
     /**

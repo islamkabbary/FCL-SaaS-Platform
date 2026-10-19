@@ -14,6 +14,18 @@
                 <flux:navbar.item icon="building-office-2" :href="route('platform.tenants.index')" :current="request()->routeIs('platform.tenants.*')">
                     {{ __('Tenants') }}
                 </flux:navbar.item>
+                <flux:navbar.item icon="identification" :href="route('platform.subscriptions.index')" :current="request()->routeIs('platform.subscriptions.*')">
+                    {{ __('Subscriptions') }}
+                </flux:navbar.item>
+                <flux:navbar.item icon="users" :href="route('platform.seat-requests.index')" :current="request()->routeIs('platform.seat-requests.*')">
+                    {{ __('Seat requests') }}
+                </flux:navbar.item>
+                <flux:navbar.item icon="banknotes" :href="route('platform.charges.index')" :current="request()->routeIs('platform.charges.*')">
+                    {{ __('Billing') }}
+                </flux:navbar.item>
+                <flux:navbar.item icon="rectangle-stack" :href="route('platform.plans.index')" :current="request()->routeIs('platform.plans.*')">
+                    {{ __('Plans') }}
+                </flux:navbar.item>
             </flux:navbar>
 
             <flux:spacer />

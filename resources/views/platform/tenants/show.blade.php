@@ -15,6 +15,7 @@
 
         <div class="flex flex-wrap gap-2">
             <flux:button icon="pencil-square" :href="route('platform.tenants.edit', $tenant)" data-test="edit-tenant-link">{{ __('Edit') }}</flux:button>
+            <flux:button icon="identification" :href="route('platform.subscriptions.show', $tenant)" data-test="subscription-link">{{ __('Subscription') }}: {{ $tenant->subscriptionStatus()->label() }}</flux:button>
 
             @if ($tenant->canBeSuspended())
                 <flux:button variant="danger" icon="pause-circle" :href="route('platform.tenants.suspend', $tenant)" data-test="suspend-tenant-link">{{ __('Suspend access') }}</flux:button>

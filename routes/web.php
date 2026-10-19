@@ -1,7 +1,11 @@
 <?php
 
 use App\Http\Controllers\Platform\AuthenticatedSessionController;
+use App\Http\Controllers\Platform\ChargeController;
 use App\Http\Controllers\Platform\DashboardController;
+use App\Http\Controllers\Platform\PlanController;
+use App\Http\Controllers\Platform\SeatRequestController;
+use App\Http\Controllers\Platform\SubscriptionController;
 use App\Http\Controllers\Platform\TenantAccessController;
 use App\Http\Controllers\Platform\TenantController;
 use App\Models\Tenant;
@@ -55,6 +59,35 @@ Route::domain(config('tenancy.central_domains')[0])->group(function () {
             Route::middleware('can:reactivate,tenant')->group(function () {
                 Route::get('tenants/{tenant}/reactivate', [TenantAccessController::class, 'confirmReactivation'])->name('tenants.reactivate');
                 Route::post('tenants/{tenant}/reactivate', [TenantAccessController::class, 'reactivate'])->name('tenants.reactivate.store');
+            });
+
+            // Subscriptions & billing (Platform Admins only; tenant users have no route here).
+            Route::middleware('can:manage-billing')->group(function () {
+                Route::get('plans', [PlanController::class, 'index'])->name('plans.index');
+                Route::get('plans/create', [PlanController::class, 'create'])->name('plans.create');
+                Route::post('plans', [PlanController::class, 'store'])->name('plans.store');
+                Route::get('plans/{plan}/edit', [PlanController::class, 'edit'])->name('plans.edit');
+                Route::put('plans/{plan}', [PlanController::class, 'update'])->name('plans.update');
+                Route::post('plans/{plan}/archive', [PlanController::class, 'archive'])->name('plans.archive');
+                Route::post('plans/{plan}/activate', [PlanController::class, 'activate'])->name('plans.activate');
+
+                Route::get('subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
+                Route::get('tenants/{tenant}/subscription', [SubscriptionController::class, 'show'])->middleware('can:view,tenant')->name('subscriptions.show');
+
+                Route::middleware('can:update,tenant')->group(function () {
+                    Route::get('tenants/{tenant}/subscription/activate', [SubscriptionController::class, 'createActivation'])->name('subscriptions.activate');
+                    Route::post('tenants/{tenant}/subscription/activate', [SubscriptionController::class, 'activate'])->name('subscriptions.activate.store');
+                    Route::get('tenants/{tenant}/subscription/renew', [SubscriptionController::class, 'createRenewal'])->name('subscriptions.renew');
+                    Route::post('tenants/{tenant}/subscription/renew', [SubscriptionController::class, 'renew'])->name('subscriptions.renew.store');
+                });
+
+                Route::get('seat-requests', [SeatRequestController::class, 'index'])->name('seat-requests.index');
+                Route::post('seat-requests/{seatRequest}/approve', [SeatRequestController::class, 'approve'])->name('seat-requests.approve');
+                Route::post('seat-requests/{seatRequest}/reject', [SeatRequestController::class, 'reject'])->name('seat-requests.reject');
+
+                Route::get('charges', [ChargeController::class, 'index'])->name('charges.index');
+                Route::get('charges/{charge}', [ChargeController::class, 'show'])->name('charges.show');
+                Route::post('charges/{charge}/payments', [ChargeController::class, 'storePayment'])->name('charges.payments.store');
             });
         });
     });
