@@ -3,6 +3,10 @@
 use App\Models\User;
 use Livewire\Livewire;
 
+beforeEach(function () {
+    actingInTenant();
+});
+
 test('profile page is displayed', function () {
     $this->actingAs($user = User::factory()->create());
 

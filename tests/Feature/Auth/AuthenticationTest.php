@@ -3,6 +3,10 @@
 use App\Models\User;
 use Laravel\Fortify\Features;
 
+beforeEach(function () {
+    actingInTenant();
+});
+
 test('login screen can be rendered', function () {
     $response = $this->get(route('login'));
 

@@ -1,6 +1,11 @@
 <?php
 
+use App\Actions\Tenancy\ProvisioningResult;
+use App\Actions\Tenancy\ProvisionTenant;
+use App\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /*
@@ -47,4 +52,34 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Create and fully provision a tenant through the real provisioning action.
+ *
+ * @param  array<string, string>  $attributes
+ */
+function provisionTenant(string $subdomain = 'acme', array $attributes = []): ProvisioningResult
+{
+    return app(ProvisionTenant::class)->create([
+        'company_name' => Str::headline($subdomain).' Freight',
+        'subdomain' => $subdomain,
+        'admin_name' => 'Admin of '.$subdomain,
+        'admin_email' => "admin@{$subdomain}.test",
+        ...$attributes,
+    ]);
+}
+
+/**
+ * Provision a tenant and run the rest of the test inside its context: models use
+ * its database and route() generates URLs on its subdomain.
+ */
+function actingInTenant(string $subdomain = 'acme'): Tenant
+{
+    $tenant = provisionTenant($subdomain)->tenant;
+
+    tenancy()->initialize($tenant);
+    URL::forceRootUrl(rtrim($tenant->url(), '/'));
+
+    return $tenant;
 }

@@ -7,6 +7,8 @@ use Laravel\Fortify\Features;
 
 beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::resetPasswords());
+
+    actingInTenant();
 });
 
 test('reset password link screen can be rendered', function () {
