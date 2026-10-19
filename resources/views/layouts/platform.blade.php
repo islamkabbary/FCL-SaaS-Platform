@@ -30,7 +30,7 @@
 
             <flux:spacer />
 
-            <flux:text class="me-4 hidden sm:block">{{ auth('platform')->user()->email }}</flux:text>
+            <flux:link class="me-4 hidden text-sm sm:block" :href="route('platform.account.security')" data-test="account-security-link">{{ auth('platform')->user()->email }}</flux:link>
 
             <form method="POST" action="{{ route('platform.logout') }}">
                 @csrf

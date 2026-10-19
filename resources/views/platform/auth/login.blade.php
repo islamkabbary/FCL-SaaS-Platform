@@ -26,8 +26,6 @@
                 viewable
             />
 
-            <flux:checkbox name="remember" :label="__('Remember me')" :checked="old('remember')" />
-
             <flux:button variant="primary" type="submit" class="w-full" data-test="platform-login-button">
                 {{ __('Log in') }}
             </flux:button>

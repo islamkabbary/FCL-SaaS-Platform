@@ -8,6 +8,8 @@ use App\Http\Controllers\Platform\SeatRequestController;
 use App\Http\Controllers\Platform\SubscriptionController;
 use App\Http\Controllers\Platform\TenantAccessController;
 use App\Http\Controllers\Platform\TenantController;
+use App\Http\Controllers\Platform\TwoFactorChallengeController;
+use App\Http\Controllers\Platform\TwoFactorController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
 
@@ -29,12 +31,23 @@ Route::domain(config('tenancy.central_domains')[0])->group(function () {
         Route::middleware('guest:platform')->group(function () {
             Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
             Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('login.store');
+
+            // Second step for admins with two-factor authentication (password already verified).
+            Route::get('two-factor-challenge', [TwoFactorChallengeController::class, 'create'])->name('two-factor.challenge');
+            Route::post('two-factor-challenge', [TwoFactorChallengeController::class, 'store'])->middleware('throttle:10,1')->name('two-factor.challenge.store');
         });
 
         Route::middleware('auth:platform')->group(function () {
             Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
             Route::get('/', DashboardController::class)->name('dashboard');
+
+            // The signed-in admin's own two-factor authentication.
+            Route::get('account/security', [TwoFactorController::class, 'show'])->name('account.security');
+            Route::post('account/security/two-factor', [TwoFactorController::class, 'enable'])->name('account.two-factor.enable');
+            Route::post('account/security/two-factor/confirm', [TwoFactorController::class, 'confirm'])->name('account.two-factor.confirm');
+            Route::post('account/security/two-factor/recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes'])->name('account.two-factor.recovery-codes');
+            Route::delete('account/security/two-factor', [TwoFactorController::class, 'disable'])->name('account.two-factor.disable');
 
             // "auth:platform" makes the platform guard the default, so "can" checks the Platform Admin.
             Route::get('tenants', [TenantController::class, 'index'])->middleware('can:viewAny,'.Tenant::class)->name('tenants.index');

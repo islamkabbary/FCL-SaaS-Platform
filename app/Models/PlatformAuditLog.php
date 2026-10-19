@@ -13,9 +13,10 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * An immutable record of a sensitive platform action. Lives in the central database;
  * records are only ever created, never changed.
  *
- * The actor is either a Platform Admin ("platform_admin") or a tenant user acting on
- * their own company's subscription, e.g. requesting seats ("tenant_user"). Plan changes
- * are platform-wide and have no tenant.
+ * The actor is a Platform Admin ("platform_admin"), a tenant user acting on their own
+ * company's subscription or support access, e.g. requesting seats ("tenant_user"), or
+ * the application itself ("system"), e.g. when a support session reaches its time limit
+ * or a console command is run. Plan changes are platform-wide and have no tenant.
  *
  * @property int $id
  * @property string $actor_type
@@ -40,6 +41,8 @@ class PlatformAuditLog extends Model
     public const ActorPlatformAdmin = 'platform_admin';
 
     public const ActorTenantUser = 'tenant_user';
+
+    public const ActorSystem = 'system';
 
     /**
      * @var list<string>
@@ -108,6 +111,28 @@ class PlatformAuditLog extends Model
             'new_values' => $newValues,
             'reason' => $reason,
         ]);
+    }
+
+    /**
+     * Record an action taken by the application itself rather than by a person.
+     *
+     * @param  array<string, mixed>|null  $newValues
+     */
+    public static function recordSystem(?Tenant $tenant, PlatformAuditAction $action, ?array $newValues = null, ?string $reason = null): self
+    {
+        return self::query()->create([
+            'actor_type' => self::ActorSystem,
+            'actor_email' => 'system',
+            'tenant_id' => $tenant?->getTenantKey(),
+            'action' => $action,
+            'new_values' => $newValues,
+            'reason' => $reason,
+        ]);
+    }
+
+    public function isSystemAction(): bool
+    {
+        return $this->actor_type === self::ActorSystem;
     }
 
     public function isTenantUserAction(): bool

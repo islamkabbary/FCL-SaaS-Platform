@@ -32,6 +32,8 @@
                     {{ $entry->actor_email }}
                     @if ($entry->isTenantUserAction())
                         <flux:badge size="sm" inset="top bottom" color="zinc">{{ __('Tenant user') }}</flux:badge>
+                    @elseif ($entry->isSystemAction())
+                        <flux:badge size="sm" inset="top bottom" color="zinc">{{ __('Automatic') }}</flux:badge>
                     @endif
                 </flux:table.cell>
                 <flux:table.cell class="whitespace-normal">

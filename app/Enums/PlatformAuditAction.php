@@ -21,6 +21,10 @@ enum PlatformAuditAction: string
     case SeatRequestRejected = 'seats.request_rejected';
     case ChargeCreated = 'billing.charge_created';
     case PaymentRecorded = 'billing.payment_recorded';
+    case TwoFactorEnabled = 'admin.two_factor_enabled';
+    case TwoFactorDisabled = 'admin.two_factor_disabled';
+    case TwoFactorRecoveryCodesRegenerated = 'admin.recovery_codes_regenerated';
+    case TwoFactorReset = 'admin.two_factor_reset';
 
     /**
      * Get the human readable label for the action.
@@ -45,6 +49,10 @@ enum PlatformAuditAction: string
             self::SeatRequestRejected => __('Seat request rejected'),
             self::ChargeCreated => __('Charge created'),
             self::PaymentRecorded => __('Payment recorded'),
+            self::TwoFactorEnabled => __('Two-factor authentication enabled'),
+            self::TwoFactorDisabled => __('Two-factor authentication disabled'),
+            self::TwoFactorRecoveryCodesRegenerated => __('Recovery codes regenerated'),
+            self::TwoFactorReset => __('Two-factor authentication reset'),
         };
     }
 
@@ -62,6 +70,8 @@ enum PlatformAuditAction: string
             self::SubscriptionActivated, self::SubscriptionRenewed, self::SeatRequestApproved, self::PaymentRecorded => 'green',
             self::SeatIncreaseRequested, self::SeatReductionRequested, self::ChargeCreated => 'blue',
             self::SeatRequestCancelled, self::SeatRequestRejected => 'amber',
+            self::TwoFactorEnabled, self::TwoFactorRecoveryCodesRegenerated => 'zinc',
+            self::TwoFactorDisabled, self::TwoFactorReset => 'red',
         };
     }
 }

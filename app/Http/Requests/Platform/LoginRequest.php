@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Platform;
 
+use App\Models\PlatformAdmin;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -39,15 +40,23 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Attempt to authenticate the platform admin against the central database.
+     * Verify the platform admin's credentials against the central database.
+     *
+     * Does not log in: the controller logs in directly, or first asks for the second
+     * factor when the admin has confirmed two-factor authentication. Platform sessions
+     * are never remembered ("remember me" is not offered for this privileged guard).
      *
      * @throws ValidationException
      */
-    public function authenticate(): void
+    public function authenticate(): PlatformAdmin
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::guard('platform')->attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $credentials = $this->only('email', 'password');
+        $provider = Auth::guard('platform')->getProvider();
+        $admin = $provider->retrieveByCredentials(['email' => $credentials['email']]);
+
+        if (! $admin instanceof PlatformAdmin || ! $provider->validateCredentials($admin, $credentials)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -55,7 +64,11 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        $provider->rehashPasswordIfRequired($admin, $credentials);
+
         RateLimiter::clear($this->throttleKey());
+
+        return $admin;
     }
 
     /**
