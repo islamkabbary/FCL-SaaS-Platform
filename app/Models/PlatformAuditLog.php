@@ -10,26 +10,36 @@ use LogicException;
 use Stancl\Tenancy\Database\Concerns\CentralConnection;
 
 /**
- * An immutable record of a sensitive action a Platform Admin performed on a tenant.
- * Lives in the central database; records are only ever created, never changed.
+ * An immutable record of a sensitive platform action. Lives in the central database;
+ * records are only ever created, never changed.
+ *
+ * The actor is either a Platform Admin ("platform_admin") or a tenant user acting on
+ * their own company's subscription, e.g. requesting seats ("tenant_user"). Plan changes
+ * are platform-wide and have no tenant.
  *
  * @property int $id
+ * @property string $actor_type
  * @property int|null $platform_admin_id
+ * @property int|null $tenant_user_id
  * @property string $actor_email
- * @property string $tenant_id
+ * @property string|null $tenant_id
  * @property PlatformAuditAction $action
  * @property array<string, mixed>|null $old_values
  * @property array<string, mixed>|null $new_values
  * @property string|null $reason
  * @property Carbon|null $created_at
  * @property-read PlatformAdmin|null $admin
- * @property-read Tenant $tenant
+ * @property-read Tenant|null $tenant
  */
 class PlatformAuditLog extends Model
 {
     use CentralConnection;
 
     public const UPDATED_AT = null;
+
+    public const ActorPlatformAdmin = 'platform_admin';
+
+    public const ActorTenantUser = 'tenant_user';
 
     /**
      * @var list<string>
@@ -57,28 +67,52 @@ class PlatformAuditLog extends Model
     }
 
     /**
-     * Record an action performed by a Platform Admin on a tenant.
+     * Record an action performed by a Platform Admin, on a tenant or platform-wide.
      *
      * @param  array<string, mixed>|null  $oldValues
      * @param  array<string, mixed>|null  $newValues
      */
     public static function record(
         PlatformAdmin $actor,
-        Tenant $tenant,
+        ?Tenant $tenant,
         PlatformAuditAction $action,
         ?array $oldValues = null,
         ?array $newValues = null,
         ?string $reason = null,
     ): self {
         return self::query()->create([
+            'actor_type' => self::ActorPlatformAdmin,
             'platform_admin_id' => $actor->id,
             'actor_email' => $actor->email,
-            'tenant_id' => $tenant->getTenantKey(),
+            'tenant_id' => $tenant?->getTenantKey(),
             'action' => $action,
             'old_values' => $oldValues,
             'new_values' => $newValues,
             'reason' => $reason,
         ]);
+    }
+
+    /**
+     * Record an action a tenant user performed on their own company's subscription.
+     *
+     * @param  array<string, mixed>|null  $newValues
+     */
+    public static function recordForTenantUser(User $actor, Tenant $tenant, PlatformAuditAction $action, ?array $newValues = null, ?string $reason = null): self
+    {
+        return self::query()->create([
+            'actor_type' => self::ActorTenantUser,
+            'tenant_user_id' => $actor->getKey(),
+            'actor_email' => $actor->email,
+            'tenant_id' => $tenant->getTenantKey(),
+            'action' => $action,
+            'new_values' => $newValues,
+            'reason' => $reason,
+        ]);
+    }
+
+    public function isTenantUserAction(): bool
+    {
+        return $this->actor_type === self::ActorTenantUser;
     }
 
     /**

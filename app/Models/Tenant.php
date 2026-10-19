@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\SubscriptionStatus;
 use App\Enums\TenantAccessStatus;
 use App\Enums\TenantStatus;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
@@ -21,7 +24,9 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  *
  * Two independent lifecycles: "status" tracks provisioning (pending → provisioning →
  * ready | failed), "suspended_at" tracks whether the platform allows access. Only a
- * ready, non-suspended tenant can be accessed.
+ * ready, non-suspended tenant can be accessed. A third, independent concept is the
+ * subscription (see subscriptionStatus()), which governs ordinary tenant functionality
+ * and the seat limit but never changes "status" or "suspended_at".
  *
  * Attributes that are not custom columns are stored in the "data" JSON column.
  *
@@ -32,12 +37,14 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  * @property Carbon|null $provisioned_at
  * @property Carbon|null $suspended_at
  * @property string|null $suspension_reason
+ * @property bool $subscription_required False only for tenants created before subscriptions existed and not transitioned yet.
  * @property string|null $initial_admin_name
  * @property string|null $initial_admin_email
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, Domain> $domains
  * @property-read Collection<int, PlatformAuditLog> $auditLogs
+ * @property-read TenantSubscription|null $subscription
  */
 class Tenant extends BaseTenant implements TenantWithDatabase
 {
@@ -58,6 +65,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'provisioned_at',
             'suspended_at',
             'suspension_reason',
+            'subscription_required',
         ];
     }
 
@@ -72,6 +80,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'status' => TenantStatus::class,
             'provisioned_at' => 'datetime',
             'suspended_at' => 'datetime',
+            'subscription_required' => 'boolean',
         ];
     }
 
@@ -95,6 +104,46 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     public function auditLogs(): HasMany
     {
         return $this->hasMany(PlatformAuditLog::class, 'tenant_id');
+    }
+
+    /**
+     * Get the tenant's annual subscription, if one was activated.
+     *
+     * @return HasOne<TenantSubscription, $this>
+     */
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(TenantSubscription::class, 'tenant_id');
+    }
+
+    /**
+     * The subscription state on the given day (today by default), read from the central database.
+     */
+    public function subscriptionStatus(?CarbonImmutable $day = null): SubscriptionStatus
+    {
+        $subscription = TenantSubscription::query()->where('tenant_id', $this->getTenantKey())->first();
+
+        if ($subscription === null) {
+            // A newly created tenant requires a subscription unless it was created before they existed.
+            return $this->subscription_required === false ? SubscriptionStatus::Legacy : SubscriptionStatus::None;
+        }
+
+        return $subscription->termOn($day) !== null ? SubscriptionStatus::Active : SubscriptionStatus::Expired;
+    }
+
+    /**
+     * Maximum number of active users on the given day: null means unlimited (legacy
+     * tenant), 0 means no active subscription, otherwise the current term's seats.
+     */
+    public function seatLimit(?CarbonImmutable $day = null): ?int
+    {
+        $subscription = TenantSubscription::query()->where('tenant_id', $this->getTenantKey())->first();
+
+        if ($subscription === null) {
+            return $this->subscription_required === false ? null : 0;
+        }
+
+        return $subscription->termOn($day)->seats ?? 0;
     }
 
     /**
