@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsureTenantHasActiveSubscription;
 use App\Http\Middleware\EnsureTenantIsReady;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Application;
@@ -55,6 +56,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // impersonation is verified before anything else uses the authenticated user.
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: EnforceImpersonation::class);
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: EnsureUserIsActive::class);
+
+        // Baseline security headers on every web response (central and tenant).
+        $middleware->web(append: SecurityHeaders::class);
 
         // The support handoff is posted from the central domain; its single-use,
         // tenant-bound credential replaces the CSRF token.

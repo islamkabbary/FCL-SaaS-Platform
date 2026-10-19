@@ -3,6 +3,7 @@
 use App\Concerns\PasswordValidationRules;
 use App\Livewire\Actions\Logout;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 new class extends Component {
@@ -18,6 +19,13 @@ new class extends Component {
         $this->validate([
             'password' => $this->currentPasswordRules(),
         ]);
+
+        // Deleting the last active Tenant Admin would leave the company without an administrator.
+        if (Auth::user()->isLastActiveTenantAdmin()) {
+            throw ValidationException::withMessages([
+                'password' => __('The last active Tenant Admin cannot delete their account.'),
+            ]);
+        }
 
         tap(Auth::user(), $logout(...))->delete();
 

@@ -33,7 +33,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Not served over HTTP: the serving routes would run outside the tenant
+            // context (central storage on every host). Nothing uses private file URLs yet.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

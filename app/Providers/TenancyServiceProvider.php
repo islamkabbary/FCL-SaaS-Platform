@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Http\Middleware\EnsureTenantHasActiveSubscription;
+use App\Http\Middleware\RejectTemporaryUploads;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Features\SupportFileUploads\FilePreviewController;
+use Livewire\Features\SupportFileUploads\FileUploadController;
 use Livewire\Livewire;
 use Stancl\JobPipeline\JobPipeline;
 use Stancl\Tenancy\Events;
@@ -128,6 +131,12 @@ class TenancyServiceProvider extends ServiceProvider
         // client) the next update of the same page would then skip auth, "can" and the
         // subscription check, so its per-request state is flushed when each request ends.
         $this->app->terminating(fn () => Livewire::flushState());
+
+        // Livewire's temporary upload and preview endpoints run outside the tenant context
+        // (central storage, signatures not bound to a tenant). No feature uploads files
+        // yet, so they are refused until tenant-aware uploads are implemented.
+        FileUploadController::$defaultMiddleware = ['web', RejectTemporaryUploads::class];
+        FilePreviewController::$middleware = ['web', RejectTemporaryUploads::class];
     }
 
     protected function bootEvents(): void

@@ -8,12 +8,21 @@ use App\Models\Tenant;
 /**
  * Tenant management on the central platform.
  *
- * Every Platform Admin may currently manage every tenant; the PlatformAdmin type hint
- * denies any other identity (such as a tenant user). Lifecycle rules (which tenant may
- * be suspended or reactivated) are enforced by the actions, not here.
+ * Every Platform Admin may currently manage every tenant; any other identity (such as a
+ * tenant user) is denied by before(). Lifecycle rules (which tenant may be suspended or
+ * reactivated) are enforced by the actions, not here.
  */
 class TenantPolicy
 {
+    /**
+     * Deny every identity other than a Platform Admin before the typed methods run
+     * (Laravel would otherwise call them with the wrong type and throw).
+     */
+    public function before(mixed $user): ?bool
+    {
+        return $user instanceof PlatformAdmin ? null : false;
+    }
+
     public function viewAny(PlatformAdmin $admin): bool
     {
         return true;

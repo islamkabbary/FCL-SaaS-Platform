@@ -15,6 +15,14 @@ class UserPolicy
 {
     public function __construct(protected PrivilegeGuard $privilegeGuard) {}
 
+    /**
+     * Only tenant users are ever granted anything here (never a Platform Admin).
+     */
+    public function before(mixed $user): ?bool
+    {
+        return $user instanceof User ? null : false;
+    }
+
     public function viewAny(User $actor): bool
     {
         return $actor->hasPermissionTo(TenantPermission::EmployeesView->value);
