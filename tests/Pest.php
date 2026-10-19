@@ -2,10 +2,14 @@
 
 use App\Actions\Tenancy\ProvisioningResult;
 use App\Actions\Tenancy\ProvisionTenant;
+use App\Enums\TenantPermission;
+use App\Enums\TenantRole;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /*
@@ -82,4 +86,29 @@ function actingInTenant(string $subdomain = 'acme'): Tenant
     URL::forceRootUrl(rtrim($tenant->url(), '/'));
 
     return $tenant;
+}
+
+/**
+ * The provisioned Tenant Admin of the current tenant, past the forced password change.
+ */
+function tenantAdminUser(): User
+{
+    $admin = User::role(TenantRole::TenantAdmin->value)->firstOrFail();
+    $admin->forceFill(['must_change_password' => false])->save();
+
+    return $admin;
+}
+
+/**
+ * Create a user in the current tenant holding exactly the given permissions (through a custom role).
+ *
+ * @param  list<TenantPermission>  $permissions
+ * @param  array<string, mixed>  $attributes
+ */
+function userWithPermissions(array $permissions, array $attributes = []): User
+{
+    $role = Role::create(['name' => 'Custom '.Str::random(8), 'guard_name' => 'web']);
+    $role->syncPermissions(array_map(fn (TenantPermission $permission): string => $permission->value, $permissions));
+
+    return User::factory()->create($attributes)->assignRole($role);
 }

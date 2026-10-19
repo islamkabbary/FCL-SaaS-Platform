@@ -2,6 +2,7 @@
 
 use App\Enums\TenantStatus;
 use App\Http\Middleware\EnsureTenantIsReady;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Models\Tenant;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Contracts\Http\Kernel;
@@ -31,7 +32,8 @@ test('the http kernel runs tenant middleware in a safe order', function () {
         ->toBeLessThan($position(EnsureTenantIsReady::class))
         ->and($position(EnsureTenantIsReady::class))->toBeLessThan($position(StartSession::class))
         ->and($position(StartSession::class))->toBeLessThan($position(ScopeSessions::class))
-        ->and($position(ScopeSessions::class))->toBeLessThan($position(AuthenticatesRequests::class));
+        ->and($position(ScopeSessions::class))->toBeLessThan($position(EnsureUserIsActive::class))
+        ->and($position(EnsureUserIsActive::class))->toBeLessThan($position(AuthenticatesRequests::class));
 });
 
 test('an unknown subdomain returns not found', function () {
