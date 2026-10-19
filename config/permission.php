@@ -116,9 +116,14 @@ return [
     /*
      * When set to true, the method for checking permissions will be registered on the gate.
      * Set this to false if you want to implement custom logic for checking permissions.
+     *
+     * Disabled here because the package would register its Gate::before callback first,
+     * and the first non-null answer wins: it would grant permission-named abilities
+     * before the impersonation restriction could deny them. ImpersonationServiceProvider
+     * registers the same package callback right after the restriction instead.
      */
 
-    'register_permission_check_method' => true,
+    'register_permission_check_method' => false,
 
     /*
      * When set to true, Laravel\Octane\Events\OperationTerminated event listener will be registered

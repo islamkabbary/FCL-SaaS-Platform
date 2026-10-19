@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Enums\TenantPermission;
+use App\Http\Controllers\Tenant\EndImpersonationController;
+use App\Http\Controllers\Tenant\SupportHandoffController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Role;
@@ -21,6 +23,17 @@ use Spatie\Permission\Models\Role;
 
 Route::redirect('/', '/dashboard')->name('home');
 
+// Entry point of a platform support session (single-use credential posted from the
+// central domain; exempt from CSRF verification in bootstrap/app.php).
+Route::post('support/handoff', SupportHandoffController::class)
+    ->middleware('throttle:20,1')
+    ->name('support.handoff');
+
+// The banner's "End impersonation" control (support access and employee view).
+Route::post('impersonation/end', EndImpersonationController::class)
+    ->middleware('auth')
+    ->name('impersonation.end');
+
 Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
     // Reachable without an active subscription, so users can see why access is limited
     // and a Tenant Admin can review the subscription and billing history.
@@ -29,6 +42,11 @@ Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
     Route::livewire('subscription', 'pages::subscription.index')
         ->middleware('can:'.TenantPermission::BillingView->value)
         ->name('subscription.show');
+
+    // Tenant Admins: who accessed the company through support access or an employee view.
+    Route::livewire('access-history', 'pages::access-history.index')
+        ->middleware('can:view-access-history')
+        ->name('access-history.index');
 
     // Ordinary tenant functionality requires an active subscription (or a legacy tenant).
     Route::middleware('subscription.active')->group(function () {

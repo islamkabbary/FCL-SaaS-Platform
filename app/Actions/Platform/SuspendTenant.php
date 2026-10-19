@@ -2,6 +2,7 @@
 
 namespace App\Actions\Platform;
 
+use App\Actions\Impersonation\EndImpersonationsFor;
 use App\Enums\PlatformAuditAction;
 use App\Enums\TenantAccessStatus;
 use App\Exceptions\InvalidTenantTransition;
@@ -15,10 +16,13 @@ use Illuminate\Support\Facades\DB;
  *
  * Only the central tenant record changes: users, sessions, the tenant database and
  * its files are kept intact, and the provisioning status stays "ready". Requests to
- * the tenant are refused by EnsureTenantIsReady while the suspension lasts.
+ * the tenant are refused by EnsureTenantIsReady while the suspension lasts. Support
+ * sessions in the tenant end immediately; they are not resumed by a reactivation.
  */
 class SuspendTenant
 {
+    public function __construct(protected EndImpersonationsFor $endImpersonations) {}
+
     /**
      * @throws InvalidTenantTransition
      */
@@ -45,6 +49,8 @@ class SuspendTenant
                 ['access_status' => TenantAccessStatus::Suspended->value],
                 $reason,
             );
+
+            $this->endImpersonations->suspendedTenant($tenant);
 
             return $tenant;
         });

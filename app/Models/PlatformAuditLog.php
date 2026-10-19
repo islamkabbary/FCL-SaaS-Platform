@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PlatformAuditAction;
+use App\Impersonation\ActiveImpersonation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -102,6 +103,12 @@ class PlatformAuditLog extends Model
      */
     public static function recordForTenantUser(User $actor, Tenant $tenant, PlatformAuditAction $action, ?array $newValues = null, ?string $reason = null): self
     {
+        // Impersonated sessions may not perform recorded actions; if one ever reached this
+        // point it would be attributed to the target, so it is refused rather than written.
+        if (($active = ActiveImpersonation::current()) !== null && $active->targetUserId() === $actor->getKey()) {
+            throw new LogicException('Actions of an impersonated user cannot be recorded as their own.');
+        }
+
         return self::query()->create([
             'actor_type' => self::ActorTenantUser,
             'tenant_user_id' => $actor->getKey(),

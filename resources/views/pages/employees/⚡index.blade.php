@@ -1,10 +1,12 @@
 <?php
 
 use App\Actions\Employees\CreateEmployee;
+use App\Actions\Impersonation\StartEmployeeImpersonation;
 use App\Actions\Employees\SetEmployeeActivation;
 use App\Actions\Employees\UpdateEmployee;
 use App\Billing\SeatGuard;
 use App\Billing\SeatUsage;
+use App\Exceptions\ImpersonationRefused;
 use App\Exceptions\NoSeatAvailable;
 use App\Models\User;
 use Flux\Flux;
@@ -14,6 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -48,6 +51,15 @@ new #[Title('Employees')] class extends Component {
     public ?string $temporaryPassword = null;
 
     public ?string $createdEmployeeEmail = null;
+
+    /**
+     * "View as" (employee impersonation) form.
+     */
+    public ?int $impersonationTargetId = null;
+
+    public string $impersonationReason = '';
+
+    public string $impersonationPassword = '';
 
     /**
      * Mount the component.
@@ -179,6 +191,53 @@ new #[Title('Employees')] class extends Component {
         $this->setActivation($employeeId, true, $setEmployeeActivation);
     }
 
+    public function confirmImpersonation(int $employeeId): void
+    {
+        $employee = User::query()->findOrFail($employeeId);
+        $this->authorize('impersonate', $employee);
+
+        $this->resetErrorBag();
+        $this->reset('impersonationReason', 'impersonationPassword');
+        $this->impersonationTargetId = $employee->id;
+
+        Flux::modal('impersonate-employee')->show();
+    }
+
+    /**
+     * Switch this session to the employee's view (password re-checked by the action).
+     */
+    public function startImpersonation(StartEmployeeImpersonation $startEmployeeImpersonation): void
+    {
+        $validated = $this->validate([
+            'impersonationTargetId' => ['required', 'integer'],
+            'impersonationReason' => ['required', 'string', 'min:5', 'max:500'],
+            'impersonationPassword' => ['required', 'string'],
+        ]);
+
+        try {
+            $startEmployeeImpersonation->handle(
+                request(),
+                Auth::user(),
+                $validated['impersonationTargetId'],
+                trim($validated['impersonationReason']),
+                $validated['impersonationPassword'],
+            );
+        } catch (ValidationException $exception) {
+            $this->reset('impersonationPassword');
+            $this->addError('impersonationPassword', $exception->validator->errors()->first('password'));
+
+            return;
+        } catch (AuthorizationException|ImpersonationRefused $exception) {
+            $this->reset('impersonationPassword');
+            Flux::toast(variant: 'danger', text: $exception->getMessage());
+
+            return;
+        }
+
+        // A full page load, so the whole layout shows the impersonation banner.
+        $this->redirectRoute('dashboard');
+    }
+
     public function forgetTemporaryPassword(): void
     {
         $this->temporaryPassword = null;
@@ -286,6 +345,10 @@ new #[Title('Employees')] class extends Component {
                                 <flux:button size="sm" variant="ghost" icon="pencil-square" wire:click="edit({{ $employee->id }})">{{ __('Edit') }}</flux:button>
                             @endcan
 
+                            @can('impersonate', $employee)
+                                <flux:button size="sm" variant="ghost" icon="eye" wire:click="confirmImpersonation({{ $employee->id }})" data-test="view-as-employee">{{ __('View as') }}</flux:button>
+                            @endcan
+
                             @if ($employee->is_active)
                                 @can('deactivate', $employee)
                                     <flux:button size="sm" variant="ghost" icon="no-symbol" wire:click="deactivate({{ $employee->id }})" wire:confirm="{{ __('Deactivate this employee? They will be signed out immediately.') }}">{{ __('Deactivate') }}</flux:button>
@@ -330,6 +393,25 @@ new #[Title('Employees')] class extends Component {
                     <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary" data-test="save-employee-button">{{ __('Save') }}</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal name="impersonate-employee" class="md:w-lg">
+        <form wire:submit="startImpersonation" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('View the application as this employee') }}</flux:heading>
+                <flux:text class="mt-2">{{ __('For :minutes minutes at most, you see what the employee sees. Changes are disabled, the session is recorded, and you can end it at any time from the banner.', ['minutes' => config('impersonation.employee.lifetime_minutes')]) }}</flux:text>
+            </div>
+
+            <flux:textarea wire:model="impersonationReason" :label="__('Reason')" rows="2" required />
+            <flux:input wire:model="impersonationPassword" type="password" :label="__('Your password')" required autocomplete="current-password" />
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+                <flux:button type="submit" variant="primary" data-test="start-impersonation-button">{{ __('Start') }}</flux:button>
             </div>
         </form>
     </flux:modal>

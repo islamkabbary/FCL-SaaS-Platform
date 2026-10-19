@@ -6,6 +6,7 @@ use App\Http\Controllers\Platform\DashboardController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Platform\SeatRequestController;
 use App\Http\Controllers\Platform\SubscriptionController;
+use App\Http\Controllers\Platform\SupportSessionController;
 use App\Http\Controllers\Platform\TenantAccessController;
 use App\Http\Controllers\Platform\TenantController;
 use App\Http\Controllers\Platform\TwoFactorChallengeController;
@@ -72,6 +73,18 @@ Route::domain(config('tenancy.central_domains')[0])->group(function () {
             Route::middleware('can:reactivate,tenant')->group(function () {
                 Route::get('tenants/{tenant}/reactivate', [TenantAccessController::class, 'confirmReactivation'])->name('tenants.reactivate');
                 Route::post('tenants/{tenant}/reactivate', [TenantAccessController::class, 'reactivate'])->name('tenants.reactivate.store');
+            });
+
+            // Support access to a tenant (disabled unless SUPPORT_ACCESS_ENABLED) and its history.
+            Route::middleware(['can:start-support-session', 'can:view,tenant'])->group(function () {
+                Route::get('tenants/{tenant}/support', [SupportSessionController::class, 'create'])->name('support-sessions.create');
+                Route::post('tenants/{tenant}/support', [SupportSessionController::class, 'store'])->middleware('throttle:10,1')->name('support-sessions.store');
+            });
+
+            Route::middleware('can:view-support-sessions')->group(function () {
+                Route::get('support-sessions', [SupportSessionController::class, 'index'])->name('support-sessions.index');
+                Route::get('support-sessions/{supportSession}', [SupportSessionController::class, 'show'])->name('support-sessions.show');
+                Route::post('support-sessions/{supportSession}/revoke', [SupportSessionController::class, 'revoke'])->middleware('can:revoke-support-session')->name('support-sessions.revoke');
             });
 
             // Subscriptions & billing (Platform Admins only; tenant users have no route here).

@@ -17,6 +17,12 @@
             <flux:button icon="pencil-square" :href="route('platform.tenants.edit', $tenant)" data-test="edit-tenant-link">{{ __('Edit') }}</flux:button>
             <flux:button icon="identification" :href="route('platform.subscriptions.show', $tenant)" data-test="subscription-link">{{ __('Subscription') }}: {{ $tenant->subscriptionStatus()->label() }}</flux:button>
 
+            @can('start-support-session')
+                @if ($tenant->isAccessible())
+                    <flux:button icon="lifebuoy" :href="route('platform.support-sessions.create', $tenant)" data-test="start-support-link">{{ __('Start support session') }}</flux:button>
+                @endif
+            @endcan
+
             @if ($tenant->canBeSuspended())
                 <flux:button variant="danger" icon="pause-circle" :href="route('platform.tenants.suspend', $tenant)" data-test="suspend-tenant-link">{{ __('Suspend access') }}</flux:button>
             @elseif ($tenant->canBeReactivated())
@@ -103,6 +109,13 @@
             </dl>
         </flux:card>
     </div>
+
+    <div class="mt-10 flex items-center justify-between">
+        <flux:heading size="lg" level="2">{{ __('Support sessions') }}</flux:heading>
+        <flux:button size="sm" variant="ghost" icon-trailing="arrow-right" :href="route('platform.support-sessions.index', ['tenant' => $tenant->id])">{{ __('All support sessions') }}</flux:button>
+    </div>
+
+    @include('platform.support-sessions.partials.table', ['sessions' => $supportSessions])
 
     <div class="mt-10 flex items-center justify-between">
         <flux:heading size="lg" level="2">{{ __('Administration history') }}</flux:heading>

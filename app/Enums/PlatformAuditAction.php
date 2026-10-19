@@ -21,6 +21,9 @@ enum PlatformAuditAction: string
     case SeatRequestRejected = 'seats.request_rejected';
     case ChargeCreated = 'billing.charge_created';
     case PaymentRecorded = 'billing.payment_recorded';
+    case SupportSessionStarted = 'support.session_started';
+    case SupportSessionEnded = 'support.session_ended';
+    case SupportSessionRevoked = 'support.session_revoked';
     case TwoFactorEnabled = 'admin.two_factor_enabled';
     case TwoFactorDisabled = 'admin.two_factor_disabled';
     case TwoFactorRecoveryCodesRegenerated = 'admin.recovery_codes_regenerated';
@@ -49,6 +52,9 @@ enum PlatformAuditAction: string
             self::SeatRequestRejected => __('Seat request rejected'),
             self::ChargeCreated => __('Charge created'),
             self::PaymentRecorded => __('Payment recorded'),
+            self::SupportSessionStarted => __('Support session started'),
+            self::SupportSessionEnded => __('Support session ended'),
+            self::SupportSessionRevoked => __('Support session revoked'),
             self::TwoFactorEnabled => __('Two-factor authentication enabled'),
             self::TwoFactorDisabled => __('Two-factor authentication disabled'),
             self::TwoFactorRecoveryCodesRegenerated => __('Recovery codes regenerated'),
@@ -70,8 +76,9 @@ enum PlatformAuditAction: string
             self::SubscriptionActivated, self::SubscriptionRenewed, self::SeatRequestApproved, self::PaymentRecorded => 'green',
             self::SeatIncreaseRequested, self::SeatReductionRequested, self::ChargeCreated => 'blue',
             self::SeatRequestCancelled, self::SeatRequestRejected => 'amber',
-            self::TwoFactorEnabled, self::TwoFactorRecoveryCodesRegenerated => 'zinc',
-            self::TwoFactorDisabled, self::TwoFactorReset => 'red',
+            self::SupportSessionStarted => 'violet',
+            self::SupportSessionEnded, self::TwoFactorEnabled, self::TwoFactorRecoveryCodesRegenerated => 'zinc',
+            self::SupportSessionRevoked, self::TwoFactorDisabled, self::TwoFactorReset => 'red',
         };
     }
 }

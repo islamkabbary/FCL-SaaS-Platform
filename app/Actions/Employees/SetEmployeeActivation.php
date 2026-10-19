@@ -2,6 +2,7 @@
 
 namespace App\Actions\Employees;
 
+use App\Actions\Impersonation\EndImpersonationsFor;
 use App\Billing\SeatGuard;
 use App\Enums\TenantRole;
 use App\Exceptions\NoSeatAvailable;
@@ -17,11 +18,12 @@ use Illuminate\Support\Str;
  * Deactivation is enforced on every request by EnsureUserIsActive; in addition the
  * employee's stored sessions are deleted and their "remember me" token rotated, so
  * existing logins end immediately. A deactivated employee no longer consumes a seat;
- * reactivation needs an available purchased seat (SeatGuard).
+ * reactivation needs an available purchased seat (SeatGuard). Impersonations of, or
+ * by, a deactivated user end at the same time.
  */
 class SetEmployeeActivation
 {
-    public function __construct(protected SeatGuard $seatGuard) {}
+    public function __construct(protected SeatGuard $seatGuard, protected EndImpersonationsFor $endImpersonations) {}
 
     /**
      * @throws AuthorizationException
@@ -64,5 +66,7 @@ class SetEmployeeActivation
                 DB::table(config('session.table'))->where('user_id', $employee->getKey())->delete();
             }
         });
+
+        $this->endImpersonations->deactivatedUser($employee);
     }
 }

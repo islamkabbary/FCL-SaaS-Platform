@@ -13,6 +13,7 @@ use App\Http\Requests\Platform\StoreTenantRequest;
 use App\Http\Requests\Platform\UpdateTenantRequest;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditLog;
+use App\Models\SupportSession;
 use App\Models\Tenant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -109,6 +110,7 @@ class TenantController extends Controller
             'databaseName' => $tenant->database()->getName(),
             'recentActivity' => $tenant->auditLogs()->latest('created_at')->latest('id')->limit(5)->get(),
             'activityCount' => $tenant->auditLogs()->count(),
+            'supportSessions' => SupportSession::query()->where('tenant_id', $tenant->getTenantKey())->latest('started_at')->latest('id')->limit(5)->get(),
         ]);
     }
 
