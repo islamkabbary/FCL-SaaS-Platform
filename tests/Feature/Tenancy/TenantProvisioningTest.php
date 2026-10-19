@@ -135,12 +135,13 @@ test('a failed provisioning marks the tenant as failed and can be resumed', func
         }
     });
 
-    $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
-        ->post(route('platform.tenants.store'), validTenantPayload())
-        ->assertRedirect(route('platform.tenants.index'))
-        ->assertSessionHas('error');
+    $response = $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
+        ->post(route('platform.tenants.store'), validTenantPayload());
 
     $tenant = Tenant::query()->sole();
+
+    // The details page shows the failure summary and the recovery command.
+    $response->assertRedirect(route('platform.tenants.show', $tenant))->assertSessionHas('error');
     expect($tenant->status)->toBe(TenantStatus::Failed)
         ->and($tenant->provisioning_error)->toContain('Simulated provisioning failure')
         ->and(tenancy()->initialized)->toBeFalse();

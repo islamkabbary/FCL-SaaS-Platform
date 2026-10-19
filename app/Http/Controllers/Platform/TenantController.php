@@ -2,24 +2,50 @@
 
 namespace App\Http\Controllers\Platform;
 
+use App\Actions\Platform\UpdateTenantDetails;
 use App\Actions\Tenancy\ProvisionTenant;
+use App\Enums\PlatformAuditAction;
+use App\Enums\TenantAccessStatus;
+use App\Enums\TenantStatus;
 use App\Exceptions\TenantProvisioningFailed;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Platform\StoreTenantRequest;
+use App\Http\Requests\Platform\UpdateTenantRequest;
+use App\Models\PlatformAdmin;
+use App\Models\PlatformAuditLog;
 use App\Models\Tenant;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class TenantController extends Controller
 {
     /**
-     * List all tenants with their provisioning status.
+     * List tenants from the central database, with search and filters.
+     *
+     * Unknown filter values are ignored rather than trusted.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
+        $search = Str::limit(trim($request->string('search')->toString()), 100, '');
+        $status = TenantStatus::tryFrom($request->string('status')->toString());
+        $access = TenantAccessStatus::tryFrom($request->string('access')->toString());
+
+        $tenants = Tenant::query()
+            ->with('domains')
+            ->when($search !== '', fn ($query) => $query->search($search))
+            ->when($status, fn ($query, TenantStatus $status) => $query->where('status', $status))
+            ->when($access, fn ($query, TenantAccessStatus $access) => $query->whereAccessStatus($access))
+            ->latest()
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
+
         return view('platform.tenants.index', [
-            'tenants' => Tenant::query()->with('domains')->latest()->get(),
+            'tenants' => $tenants,
+            'filters' => ['search' => $search, 'status' => $status, 'access' => $access],
         ]);
     }
 
@@ -40,6 +66,9 @@ class TenantController extends Controller
      */
     public function store(StoreTenantRequest $request, ProvisionTenant $provisionTenant): Response|RedirectResponse
     {
+        /** @var PlatformAdmin $admin */
+        $admin = $request->user('platform');
+
         try {
             $result = $provisionTenant->create([
                 'company_name' => $request->string('company_name')->toString(),
@@ -49,13 +78,16 @@ class TenantController extends Controller
             ]);
         } catch (TenantProvisioningFailed $exception) {
             report($exception);
+            $this->recordCreation($admin, $exception->tenant);
 
-            return redirect()->route('platform.tenants.index')
+            return redirect()->route('platform.tenants.show', $exception->tenant)
                 ->with('error', __('Provisioning of ":name" failed. The tenant was marked as failed and can be retried with "php artisan tenants:provision :id".', [
                     'name' => $exception->tenant->name,
                     'id' => $exception->tenant->id,
                 ]));
         }
+
+        $this->recordCreation($admin, $result->tenant);
 
         return response()
             ->view('platform.tenants.provisioned', [
@@ -63,5 +95,65 @@ class TenantController extends Controller
                 'loginUrl' => $result->tenant->url('login'),
             ])
             ->header('Cache-Control', 'no-store, private');
+    }
+
+    /**
+     * Show a tenant's central record, lifecycle and latest administration history.
+     *
+     * Only central data is shown; the tenant database is never opened.
+     */
+    public function show(Tenant $tenant): View
+    {
+        return view('platform.tenants.show', [
+            'tenant' => $tenant->load('domains'),
+            'databaseName' => $tenant->database()->getName(),
+            'recentActivity' => $tenant->auditLogs()->latest('created_at')->latest('id')->limit(5)->get(),
+            'activityCount' => $tenant->auditLogs()->count(),
+        ]);
+    }
+
+    /**
+     * Show the form for editing a tenant's administrative details.
+     */
+    public function edit(Tenant $tenant): View
+    {
+        return view('platform.tenants.edit', ['tenant' => $tenant->load('domains')]);
+    }
+
+    /**
+     * Update a tenant's administrative details.
+     */
+    public function update(UpdateTenantRequest $request, Tenant $tenant, UpdateTenantDetails $updateTenantDetails): RedirectResponse
+    {
+        /** @var PlatformAdmin $admin */
+        $admin = $request->user('platform');
+
+        $updateTenantDetails->handle($admin, $tenant, $request->validated());
+
+        return redirect()->route('platform.tenants.show', $tenant)
+            ->with('status', __('Tenant details updated.'));
+    }
+
+    /**
+     * Show the complete administration history of a tenant (read-only).
+     */
+    public function history(Tenant $tenant): View
+    {
+        return view('platform.tenants.history', [
+            'tenant' => $tenant->load('domains'),
+            'entries' => $tenant->auditLogs()->latest('created_at')->latest('id')->paginate(20),
+        ]);
+    }
+
+    /**
+     * Audit the creation of a tenant, whether or not its provisioning succeeded.
+     */
+    protected function recordCreation(PlatformAdmin $admin, Tenant $tenant): void
+    {
+        PlatformAuditLog::record($admin, $tenant, PlatformAuditAction::TenantCreated, newValues: [
+            'name' => $tenant->name,
+            'subdomain' => $tenant->primaryDomain()?->domain,
+            'status' => $tenant->status->value,
+        ]);
     }
 }

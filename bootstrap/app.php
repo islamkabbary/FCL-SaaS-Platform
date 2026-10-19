@@ -60,7 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
             : route('login'));
 
         $middleware->redirectUsersTo(fn (Request $request): string => $request->routeIs('platform.*')
-            ? route('platform.tenants.index')
+            ? route('platform.dashboard')
             : route('dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {

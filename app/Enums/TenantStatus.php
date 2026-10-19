@@ -21,4 +21,17 @@ enum TenantStatus: string
             self::Failed => __('Failed'),
         };
     }
+
+    /**
+     * Get the badge color for the status.
+     */
+    public function color(): string
+    {
+        return match ($this) {
+            self::Ready => 'green',
+            self::Failed => 'red',
+            self::Provisioning => 'amber',
+            self::Pending => 'zinc',
+        };
+    }
 }

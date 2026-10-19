@@ -16,7 +16,7 @@ test('platform admins can authenticate on the central domain', function () {
 
     $response
         ->assertSessionHasNoErrors()
-        ->assertRedirect(route('platform.tenants.index', absolute: false));
+        ->assertRedirect(route('platform.dashboard', absolute: false));
 
     $this->assertAuthenticatedAs($admin, 'platform');
     $this->assertGuest('web');
