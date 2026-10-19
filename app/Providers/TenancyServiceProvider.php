@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Http\Middleware\EnsureTenantHasActiveSubscription;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -117,6 +118,16 @@ class TenancyServiceProvider extends ServiceProvider
         Livewire::setUpdateRoute(function ($handle, $path) {
             return Route::post($path, $handle)->middleware(['web', 'tenant']);
         });
+
+        // Re-applied to updates of components rendered on routes that use it, so a Livewire
+        // request cannot reach operational functionality without an active subscription.
+        Livewire::addPersistentMiddleware([EnsureTenantHasActiveSubscription::class]);
+
+        // Livewire remembers, per page path, that persistent middleware already ran and only
+        // forgets it in its own test harness. In a long-lived process (Octane, the HTTP test
+        // client) the next update of the same page would then skip auth, "can" and the
+        // subscription check, so its per-request state is flushed when each request ends.
+        $this->app->terminating(fn () => Livewire::flushState());
     }
 
     protected function bootEvents(): void

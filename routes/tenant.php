@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\TenantPermission;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Role;
@@ -21,17 +22,28 @@ use Spatie\Permission\Models\Role;
 Route::redirect('/', '/dashboard')->name('home');
 
 Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
-    Route::view('dashboard', 'dashboard')->name('dashboard');
+    // Reachable without an active subscription, so users can see why access is limited
+    // and a Tenant Admin can review the subscription and billing history.
+    Route::view('subscription-required', 'subscription-required')->name('subscription.required');
 
-    // Tenant administration. The "can" middleware is re-applied to Livewire updates,
-    // and every action authorizes again in the backend.
-    Route::livewire('employees', 'pages::employees.index')
-        ->middleware('can:viewAny,'.User::class)
-        ->name('employees.index');
+    Route::livewire('subscription', 'pages::subscription.index')
+        ->middleware('can:'.TenantPermission::BillingView->value)
+        ->name('subscription.show');
 
-    Route::livewire('roles', 'pages::roles.index')
-        ->middleware('can:viewAny,'.Role::class)
-        ->name('roles.index');
+    // Ordinary tenant functionality requires an active subscription (or a legacy tenant).
+    Route::middleware('subscription.active')->group(function () {
+        Route::view('dashboard', 'dashboard')->name('dashboard');
+
+        // Tenant administration. The "can" and "subscription.active" middleware are
+        // re-applied to Livewire updates, and every action authorizes again in the backend.
+        Route::livewire('employees', 'pages::employees.index')
+            ->middleware('can:viewAny,'.User::class)
+            ->name('employees.index');
+
+        Route::livewire('roles', 'pages::roles.index')
+            ->middleware('can:viewAny,'.Role::class)
+            ->name('roles.index');
+    });
 });
 
 require __DIR__.'/settings.php';

@@ -5,8 +5,8 @@ namespace App\Enums;
 /**
  * Application permissions available inside a tenant (company).
  *
- * This is the initial catalog for employee and role management only; FCL
- * Operations permissions will be added in later milestones.
+ * Employee and role management, and the company's view of its subscription;
+ * FCL Operations permissions will be added in later milestones.
  */
 enum TenantPermission: string
 {
@@ -17,6 +17,8 @@ enum TenantPermission: string
     case RolesView = 'roles.view';
     case RolesManage = 'roles.manage';
     case RolesAssign = 'roles.assign';
+    case BillingView = 'billing.view';
+    case BillingManage = 'billing.manage';
 
     /**
      * Get the human readable label for the permission.
@@ -31,6 +33,8 @@ enum TenantPermission: string
             self::RolesView => __('View roles'),
             self::RolesManage => __('Create, edit and delete roles'),
             self::RolesAssign => __('Assign roles to employees'),
+            self::BillingView => __('View the subscription, seats and billing history'),
+            self::BillingManage => __('Request seat changes'),
         };
     }
 

@@ -32,6 +32,14 @@
                         @endcan
                     </flux:sidebar.group>
                 @endif
+
+                @can(App\Enums\TenantPermission::BillingView->value)
+                    <flux:sidebar.group :heading="__('Company')" class="grid">
+                        <flux:sidebar.item icon="credit-card" :href="route('subscription.show')" :current="request()->routeIs('subscription.*')" wire:navigate>
+                            {{ __('Subscription & billing') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endcan
             </flux:sidebar.nav>
 
             <flux:spacer />

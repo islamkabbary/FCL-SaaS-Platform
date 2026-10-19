@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsurePasswordIsChanged;
+use App\Http\Middleware\EnsureTenantHasActiveSubscription;
 use App\Http\Middleware\EnsureTenantIsReady;
 use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -53,6 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'password.changed' => EnsurePasswordIsChanged::class,
+            'subscription.active' => EnsureTenantHasActiveSubscription::class,
         ]);
 
         $middleware->redirectGuestsTo(fn (Request $request): string => $request->routeIs('platform.*')
