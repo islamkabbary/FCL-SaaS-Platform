@@ -1,18 +1,62 @@
 <?php
 
+use App\Http\Middleware\EnsurePasswordIsChanged;
+use App\Http\Middleware\EnsureTenantIsReady;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
+use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+use Stancl\Tenancy\Middleware\ScopeSessions;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function () {
+            // Loaded after the central routes so the central domain's routes win on that host.
+            Route::middleware(['web', 'tenant'])->group(base_path('routes/tenant.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        /*
+         * Tenant context for a request: identify the tenant from the subdomain (this runs
+         * before the session starts, so tenant sessions live in the tenant database), refuse
+         * the central domain, hide tenants that are not ready, and bind the session to the
+         * tenant so a session can never be replayed against another tenant.
+         */
+        $middleware->group('tenant', [
+            InitializeTenancyBySubdomain::class,
+            PreventAccessFromCentralDomains::class,
+            EnsureTenantIsReady::class,
+            ScopeSessions::class,
+        ]);
+
+        /*
+         * Without explicit priority, Laravel sorts "auth" ahead of these middleware. The
+         * readiness check must run right after identification, and the session scope must
+         * be verified before the guard reads a user id from the session; otherwise a
+         * session from tenant A could resolve a user with the same id in tenant B.
+         */
+        $middleware->prependToPriorityList(before: EncryptCookies::class, prepend: EnsureTenantIsReady::class);
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: ScopeSessions::class);
+
+        $middleware->alias([
+            'password.changed' => EnsurePasswordIsChanged::class,
+        ]);
+
+        $middleware->redirectGuestsTo(fn (Request $request): string => $request->routeIs('platform.*')
+            ? route('platform.login')
+            : route('login'));
+
+        $middleware->redirectUsersTo(fn (Request $request): string => $request->routeIs('platform.*')
+            ? route('platform.tenants.index')
+            : route('dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

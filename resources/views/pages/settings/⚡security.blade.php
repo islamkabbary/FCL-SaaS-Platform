@@ -43,9 +43,10 @@ new #[Title('Security settings')] class extends Component {
             throw $e;
         }
 
-        Auth::user()->update([
+        Auth::user()->forceFill([
             'password' => $validated['password'],
-        ]);
+            'must_change_password' => false,
+        ])->save();
 
         $this->reset('current_password', 'password', 'password_confirmation');
 
@@ -61,6 +62,10 @@ new #[Title('Security settings')] class extends Component {
     <flux:heading level="2" class="sr-only">{{ __('Security settings') }}</flux:heading>
 
     <x-pages::settings.layout :heading="__('Update password')" :subheading="__('Ensure your account is using a long, random password to stay secure')">
+        @if (auth()->user()->must_change_password)
+            <flux:callout variant="warning" icon="exclamation-triangle" class="mt-6" :heading="__('You are using a temporary password. Please choose a new password to continue.')" data-test="temporary-password-notice" />
+        @endif
+
         <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-6">
             <flux:input
                 wire:model="current_password"

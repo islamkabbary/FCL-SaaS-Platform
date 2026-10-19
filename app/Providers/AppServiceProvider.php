@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Session\TenantAwareDatabaseSessionHandler;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -24,6 +27,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureSessions();
+    }
+
+    /**
+     * Store sessions in the database of the current context (central or tenant).
+     */
+    protected function configureSessions(): void
+    {
+        Session::extend('database', fn (Application $app): TenantAwareDatabaseSessionHandler => new TenantAwareDatabaseSessionHandler(
+            $app->make('db')->connection(config('session.connection')),
+            config('session.table'),
+            config('session.lifetime'),
+            $app,
+        ));
     }
 
     /**

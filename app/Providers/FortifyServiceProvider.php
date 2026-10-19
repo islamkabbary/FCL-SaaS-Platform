@@ -58,7 +58,8 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('login', function (Request $request) {
-            $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
+            // Scoped per tenant so the same email on two companies never shares a lockout.
+            $throttleKey = Str::transliterate(tenant()?->getTenantKey().'|'.Str::lower($request->input(Fortify::username())).'|'.$request->ip());
 
             return Limit::perMinute(5)->by($throttleKey);
         });
