@@ -11,3 +11,10 @@ parameters:
         - routes/
 
     level: 7
+
+    ignoreErrors:
+        # The trait is used by the Livewire single-file component
+        # resources/views/pages/settings/⚡profile.blade.php, which PHPStan does not analyse.
+        -
+            identifier: trait.unused
+            path: app/Concerns/ProfileValidationRules.php
