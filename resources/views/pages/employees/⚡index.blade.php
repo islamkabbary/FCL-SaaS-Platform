@@ -3,6 +3,9 @@
 use App\Actions\Employees\CreateEmployee;
 use App\Actions\Employees\SetEmployeeActivation;
 use App\Actions\Employees\UpdateEmployee;
+use App\Billing\SeatGuard;
+use App\Billing\SeatUsage;
+use App\Exceptions\NoSeatAvailable;
 use App\Models\User;
 use Flux\Flux;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -59,6 +62,15 @@ new #[Title('Employees')] class extends Component {
         if (in_array($property, ['search', 'status', 'role'], true)) {
             $this->resetPage();
         }
+    }
+
+    /**
+     * Purchased seats and active users of the company.
+     */
+    #[Computed]
+    public function seatUsage(): SeatUsage
+    {
+        return app(SeatGuard::class)->usage();
     }
 
     /**
@@ -147,14 +159,14 @@ new #[Title('Employees')] class extends Component {
                 Flux::modal('employee-form')->close();
                 Flux::toast(variant: 'success', text: __('Employee updated.'));
             }
-        } catch (AuthorizationException $exception) {
+        } catch (AuthorizationException|NoSeatAvailable $exception) {
             Flux::toast(variant: 'danger', text: $exception->getMessage());
 
             return;
         }
 
         $this->resetForm();
-        unset($this->employees);
+        unset($this->employees, $this->seatUsage);
     }
 
     public function deactivate(int $employeeId, SetEmployeeActivation $setEmployeeActivation): void
@@ -179,14 +191,14 @@ new #[Title('Employees')] class extends Component {
 
         try {
             $setEmployeeActivation->handle(Auth::user(), $employee, $active);
-        } catch (AuthorizationException $exception) {
+        } catch (AuthorizationException|NoSeatAvailable $exception) {
             Flux::toast(variant: 'danger', text: $exception->getMessage());
 
             return;
         }
 
         Flux::toast(variant: 'success', text: $active ? __('Employee activated.') : __('Employee deactivated.'));
-        unset($this->employees);
+        unset($this->employees, $this->seatUsage);
     }
 
     protected function resetForm(): void
@@ -201,6 +213,11 @@ new #[Title('Employees')] class extends Component {
         <div>
             <flux:heading size="xl" level="1">{{ __('Employees') }}</flux:heading>
             <flux:subheading>{{ __('Manage the people who can access your company account.') }}</flux:subheading>
+            @unless ($this->seatUsage->isUnlimited())
+                <flux:text class="mt-1" data-test="seat-usage">
+                    {{ __(':used of :limit purchased seats in use · :available available', ['used' => $this->seatUsage->used, 'limit' => $this->seatUsage->limit, 'available' => $this->seatUsage->available()]) }}
+                </flux:text>
+            @endunless
         </div>
 
         @can('create', App\Models\User::class)
@@ -209,6 +226,11 @@ new #[Title('Employees')] class extends Component {
             </flux:button>
         @endcan
     </div>
+
+    @if (! $this->seatUsage->isUnlimited() && $this->seatUsage->available() === 0)
+        <flux:callout variant="warning" icon="exclamation-triangle" class="mt-6" data-test="no-seats-callout"
+            :heading="__('No purchased seats are available. Deactivate a user to free a seat, or request additional seats on the Subscription page.')" />
+    @endif
 
     <div class="mt-6 flex flex-col gap-3 sm:flex-row">
         <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search name or email')" class="sm:max-w-xs" />

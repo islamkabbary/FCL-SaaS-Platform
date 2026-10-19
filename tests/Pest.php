@@ -2,11 +2,17 @@
 
 use App\Actions\Tenancy\ProvisioningResult;
 use App\Actions\Tenancy\ProvisionTenant;
+use App\Billing\Pricing;
+use App\Enums\SubscriptionTermKind;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
 use App\Enums\TenantStatus;
+use App\Models\SubscriptionPlan;
+use App\Models\SubscriptionTerm;
 use App\Models\Tenant;
+use App\Models\TenantSubscription;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -62,16 +68,76 @@ function something()
 /**
  * Create and fully provision a tenant through the real provisioning action.
  *
+ * New tenants require a subscription. Unless $subscribed is false, the tenant gets an
+ * active annual subscription with plenty of seats (see subscribeTenant()), like a
+ * company in normal operation.
+ *
  * @param  array<string, string>  $attributes
  */
-function provisionTenant(string $subdomain = 'acme', array $attributes = []): ProvisioningResult
+function provisionTenant(string $subdomain = 'acme', array $attributes = [], bool $subscribed = true): ProvisioningResult
 {
-    return app(ProvisionTenant::class)->create([
+    $result = app(ProvisionTenant::class)->create([
         'company_name' => Str::headline($subdomain).' Freight',
         'subdomain' => $subdomain,
         'admin_name' => 'Admin of '.$subdomain,
         'admin_email' => "admin@{$subdomain}.test",
         ...$attributes,
+    ]);
+
+    if ($subscribed) {
+        subscribeTenant($result->tenant);
+    }
+
+    return $result;
+}
+
+/**
+ * A test plan priced in USD: 1,000.00 base fee and 120.00 per seat per year.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function testPlan(array $attributes = []): SubscriptionPlan
+{
+    return SubscriptionPlan::query()->create([
+        'name' => 'Plan '.Str::random(6),
+        'currency' => 'USD',
+        'annual_base_fee' => 100000,
+        'annual_seat_price' => 12000,
+        'is_active' => true,
+        ...$attributes,
+    ]);
+}
+
+/**
+ * Give a tenant an active term directly in the central database (no charge, no audit),
+ * starting $daysAgo days ago. For tests of the billing workflows use the real actions.
+ */
+function subscribeTenant(Tenant $tenant, int $seats = 50, int $daysAgo = 10, ?SubscriptionPlan $plan = null): SubscriptionTerm
+{
+    $plan ??= testPlan();
+    $startsOn = CarbonImmutable::today()->subDays($daysAgo);
+
+    $subscription = TenantSubscription::query()->create([
+        'tenant_id' => $tenant->getTenantKey(),
+        'subscription_plan_id' => $plan->id,
+        'currency' => $plan->currency,
+        'activated_at' => now(),
+    ]);
+
+    return SubscriptionTerm::query()->create([
+        'tenant_subscription_id' => $subscription->id,
+        'tenant_id' => $tenant->getTenantKey(),
+        'sequence' => 1,
+        'kind' => SubscriptionTermKind::Initial,
+        'subscription_plan_id' => $plan->id,
+        'plan_name' => $plan->name,
+        'currency' => $plan->currency,
+        'annual_base_fee' => $plan->annual_base_fee,
+        'annual_seat_price' => $plan->annual_seat_price,
+        'initial_seats' => $seats,
+        'seats' => $seats,
+        'starts_on' => $startsOn,
+        'ends_on' => Pricing::annualTermEnd($startsOn),
     ]);
 }
 
@@ -98,9 +164,9 @@ function centralTenant(string $subdomain, TenantStatus $status = TenantStatus::R
  * Provision a tenant and run the rest of the test inside its context: models use
  * its database and route() generates URLs on its subdomain.
  */
-function actingInTenant(string $subdomain = 'acme'): Tenant
+function actingInTenant(string $subdomain = 'acme', bool $subscribed = true): Tenant
 {
-    $tenant = provisionTenant($subdomain)->tenant;
+    $tenant = provisionTenant($subdomain, subscribed: $subscribed)->tenant;
 
     tenancy()->initialize($tenant);
     URL::forceRootUrl(rtrim($tenant->url(), '/'));

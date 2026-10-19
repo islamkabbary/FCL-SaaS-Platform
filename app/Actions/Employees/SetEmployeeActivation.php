@@ -2,7 +2,9 @@
 
 namespace App\Actions\Employees;
 
+use App\Billing\SeatGuard;
 use App\Enums\TenantRole;
+use App\Exceptions\NoSeatAvailable;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -14,19 +16,34 @@ use Illuminate\Support\Str;
  *
  * Deactivation is enforced on every request by EnsureUserIsActive; in addition the
  * employee's stored sessions are deleted and their "remember me" token rotated, so
- * existing logins end immediately.
+ * existing logins end immediately. A deactivated employee no longer consumes a seat;
+ * reactivation needs an available purchased seat (SeatGuard).
  */
 class SetEmployeeActivation
 {
+    public function __construct(protected SeatGuard $seatGuard) {}
+
     /**
      * @throws AuthorizationException
+     * @throws NoSeatAvailable
      */
     public function handle(User $actor, User $employee, bool $active): void
     {
         if ($active) {
             Gate::forUser($actor)->authorize('activate', $employee);
 
-            $employee->forceFill(['is_active' => true, 'deactivated_at' => null])->save();
+            if ($employee->is_active) {
+                return;
+            }
+
+            $this->seatGuard->claim(function () use ($employee): void {
+                // Re-read under the seat lock: a concurrent request may have activated them already.
+                if ($employee->refresh()->is_active) {
+                    return;
+                }
+
+                $employee->forceFill(['is_active' => true, 'deactivated_at' => null])->save();
+            });
 
             return;
         }
