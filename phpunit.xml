@@ -32,6 +32,9 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="SUPPORT_ACCESS_ENABLED" value="false"/>
+        <env name="SUPPORT_REQUIRE_TWO_FACTOR" value="true"/>
+        <env name="EMPLOYEE_IMPERSONATION_ENABLED" value="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

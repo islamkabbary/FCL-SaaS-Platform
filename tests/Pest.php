@@ -1,14 +1,18 @@
 <?php
 
+use App\Actions\Impersonation\StartSupportSession;
 use App\Actions\Tenancy\ProvisioningResult;
 use App\Actions\Tenancy\ProvisionTenant;
+use App\Auth\PlatformTwoFactor;
 use App\Billing\Pricing;
 use App\Enums\SubscriptionTermKind;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
 use App\Enums\TenantStatus;
+use App\Models\PlatformAdmin;
 use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
+use App\Models\SupportSession;
 use App\Models\Tenant;
 use App\Models\TenantSubscription;
 use App\Models\User;
@@ -16,6 +20,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -197,4 +202,106 @@ function userWithPermissions(array $permissions, array $attributes = []): User
     $role->syncPermissions(array_map(fn (TenantPermission $permission): string => $permission->value, $permissions));
 
     return User::factory()->create($attributes)->assignRole($role);
+}
+
+/**
+ * Enable platform support access for the test (it is disabled by default). Two-factor
+ * authentication is not required unless a test asks for it.
+ */
+function enableSupportAccess(bool $requireTwoFactor = false): void
+{
+    config([
+        'impersonation.support.enabled' => true,
+        'impersonation.support.require_two_factor' => $requireTwoFactor,
+    ]);
+}
+
+/**
+ * Start a support session through the real action (no HTTP), as the given Platform Admin.
+ *
+ * @return array{0: SupportSession, 1: string} The session and the plaintext handoff credential.
+ */
+function startSupportSession(PlatformAdmin $admin, Tenant $tenant, ?int $targetUserId = null, string $reason = 'Ticket 4711: dashboard does not load'): array
+{
+    $targetUserId ??= $tenant->run(fn (): int => User::role(TenantRole::TenantAdmin->value)->firstOrFail()->id);
+
+    return app(StartSupportSession::class)->handle($admin, $tenant, $targetUserId, $reason);
+}
+
+/**
+ * Post a handoff credential to the tenant subdomain, as the Platform Admin's browser does.
+ */
+function postHandoff(Tenant $tenant, string $token): TestResponse
+{
+    auth()->shouldUse('web');
+
+    return test()->post($tenant->url('support/handoff'), ['token' => $token]);
+}
+
+/**
+ * Send a real Livewire update request for a component rendered at $path (the page
+ * component unless $component names another), as the browser would after loading that
+ * page in the current session.
+ *
+ * @param  list<array{method: string, params: list<mixed>}>  $calls
+ * @param  array<string, mixed>  $updates
+ */
+function livewireRequest(Tenant $tenant, string $path, array $calls = [], array $updates = [], ?string $component = null): TestResponse
+{
+    $html = test()->get($tenant->url($path))->assertOk()->getContent();
+    preg_match_all('/wire:snapshot="([^"]+)"/', (string) $html, $matches);
+
+    // The page component by default, or the (nested) component with the given name.
+    $snapshot = collect($matches[1])
+        ->map(fn (string $encoded): string => html_entity_decode($encoded, ENT_QUOTES))
+        ->first(fn (string $snapshot): bool => $component === null || json_decode($snapshot, true)['memo']['name'] === $component);
+
+    $response = test()->withHeaders(['X-Livewire' => '1'])->postJson(
+        $tenant->url(route('livewire.update', absolute: false)),
+        ['components' => [['snapshot' => $snapshot, 'updates' => $updates, 'calls' => array_map(fn (array $call): array => [...$call, 'metadata' => []], $calls)]]],
+    );
+
+    test()->flushHeaders();
+
+    return $response;
+}
+
+/**
+ * Give a Platform Admin confirmed two-factor authentication with two known recovery codes.
+ * Returns the TOTP secret.
+ */
+function enableTwoFactorFor(PlatformAdmin $admin): string
+{
+    $secret = app(PlatformTwoFactor::class)->generateSecret();
+
+    $admin->forceFill([
+        'two_factor_secret' => $secret,
+        'two_factor_recovery_codes' => ['recovery-code-one', 'recovery-code-two'],
+        'two_factor_confirmed_at' => now(),
+    ])->save();
+
+    return $secret;
+}
+
+/**
+ * Log a tenant user in over HTTP on the tenant's subdomain, with the password "password".
+ */
+function loginToTenant(Tenant $tenant, User $user): void
+{
+    auth()->shouldUse('web');
+    $tenant->run(fn () => $user->forceFill(['password' => 'password', 'must_change_password' => false])->save());
+
+    test()->post($tenant->url('login'), ['email' => $user->email, 'password' => 'password'])->assertSessionHasNoErrors();
+}
+
+/**
+ * Start an employee view from the Employees page, as the browser does (Livewire request).
+ */
+function startEmployeeView(Tenant $tenant, int $employeeId, string $password = 'password', string $reason = 'Reproduce ticket 88 for this employee'): TestResponse
+{
+    return livewireRequest($tenant, 'employees', [['method' => 'startImpersonation', 'params' => []]], [
+        'impersonationTargetId' => $employeeId,
+        'impersonationReason' => $reason,
+        'impersonationPassword' => $password,
+    ]);
 }
