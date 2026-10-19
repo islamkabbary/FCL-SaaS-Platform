@@ -6,6 +6,7 @@ use App\Enums\TenantRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -23,6 +24,8 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int $primary_branch_id
  * @property bool $is_tenant_admin Legacy marker of the initial Tenant Admin; authorization uses the Tenant Admin role.
  * @property bool $must_change_password
+ * @property bool $is_active
+ * @property Carbon|null $deactivated_at
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -44,6 +47,15 @@ class User extends Authenticatable
     protected string $guard_name = 'web';
 
     /**
+     * Default attribute values, matching the column defaults.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -55,7 +67,19 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_tenant_admin' => 'boolean',
             'must_change_password' => 'boolean',
+            'is_active' => 'boolean',
+            'deactivated_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Scope the query to active (not deactivated) users.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeActive(Builder $query): void
+    {
+        $query->where('is_active', true);
     }
 
     /**
@@ -64,6 +88,16 @@ class User extends Authenticatable
     public function isTenantAdmin(): bool
     {
         return $this->hasRole(TenantRole::TenantAdmin->value);
+    }
+
+    /**
+     * Determine whether the user is the only active user holding the Tenant Admin role.
+     */
+    public function isLastActiveTenantAdmin(): bool
+    {
+        return $this->is_active
+            && $this->isTenantAdmin()
+            && static::query()->active()->role(TenantRole::TenantAdmin->value)->count() === 1;
     }
 
     /**

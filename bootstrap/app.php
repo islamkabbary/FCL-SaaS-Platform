@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsureTenantIsReady;
+use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Application;
@@ -28,13 +29,15 @@ return Application::configure(basePath: dirname(__DIR__))
          * Tenant context for a request: identify the tenant from the subdomain (this runs
          * before the session starts, so tenant sessions live in the tenant database), refuse
          * the central domain, hide tenants that are not ready, and bind the session to the
-         * tenant so a session can never be replayed against another tenant.
+         * tenant so a session can never be replayed against another tenant. Finally, end the
+         * session of a deactivated user.
          */
         $middleware->group('tenant', [
             InitializeTenancyBySubdomain::class,
             PreventAccessFromCentralDomains::class,
             EnsureTenantIsReady::class,
             ScopeSessions::class,
+            EnsureUserIsActive::class,
         ]);
 
         /*
@@ -45,6 +48,8 @@ return Application::configure(basePath: dirname(__DIR__))
          */
         $middleware->prependToPriorityList(before: EncryptCookies::class, prepend: EnsureTenantIsReady::class);
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: ScopeSessions::class);
+        // Prepends are applied in order, so this lands between ScopeSessions and auth.
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: EnsureUserIsActive::class);
 
         $middleware->alias([
             'password.changed' => EnsurePasswordIsChanged::class,

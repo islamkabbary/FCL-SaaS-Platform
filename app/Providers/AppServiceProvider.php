@@ -2,14 +2,17 @@
 
 namespace App\Providers;
 
+use App\Policies\RolePolicy;
 use App\Session\TenantAwareDatabaseSessionHandler;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +31,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureSessions();
+
+        Gate::policy(Role::class, RolePolicy::class);
     }
 
     /**

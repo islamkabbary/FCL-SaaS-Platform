@@ -46,6 +46,17 @@ class UserFactory extends Factory
     }
 
     /**
+     * Indicate that the user has been deactivated.
+     */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+            'deactivated_at' => now(),
+        ]);
+    }
+
+    /**
      * Indicate that the user must change their password before continuing.
      */
     public function mustChangePassword(): static
