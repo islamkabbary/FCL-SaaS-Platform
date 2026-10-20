@@ -19,6 +19,8 @@ use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -286,6 +288,21 @@ test('the seat maximum also applies to a confirmed later term', function () {
 
     expect($this->term->refresh()->seats)->toBe(4)
         ->and(SubscriptionTerm::query()->orderByDesc('sequence')->first()->seats)->toBe(6);
+});
+
+test('approval locks the subscription before the request, like a renewal', function () {
+    $request = requestSeats(SeatRequestType::Increase, 1);
+    $locked = [];
+
+    DB::connection('mysql')->listen(function (QueryExecuted $query) use (&$locked): void {
+        if (str_contains($query->sql, 'for update')) {
+            $locked[] = str_contains($query->sql, 'tenant_subscriptions') ? 'subscription' : (str_contains($query->sql, 'seat_change_requests') ? 'request' : 'other');
+        }
+    });
+
+    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $request);
+
+    expect(array_slice($locked, 0, 2))->toBe(['subscription', 'request']);
 });
 
 test('requests can only be made during an active term', function () {

@@ -102,8 +102,12 @@ class ReviewSeatChangeRequest
     public function approve(PlatformAdmin $admin, SeatChangeRequest $request, ?string $note = null): SeatChangeRequest
     {
         return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $request, $note): SeatChangeRequest {
+            // Lock the subscription before the request, in the same order as a renewal (which
+            // locks the subscription and then updates requests), so the two cannot deadlock.
+            // A request never moves to another subscription, so reading its id first is safe.
+            $subscriptionId = SeatChangeRequest::query()->whereKey($request->id)->value('tenant_subscription_id');
+            $subscription = TenantSubscription::query()->whereKey($subscriptionId)->lockForUpdate()->firstOrFail();
             $request = $this->lockPending($request);
-            $subscription = TenantSubscription::query()->whereKey($request->tenant_subscription_id)->lockForUpdate()->firstOrFail();
             $today = Pricing::day(CarbonImmutable::today());
             $chargeId = null;
 
