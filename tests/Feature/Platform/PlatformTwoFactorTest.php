@@ -142,6 +142,29 @@ test('too many invalid codes discard the pending login', function () {
     $this->assertGuest('platform');
 });
 
+test('a fresh password login stays locked out after too many invalid codes', function () {
+    $secret = enableTwoFactorFor($this->admin);
+    passwordStep();
+
+    foreach (range(1, 5) as $attempt) {
+        $this->post(route('platform.two-factor.challenge.store'), ['code' => '000000']);
+    }
+
+    // The (stolen) password is still correct, but the account's lockout is not reset by it.
+    passwordStep()->assertRedirect(route('platform.two-factor.challenge'));
+    $this->post(route('platform.two-factor.challenge.store'), ['code' => totp($secret)])
+        ->assertRedirect(route('platform.login'))
+        ->assertSessionHasErrors('email');
+    $this->assertGuest('platform');
+
+    $this->travel(301)->seconds();
+
+    passwordStep();
+    $this->post(route('platform.two-factor.challenge.store'), ['code' => totp($secret)])
+        ->assertRedirect(route('platform.dashboard'));
+    $this->assertAuthenticatedAs($this->admin, 'platform');
+});
+
 test('a pending login expires after five minutes', function () {
     $secret = enableTwoFactorFor($this->admin);
     passwordStep();

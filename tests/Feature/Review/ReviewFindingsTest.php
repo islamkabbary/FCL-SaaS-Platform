@@ -21,7 +21,6 @@ use App\Exceptions\NoSeatAvailable;
 use App\Models\PlatformAdmin;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use PragmaRX\Google2FA\Google2FA;
 
 beforeEach(function () {
     if (! getenv('RUN_REVIEW_PROOFS')) {
@@ -72,23 +71,6 @@ test('[B2] an approved increase cancels an earlier scheduled reduction', functio
 
     expect($quote->scheduledReduction)->toBeNull()
         ->and($quote->seats)->toBe(5);
-});
-
-test('[S1] a fresh password login stays locked out after too many wrong 2FA codes', function () {
-    $admin = PlatformAdmin::factory()->create(['email' => 'ops@platform.test']);
-    $secret = enableTwoFactorFor($admin);
-    $login = fn () => $this->post(route('platform.login.store'), ['email' => 'ops@platform.test', 'password' => 'password']);
-
-    $login();
-    foreach (range(1, 5) as $attempt) {
-        $this->post(route('platform.two-factor.challenge.store'), ['code' => '000000']);
-    }
-
-    $login(); // the stolen password is still correct
-    $engine = app(Google2FA::class);
-    $this->post(route('platform.two-factor.challenge.store'), ['code' => $engine->oathTotp($secret, $engine->getTimestamp())]);
-
-    $this->assertGuest('platform');
 });
 
 test('[S2] ending support access does not rotate the target\'s remember-me token', function () {

@@ -30,7 +30,8 @@ class TwoFactorChallengeController extends Controller
 
     /**
      * Verify an authenticator or recovery code. After too many wrong codes the pending
-     * login is discarded and the password must be entered again.
+     * login is discarded, and no code is accepted for the account until the lockout
+     * window has passed, even after the password is entered again.
      *
      * @throws ValidationException
      */
@@ -49,13 +50,23 @@ class TwoFactorChallengeController extends Controller
 
         $key = 'platform-two-factor|'.$admin->id;
 
-        if (! $twoFactor->verifyCodeOrRecoveryCode($admin, $request->input('code'), $request->input('recovery_code'))) {
-            RateLimiter::hit($key, 300);
+        // Checked before any code is verified: the lockout belongs to the account, so signing
+        // in with the password again does not give a fresh set of attempts.
+        if (RateLimiter::tooManyAttempts($key, self::MaxAttempts)) {
+            $request->session()->forget(AuthenticatedSessionController::PendingTwoFactorKey);
 
-            if (RateLimiter::tooManyAttempts($key, self::MaxAttempts)) {
+            return redirect()->route('platform.login')->withErrors(['email' => __('Too many invalid codes. Please try again in :seconds seconds.', [
+                'seconds' => RateLimiter::availableIn($key),
+            ])]);
+        }
+
+        if (! $twoFactor->verifyCodeOrRecoveryCode($admin, $request->input('code'), $request->input('recovery_code'))) {
+            if (RateLimiter::hit($key, 300) >= self::MaxAttempts) {
                 $request->session()->forget(AuthenticatedSessionController::PendingTwoFactorKey);
 
-                return redirect()->route('platform.login')->withErrors(['email' => __('Too many invalid codes. Please log in again.')]);
+                return redirect()->route('platform.login')->withErrors(['email' => __('Too many invalid codes. Please try again in :seconds seconds.', [
+                    'seconds' => RateLimiter::availableIn($key),
+                ])]);
             }
 
             throw ValidationException::withMessages(['code' => __('The provided two-factor authentication code was invalid.')]);
