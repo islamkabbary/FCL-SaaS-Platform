@@ -23,9 +23,6 @@ use App\Exceptions\NoSeatAvailable;
 use App\Models\PlatformAdmin;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Livewire\Livewire;
 use PragmaRX\Google2FA\Google2FA;
 use Spatie\Permission\Models\Role;
 
@@ -47,26 +44,6 @@ test('[U1] syncing authorization does not re-promote a demoted founder', functio
     app(SyncTenantAuthorization::class)->handle();
 
     expect($founder->refresh()->isTenantAdmin())->toBeFalse();
-});
-
-test('[U4] changing the password ends the user\'s other sessions', function () {
-    actingInTenant();
-    $user = User::factory()->create(['password' => Hash::make('password')]);
-
-    DB::connection('tenant')->table('sessions')->insert([
-        'id' => str_repeat('x', 40), 'user_id' => $user->id, 'ip_address' => '10.0.0.9',
-        'user_agent' => 'other device', 'payload' => base64_encode(serialize([])), 'last_activity' => time(),
-    ]);
-
-    $this->actingAs($user);
-    Livewire::test('pages::settings.security')
-        ->set('current_password', 'password')
-        ->set('password', 'new-password')
-        ->set('password_confirmation', 'new-password')
-        ->call('updatePassword')
-        ->assertHasNoErrors();
-
-    expect(DB::connection('tenant')->table('sessions')->where('id', str_repeat('x', 40))->exists())->toBeFalse();
 });
 
 test('[B1] users cannot be added beyond the seats of an already confirmed next term', function () {

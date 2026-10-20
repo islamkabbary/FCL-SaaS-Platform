@@ -54,3 +54,25 @@ test('changing the temporary password lifts the restriction', function () {
 
     $this->get($result->tenant->url('dashboard'))->assertOk();
 });
+
+test('livewire updates are refused while the user must change a temporary password', function () {
+    $tenant = provisionTenant('acme')->tenant;
+    $admin = $tenant->run(fn () => User::query()->where('is_tenant_admin', true)->sole());
+
+    // A page loaded while the user was not restricted; then the user-wide flag is set (as for
+    // a session that signed in with a temporary password the owner has not changed yet).
+    loginToTenant($tenant, $admin);
+    $html = $this->get($tenant->url('settings/profile'))->assertOk()->getContent();
+    preg_match('/wire:snapshot="([^"]+)"/', (string) $html, $match);
+    $tenant->run(fn () => $admin->forceFill(['must_change_password' => true])->save());
+
+    // The next request reloads the user from the session, as a real request would.
+    auth()->forgetGuards();
+
+    $this->withHeaders(['X-Livewire' => '1'])->postJson(
+        $tenant->url(route('livewire.update', absolute: false)),
+        ['components' => [['snapshot' => html_entity_decode($match[1], ENT_QUOTES), 'updates' => ['name' => 'Renamed'], 'calls' => []]]],
+    )->assertRedirect(route('security.edit'));
+
+    expect($tenant->run(fn () => $admin->refresh()->name))->not->toBe('Renamed');
+});

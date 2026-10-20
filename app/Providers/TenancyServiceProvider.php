@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsureTenantHasActiveSubscription;
 use App\Http\Middleware\InitializeTenancyByStrictSubdomain;
 use App\Http\Middleware\RejectTemporaryUploads;
@@ -124,9 +125,14 @@ class TenancyServiceProvider extends ServiceProvider
             return Route::post($path, $handle)->middleware(['web', 'tenant']);
         });
 
-        // Re-applied to updates of components rendered on routes that use it, so a Livewire
-        // request cannot reach operational functionality without an active subscription.
-        Livewire::addPersistentMiddleware([EnsureTenantHasActiveSubscription::class]);
+        // Re-applied to updates of components rendered on routes that use them, so a Livewire
+        // request cannot reach operational functionality without an active subscription, or
+        // before a temporary password has been changed (the flag belongs to the user, so a
+        // page loaded by another session must not keep working while it is set).
+        Livewire::addPersistentMiddleware([
+            EnsureTenantHasActiveSubscription::class,
+            EnsurePasswordIsChanged::class,
+        ]);
 
         // Livewire remembers, per page path, that persistent middleware already ran and only
         // forgets it in its own test harness. In a long-lived process (Octane, the HTTP test

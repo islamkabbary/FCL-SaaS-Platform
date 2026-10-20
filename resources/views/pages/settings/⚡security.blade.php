@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Auth\EndOtherSessions;
 use App\Concerns\PasswordValidationRules;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
@@ -30,7 +31,7 @@ new #[Title('Security settings')] class extends Component {
     /**
      * Update the password for the currently authenticated user.
      */
-    public function updatePassword(): void
+    public function updatePassword(EndOtherSessions $endOtherSessions): void
     {
         try {
             $validated = $this->validate([
@@ -43,10 +44,15 @@ new #[Title('Security settings')] class extends Component {
             throw $e;
         }
 
-        Auth::user()->forceFill([
+        $user = Auth::user();
+
+        $user->forceFill([
             'password' => $validated['password'],
             'must_change_password' => false,
         ])->save();
+
+        // Whoever else signed in with the old (possibly temporary) password is signed out.
+        $endOtherSessions->handle($user, session()->getId());
 
         $this->reset('current_password', 'password', 'password_confirmation');
 
