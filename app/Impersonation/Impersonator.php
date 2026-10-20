@@ -38,7 +38,8 @@ class Impersonator
      */
     public function beginSupport(Request $request, SupportSession $session, User $target): void
     {
-        Auth::guard('web')->logout();
+        // logout() would rotate the remember-me token of whoever was signed in here.
+        Auth::guard('web')->logoutCurrentDevice();
         $request->session()->invalidate();
 
         Auth::guard('web')->login($target);
@@ -196,12 +197,24 @@ class Impersonator
         }
 
         if ($restored === null) {
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            $this->signOutCurrentDevice($request);
         }
 
         return $restored;
+    }
+
+    /**
+     * Sign the impersonated identity out of this browser only.
+     *
+     * SessionGuard::logout() also rotates the user's remember-me token, which would sign
+     * the real account holder out of "remember me" on all their devices whenever a support
+     * session or employee view ends. logoutCurrentDevice() leaves the account untouched.
+     */
+    public function signOutCurrentDevice(Request $request): void
+    {
+        Auth::guard('web')->logoutCurrentDevice();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
     }
 
     /**

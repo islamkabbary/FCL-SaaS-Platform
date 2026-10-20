@@ -157,6 +157,21 @@ test('ending the view restores the tenant admin with a new session id', function
     $this->get($this->tenant->url('dashboard'))->assertOk()->assertDontSee('Impersonation active');
 });
 
+test('logging out during the view signs out without touching either account', function () {
+    $this->admin->forceFill(['remember_token' => 'admin-token'])->save();
+    loginToTenant($this->tenant, $this->admin);
+    $this->employee->forceFill(['remember_token' => 'employee-token'])->save();
+    startEmployeeView($this->tenant, $this->employee->id);
+
+    $this->post($this->tenant->url('logout'))->assertRedirect();
+
+    expect(ImpersonationSession::query()->sole()->end_reason)->toBe(ImpersonationEndReason::LoggedOut)
+        ->and(auth('web')->check())->toBeFalse()
+        ->and(session()->has(Impersonator::SessionKey))->toBeFalse()
+        ->and($this->employee->fresh()->remember_token)->toBe('employee-token')
+        ->and($this->admin->fresh()->remember_token)->toBe('admin-token');
+});
+
 test('the view ends at its time limit and returns to the tenant admin', function () {
     loginToTenant($this->tenant, $this->admin);
     startEmployeeView($this->tenant, $this->employee->id);

@@ -429,6 +429,18 @@ test('logging out ends the support session', function () {
         ->and(auth('web')->check())->toBeFalse();
 });
 
+test('ending support access keeps the target\'s remember-me token', function (string $path) {
+    $this->tenant->run(fn () => User::query()->findOrFail($this->tenantAdminId)->forceFill(['remember_token' => 'keep-me'])->save());
+    [$session, $token] = startSupportSession($this->admin, $this->tenant);
+    postHandoff($this->tenant, $token);
+
+    $this->post($this->tenant->url($path))->assertRedirect();
+
+    expect($session->refresh()->status())->toBe(ImpersonationStatus::Ended)
+        ->and(auth('web')->check())->toBeFalse();
+    $this->tenant->run(fn () => expect(User::query()->findOrFail($this->tenantAdminId)->remember_token)->toBe('keep-me'));
+})->with(['impersonation/end', 'logout']);
+
 test('a platform admin can revoke a session, which loses access on its next request', function () {
     [$session, $token] = startSupportSession($this->admin, $this->tenant);
     postHandoff($this->tenant, $token);

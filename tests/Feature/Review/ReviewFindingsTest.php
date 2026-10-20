@@ -16,10 +16,8 @@ use App\Actions\Billing\RequestSeatChange;
 use App\Actions\Billing\ReviewSeatChangeRequest;
 use App\Actions\Employees\CreateEmployee;
 use App\Enums\SeatRequestType;
-use App\Enums\TenantRole;
 use App\Exceptions\NoSeatAvailable;
 use App\Models\PlatformAdmin;
-use App\Models\User;
 use Carbon\CarbonImmutable;
 
 beforeEach(function () {
@@ -71,18 +69,4 @@ test('[B2] an approved increase cancels an earlier scheduled reduction', functio
 
     expect($quote->scheduledReduction)->toBeNull()
         ->and($quote->seats)->toBe(5);
-});
-
-test('[S2] ending support access does not rotate the target\'s remember-me token', function () {
-    enableSupportAccess();
-    $platformAdmin = PlatformAdmin::factory()->create();
-    $tenant = provisionTenant('acme')->tenant;
-    $targetId = $tenant->run(fn (): int => User::role(TenantRole::TenantAdmin->value)->firstOrFail()->id);
-    $tenant->run(fn () => User::find($targetId)->forceFill(['remember_token' => 'keep-me'])->save());
-
-    [, $token] = startSupportSession($platformAdmin, $tenant);
-    postHandoff($tenant, $token);
-    $this->post($tenant->url('impersonation/end'));
-
-    expect($tenant->run(fn () => User::find($targetId)->remember_token))->toBe('keep-me');
 });

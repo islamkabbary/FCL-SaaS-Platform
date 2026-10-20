@@ -10,6 +10,7 @@ use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Fortify\Contracts\LogoutResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnforceImpersonation
@@ -58,12 +59,15 @@ class EnforceImpersonation
         $request->attributes->set(ActiveImpersonation::RequestAttribute, $active);
 
         if ($request->routeIs('logout')) {
-            // Logging out ends the impersonation; the logout itself then proceeds normally.
+            // Logging out ends the impersonation and signs this browser out here, with the
+            // usual logout response. Fortify's logout would call SessionGuard::logout(), which
+            // rotates the impersonated user's remember-me token on all their devices.
             $this->impersonator->endRecord($session, ImpersonationEndReason::LoggedOut);
             $request->attributes->remove(ActiveImpersonation::RequestAttribute);
             $request->session()->forget(Impersonator::SessionKey);
+            $this->impersonator->signOutCurrentDevice($request);
 
-            return $next($request);
+            return app(LogoutResponse::class)->toResponse($request);
         }
 
         if (! RestrictionPolicy::allowsRequest($request)) {
