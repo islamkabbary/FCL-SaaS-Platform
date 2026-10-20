@@ -56,6 +56,13 @@
                 <code class="font-mono text-sm">php artisan tenants:provision {{ $tenant->primaryDomain()?->domain ?? $tenant->id }}</code>
             </flux:callout.text>
         </flux:callout>
+    @elseif ($tenant->isProvisioningStale())
+        <flux:callout variant="warning" icon="exclamation-triangle" class="mt-6" :heading="__('Provisioning stopped without finishing')" data-test="provisioning-stale">
+            <flux:callout.text>
+                {{ __('No progress has been recorded for over :minutes minutes. Check the application log, then resume provisioning from the command line:', ['minutes' => App\Actions\Tenancy\ProvisionTenant::StaleAfterMinutes]) }}
+                <code class="font-mono text-sm">php artisan tenants:provision {{ $tenant->primaryDomain()?->domain ?? $tenant->id }}</code>
+            </flux:callout.text>
+        </flux:callout>
     @elseif (! $tenant->isReady())
         <flux:callout icon="clock" class="mt-6" :heading="__('This tenant has not finished provisioning and is not reachable yet.')" />
     @endif

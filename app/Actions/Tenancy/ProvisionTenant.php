@@ -2,9 +2,13 @@
 
 namespace App\Actions\Tenancy;
 
+use App\Enums\PlatformAuditAction;
 use App\Enums\TenantStatus;
 use App\Exceptions\TenantProvisioningFailed;
+use App\Exceptions\TenantProvisioningInProgress;
 use App\Models\Branch;
+use App\Models\PlatformAdmin;
+use App\Models\PlatformAuditLog;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
@@ -23,21 +27,35 @@ use Throwable;
  * that database's schema, so it cannot be one atomic transaction. Each run is
  * therefore idempotent: a tenant left in the "failed" state can be provisioned
  * again and every step resumes safely. Nothing is ever dropped automatically.
+ *
+ * Only one run works on a tenant at a time: a run first claims the tenant with an atomic
+ * update. A run that stopped without recording a result (a fatal error, a killed process
+ * or a timeout) leaves the tenant "provisioning"; it can be claimed again once it has made
+ * no progress for StaleAfterMinutes.
  */
 class ProvisionTenant
 {
+    /**
+     * After this long without progress, a "provisioning" tenant is considered abandoned.
+     */
+    public const StaleAfterMinutes = 30;
+
     public function __construct(protected SyncTenantAuthorization $syncTenantAuthorization) {}
 
     /**
      * Register a new tenant in the central database and provision it.
      *
+     * The creation is audited together with the central record, before provisioning starts,
+     * so it is in the trail even if the provisioning run never finishes.
+     *
      * @param  array{company_name: string, subdomain: string, admin_name: string, admin_email: string}  $attributes
      *
      * @throws TenantProvisioningFailed
+     * @throws TenantProvisioningInProgress
      */
-    public function create(array $attributes): ProvisioningResult
+    public function create(array $attributes, ?PlatformAdmin $createdBy = null): ProvisioningResult
     {
-        $tenant = DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($attributes): Tenant {
+        $tenant = DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($attributes, $createdBy): Tenant {
             $tenant = Tenant::create([
                 'name' => $attributes['company_name'],
                 'status' => TenantStatus::Pending,
@@ -45,7 +63,15 @@ class ProvisionTenant
                 'initial_admin_email' => Str::lower($attributes['admin_email']),
             ]);
 
-            $tenant->domains()->create(['domain' => Str::lower($attributes['subdomain'])]);
+            $domain = $tenant->domains()->create(['domain' => Str::lower($attributes['subdomain'])]);
+
+            if ($createdBy !== null) {
+                PlatformAuditLog::record($createdBy, $tenant, PlatformAuditAction::TenantCreated, newValues: [
+                    'name' => $tenant->name,
+                    'subdomain' => $domain->domain,
+                    'status' => TenantStatus::Pending->value,
+                ]);
+            }
 
             return $tenant;
         });
@@ -57,6 +83,7 @@ class ProvisionTenant
      * Provision (or resume provisioning of) an existing tenant.
      *
      * @throws TenantProvisioningFailed
+     * @throws TenantProvisioningInProgress
      */
     public function provision(Tenant $tenant): ProvisioningResult
     {
@@ -64,10 +91,7 @@ class ProvisionTenant
             throw new LogicException("Tenant [{$tenant->id}] is already provisioned.");
         }
 
-        $tenant->update([
-            'status' => TenantStatus::Provisioning,
-            'provisioning_error' => null,
-        ]);
+        $this->claim($tenant);
 
         try {
             $this->createDatabase($tenant);
@@ -85,6 +109,36 @@ class ProvisionTenant
         ]);
 
         return new ProvisioningResult($tenant, $tenant->initial_admin_email, $temporaryPassword);
+    }
+
+    /**
+     * Take the tenant for this run with one atomic update: pending and failed tenants, and
+     * tenants whose provisioning stopped making progress, can be claimed; a tenant another
+     * run is working on cannot. Two runs at once would migrate and seed twice and leave one
+     * admin holding a temporary password that no longer works.
+     *
+     * @throws TenantProvisioningInProgress
+     */
+    protected function claim(Tenant $tenant): void
+    {
+        $claimed = Tenant::query()
+            ->whereKey($tenant->getTenantKey())
+            ->where(function ($query): void {
+                $query->whereIn('status', [TenantStatus::Pending, TenantStatus::Failed])
+                    ->orWhere(fn ($stale) => $stale->where('status', TenantStatus::Provisioning)
+                        ->where('updated_at', '<', now()->subMinutes(self::StaleAfterMinutes)));
+            })
+            ->update(['status' => TenantStatus::Provisioning, 'provisioning_error' => null]);
+
+        $tenant->refresh();
+
+        if ($claimed !== 1) {
+            if ($tenant->isReady()) {
+                throw new LogicException("Tenant [{$tenant->id}] is already provisioned.");
+            }
+
+            throw new TenantProvisioningInProgress($tenant);
+        }
     }
 
     /**

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Platform;
 
 use App\Actions\Platform\UpdateTenantDetails;
 use App\Actions\Tenancy\ProvisionTenant;
-use App\Enums\PlatformAuditAction;
 use App\Enums\TenantAccessStatus;
 use App\Enums\TenantStatus;
 use App\Exceptions\TenantProvisioningFailed;
@@ -12,7 +11,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Platform\StoreTenantRequest;
 use App\Http\Requests\Platform\UpdateTenantRequest;
 use App\Models\PlatformAdmin;
-use App\Models\PlatformAuditLog;
 use App\Models\SupportSession;
 use App\Models\Tenant;
 use Illuminate\Http\RedirectResponse;
@@ -76,10 +74,9 @@ class TenantController extends Controller
                 'subdomain' => $request->string('subdomain')->toString(),
                 'admin_name' => $request->string('admin_name')->toString(),
                 'admin_email' => $request->string('admin_email')->toString(),
-            ]);
+            ], $admin);
         } catch (TenantProvisioningFailed $exception) {
             report($exception);
-            $this->recordCreation($admin, $exception->tenant);
 
             return redirect()->route('platform.tenants.show', $exception->tenant)
                 ->with('error', __('Provisioning of ":name" failed. The tenant was marked as failed and can be retried with "php artisan tenants:provision :id".', [
@@ -87,8 +84,6 @@ class TenantController extends Controller
                     'id' => $exception->tenant->id,
                 ]));
         }
-
-        $this->recordCreation($admin, $result->tenant);
 
         return response()
             ->view('platform.tenants.provisioned', [
@@ -144,18 +139,6 @@ class TenantController extends Controller
         return view('platform.tenants.history', [
             'tenant' => $tenant->load('domains'),
             'entries' => $tenant->auditLogs()->latest('created_at')->latest('id')->paginate(20),
-        ]);
-    }
-
-    /**
-     * Audit the creation of a tenant, whether or not its provisioning succeeded.
-     */
-    protected function recordCreation(PlatformAdmin $admin, Tenant $tenant): void
-    {
-        PlatformAuditLog::record($admin, $tenant, PlatformAuditAction::TenantCreated, newValues: [
-            'name' => $tenant->name,
-            'subdomain' => $tenant->primaryDomain()?->domain,
-            'status' => $tenant->status->value,
         ]);
     }
 }

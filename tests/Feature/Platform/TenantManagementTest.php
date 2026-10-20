@@ -6,6 +6,8 @@ use App\Enums\TenantStatus;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditLog;
 use App\Models\Tenant;
+use Illuminate\Support\Facades\Event;
+use Stancl\Tenancy\Events\DatabaseCreated;
 
 beforeEach(function () {
     $this->admin = PlatformAdmin::factory()->create();
@@ -209,9 +211,30 @@ test('creating a tenant through the platform is audited', function () {
 
     expect($entry->action)->toBe(PlatformAuditAction::TenantCreated)
         ->and($entry->platform_admin_id)->toBe($this->admin->id)
-        ->and($entry->new_values)->toEqual(['name' => 'Acme Freight', 'subdomain' => 'acme', 'status' => 'ready'])
+        // Recorded together with the central record, before provisioning starts.
+        ->and($entry->new_values)->toEqual(['name' => 'Acme Freight', 'subdomain' => 'acme', 'status' => 'pending'])
         // The one-time temporary password is never written to the audit trail.
         ->and(json_encode($entry->getAttributes()))->not->toContain('password');
+});
+
+test('the creation is audited before provisioning runs', function () {
+    $auditedBeforeProvisioning = null;
+    Event::listen(DatabaseCreated::class, function () use (&$auditedBeforeProvisioning): void {
+        $auditedBeforeProvisioning = PlatformAuditLog::query()->where('action', PlatformAuditAction::TenantCreated)->exists();
+    });
+
+    $this->actingAs($this->admin, 'platform')
+        ->post(route('platform.tenants.store'), [
+            'company_name' => 'Acme Freight',
+            'subdomain' => 'acme',
+            'admin_name' => 'Alice',
+            'admin_email' => 'alice@acme.test',
+        ])
+        ->assertOk();
+
+    // A run that dies during provisioning still leaves the creation in the trail.
+    expect($auditedBeforeProvisioning)->toBeTrue()
+        ->and(PlatformAuditLog::query()->count())->toBe(1);
 });
 
 test('the history page lists every audit entry of the tenant only', function () {

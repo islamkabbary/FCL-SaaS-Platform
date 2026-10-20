@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Tenancy\ProvisionTenant;
 use App\Enums\TenantStatus;
 use App\Models\Branch;
 use App\Models\PlatformAdmin;
@@ -161,6 +162,51 @@ test('a failed provisioning marks the tenant as failed and can be resumed', func
     $tenant->run(fn () => expect(User::query()->where('email', 'alice@acme.test')->exists())->toBeTrue());
 
     $this->get($tenant->url('login'))->assertOk();
+});
+
+test('a tenant another run is provisioning cannot be provisioned at the same time', function () {
+    $tenant = Tenant::create([
+        'name' => 'Busy Co',
+        'status' => TenantStatus::Provisioning,
+        'initial_admin_name' => 'Bob',
+        'initial_admin_email' => 'bob@busy.test',
+    ]);
+    $tenant->domains()->create(['domain' => 'busy']);
+
+    $this->artisan('tenants:provision', ['tenant' => 'busy'])
+        ->expectsOutputToContain('already being provisioned by another run')
+        ->assertFailed();
+
+    expect($tenant->refresh()->status)->toBe(TenantStatus::Provisioning)
+        ->and(tenantDatabaseExists($tenant->database()->getName()))->toBeFalse();
+
+    $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
+        ->get(route('platform.tenants.show', $tenant))
+        ->assertDontSeeHtml('data-test="provisioning-stale"');
+});
+
+test('a provisioning run that stopped can be resumed once it is stale', function () {
+    $tenant = Tenant::create([
+        'name' => 'Stuck Co',
+        'status' => TenantStatus::Provisioning,
+        'initial_admin_name' => 'Sam',
+        'initial_admin_email' => 'sam@stuck.test',
+    ]);
+    $tenant->domains()->create(['domain' => 'stuck']);
+
+    // The run died: no progress for longer than the stale threshold.
+    $this->travel(ProvisionTenant::StaleAfterMinutes + 1)->minutes();
+
+    $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
+        ->get(route('platform.tenants.show', $tenant))
+        ->assertSeeHtml('data-test="provisioning-stale"')
+        ->assertSee('php artisan tenants:provision stuck');
+
+    $this->artisan('tenants:provision', ['tenant' => 'stuck'])
+        ->expectsOutputToContain('Temporary password (shown once)')
+        ->assertSuccessful();
+
+    expect($tenant->refresh()->status)->toBe(TenantStatus::Ready);
 });
 
 test('an already provisioned tenant is not provisioned again', function () {

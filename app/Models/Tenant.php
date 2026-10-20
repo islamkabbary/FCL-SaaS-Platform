@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Actions\Tenancy\ProvisionTenant;
 use App\Enums\SubscriptionStatus;
 use App\Enums\TenantAccessStatus;
 use App\Enums\TenantStatus;
@@ -114,6 +115,17 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     public function subscription(): HasOne
     {
         return $this->hasOne(TenantSubscription::class, 'tenant_id');
+    }
+
+    /**
+     * Whether a provisioning run stopped without recording a result (no progress for
+     * ProvisionTenant::StaleAfterMinutes), so provisioning can be resumed.
+     */
+    public function isProvisioningStale(): bool
+    {
+        return $this->status === TenantStatus::Provisioning
+            && $this->updated_at !== null
+            && $this->updated_at->lessThan(now()->subMinutes(ProvisionTenant::StaleAfterMinutes));
     }
 
     /**

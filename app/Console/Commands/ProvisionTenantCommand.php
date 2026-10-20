@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Actions\Tenancy\ProvisionTenant;
 use App\Exceptions\TenantProvisioningFailed;
+use App\Exceptions\TenantProvisioningInProgress;
 use App\Models\Tenant;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -45,6 +46,10 @@ class ProvisionTenantCommand extends Command
             $result = $provisionTenant->provision($tenant);
         } catch (TenantProvisioningFailed) {
             $this->components->error("Provisioning failed again. See the tenant's provisioning_error and the application log.");
+
+            return self::FAILURE;
+        } catch (TenantProvisioningInProgress) {
+            $this->components->error('Tenant ['.$tenant->name.'] is already being provisioned by another run. If that run stopped, try again '.ProvisionTenant::StaleAfterMinutes.' minutes after it started.');
 
             return self::FAILURE;
         }
