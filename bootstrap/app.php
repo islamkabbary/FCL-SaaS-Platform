@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureTenantIsReady;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\InitializeTenancyByStrictSubdomain;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\ThrottlePasswordResetLinkRequests;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Application;
@@ -33,7 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
          * before the session starts, so tenant sessions live in the tenant database), refuse
          * the central domain, hide tenants that are not ready, and bind the session to the
          * tenant so a session can never be replayed against another tenant. Then verify (or
-         * tear down) an impersonated session, and end the session of a deactivated user.
+         * tear down) an impersonated session, end the session of a deactivated user, and
+         * limit password reset link requests per IP.
          */
         $middleware->group('tenant', [
             InitializeTenancyByStrictSubdomain::class,
@@ -42,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ScopeSessions::class,
             EnforceImpersonation::class,
             EnsureUserIsActive::class,
+            ThrottlePasswordResetLinkRequests::class,
         ]);
 
         /*

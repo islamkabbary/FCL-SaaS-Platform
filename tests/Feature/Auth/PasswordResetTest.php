@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ThrottlePasswordResetLinkRequests;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\DB;
@@ -94,4 +95,47 @@ test('resetting the password ends every session of the user', function () {
 
     // The reset request's own guest session is stored too; only sessions of users matter here.
     expect(DB::table('sessions')->whereNotNull('user_id')->pluck('id')->all())->toBe(['someone-else']);
+});
+
+test('a reset link request never reveals whether the email address has an account', function () {
+    Notification::fake();
+    $user = User::factory()->create();
+    $answer = 'If an account exists for that email address, a password reset link has been sent to it.';
+
+    $this->post(route('password.email'), ['email' => 'nobody@acme.test'])
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('status', $answer);
+
+    $this->post(route('password.email'), ['email' => $user->email])
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('status', $answer);
+
+    // A second request for the same account is throttled by the broker, with the same answer.
+    $this->post(route('password.email'), ['email' => $user->email])
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('status', $answer);
+
+    Notification::assertSentToTimes($user, ResetPassword::class, 1);
+});
+
+test('reset link requests are limited per client IP', function () {
+    Notification::fake();
+    $this->freezeTime();
+
+    foreach (range(1, ThrottlePasswordResetLinkRequests::MaxPerMinute) as $attempt) {
+        $this->post(route('password.email'), ['email' => "probe{$attempt}@acme.test"])->assertSessionHasNoErrors();
+    }
+
+    $this->post(route('password.email'), ['email' => 'probe-next@acme.test'])
+        ->assertSessionHasErrors(['email' => 'Too many password reset requests. Please try again in 60 seconds.']);
+
+    // Another client is not affected, and the limit lifts after a minute.
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.2'])
+        ->post(route('password.email'), ['email' => 'other@acme.test'])
+        ->assertSessionHasNoErrors();
+
+    $this->travel(61)->seconds();
+    $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+        ->post(route('password.email'), ['email' => 'later@acme.test'])
+        ->assertSessionHasNoErrors();
 });
