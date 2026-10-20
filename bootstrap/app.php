@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsureTenantHasActiveSubscription;
 use App\Http\Middleware\EnsureTenantIsReady;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\InitializeTenancyByStrictSubdomain;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -13,7 +14,6 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use Stancl\Tenancy\Middleware\ScopeSessions;
 
@@ -36,7 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
          * tear down) an impersonated session, and end the session of a deactivated user.
          */
         $middleware->group('tenant', [
-            InitializeTenancyBySubdomain::class,
+            InitializeTenancyByStrictSubdomain::class,
             PreventAccessFromCentralDomains::class,
             EnsureTenantIsReady::class,
             ScopeSessions::class,
@@ -56,6 +56,19 @@ return Application::configure(basePath: dirname(__DIR__))
         // impersonation is verified before anything else uses the authenticated user.
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: EnforceImpersonation::class);
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: EnsureUserIsActive::class);
+
+        /*
+         * Outside local and tests, refuse any Host other than a central domain or a single
+         * label directly under it, before routing. Links built from the request host (password
+         * reset e-mails) can then never point to another domain, even if a proxy forwards an
+         * arbitrary Host. Tenant identification applies the same rule on its own.
+         */
+        $middleware->trustHosts(at: fn (): array => collect(config()->array('tenancy.central_domains'))
+            ->flatMap(fn (string $domain): array => [
+                '^'.preg_quote($domain).'$',
+                '^[a-z0-9]+(?:-[a-z0-9]+)*\.'.preg_quote($domain).'$',
+            ])
+            ->all(), subdomains: false);
 
         // Baseline security headers on every web response (central and tenant).
         $middleware->web(append: SecurityHeaders::class);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Http\Middleware\EnsureTenantHasActiveSubscription;
+use App\Http\Middleware\InitializeTenancyByStrictSubdomain;
 use App\Http\Middleware\RejectTemporaryUploads;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
@@ -103,7 +104,8 @@ class TenancyServiceProvider extends ServiceProvider
     }
 
     /**
-     * Respond with 404 instead of an exception when no tenant matches the host.
+     * Respond with 404 instead of an exception when no tenant matches the host. The static
+     * handler is shared with InitializeTenancyByStrictSubdomain, which inherits it.
      */
     protected function configureIdentificationFailures(): void
     {
@@ -160,6 +162,7 @@ class TenancyServiceProvider extends ServiceProvider
 
             Middleware\InitializeTenancyByDomain::class,
             Middleware\InitializeTenancyBySubdomain::class,
+            InitializeTenancyByStrictSubdomain::class,
             Middleware\InitializeTenancyByDomainOrSubdomain::class,
             Middleware\InitializeTenancyByPath::class,
             Middleware\InitializeTenancyByRequestData::class,

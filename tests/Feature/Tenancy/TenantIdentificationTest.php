@@ -3,11 +3,14 @@
 use App\Enums\TenantStatus;
 use App\Http\Middleware\EnsureTenantIsReady;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\InitializeTenancyByStrictSubdomain;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Middleware\TrustHosts;
 use Illuminate\Session\Middleware\StartSession;
-use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
+use Illuminate\Support\Facades\Notification;
 use Stancl\Tenancy\Middleware\ScopeSessions;
 
 test('a tenant is resolved from its subdomain', function () {
@@ -28,7 +31,7 @@ test('the http kernel runs tenant middleware in a safe order', function () {
     $priority = app(Kernel::class)->getMiddlewarePriority();
     $position = fn (string $middleware): int|false => array_search($middleware, $priority, true);
 
-    expect($position(InitializeTenancyBySubdomain::class))->toBeInt()
+    expect($position(InitializeTenancyByStrictSubdomain::class))->toBeInt()
         ->toBeLessThan($position(EnsureTenantIsReady::class))
         ->and($position(EnsureTenantIsReady::class))->toBeLessThan($position(StartSession::class))
         ->and($position(StartSession::class))->toBeLessThan($position(ScopeSessions::class))
@@ -39,6 +42,38 @@ test('the http kernel runs tenant middleware in a safe order', function () {
 test('an unknown subdomain returns not found', function () {
     $this->get('http://unknown.localhost/login')->assertNotFound();
 });
+
+test('hosts that merely end with the central domain string do not resolve a tenant', function (string $host) {
+    provisionTenant('acme');
+
+    $this->get("http://{$host}/login")->assertNotFound();
+})->with(['acme.evillocalhost', 'acme.globex.localhost', 'www.acme.localhost']);
+
+test('a forged host cannot trigger a password reset e-mail', function () {
+    $tenant = provisionTenant('acme')->tenant;
+    $email = $tenant->run(fn (): string => User::factory()->create()->email);
+    Notification::fake();
+
+    $this->post('http://acme.evillocalhost/forgot-password', ['email' => $email])->assertNotFound();
+
+    Notification::assertNothingSent();
+});
+
+test('only the central domain and single-label subdomains are trusted hosts', function (string $host, bool $trusted) {
+    $patterns = app(TrustHosts::class)->hosts();
+
+    // Symfony wraps each trusted host pattern as "{pattern}i".
+    expect(collect($patterns)->contains(fn (string $pattern): bool => preg_match('{'.$pattern.'}i', $host) === 1))
+        ->toBe($trusted);
+})->with([
+    ['localhost', true],
+    ['acme.localhost', true],
+    ['acme-co.localhost', true],
+    ['acme.evillocalhost', false],
+    ['evillocalhost', false],
+    ['acme.globex.localhost', false],
+    ['localhost.evil.test', false],
+]);
 
 test('a tenant that is not ready returns not found', function (TenantStatus $status) {
     $tenant = Tenant::create(['name' => 'Pending Co', 'status' => $status]);

@@ -35,12 +35,6 @@ beforeEach(function () {
     }
 });
 
-test('[T1] hosts that merely end with the central domain string do not resolve a tenant', function (string $host) {
-    provisionTenant('acme');
-
-    $this->get("http://{$host}/login")->assertNotFound();
-})->with(['acme.evillocalhost', 'acme.globex.localhost']);
-
 test('[U1] syncing authorization does not re-promote a demoted founder', function () {
     actingInTenant();
     $founder = tenantAdminUser();
