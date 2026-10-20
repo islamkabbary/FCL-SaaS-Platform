@@ -6,6 +6,14 @@
 > **حالة المعلومة:** هذا الملف مبني على القرارات المؤكدة في النقاش، وتقارير Claude Code التي نقلها صاحب المشروع، ونجاح اختبارات المتصفح اليدوية التي أكدها صاحب المشروع. **لم أقم بفحص نسخة الـ Git المحلية أو ملفات الكود بنفسي عند إعداد هذا المستند.**  
 > **مهم:** يجب مراجعة الكود والمستندات الموجودة في الـ Repository عند الانتقال لجهاز جديد؛ فهي مصدر الحقيقة للحالة الحية. هذا الملف هو مرجع للسياق والقرارات والتقدم حتى تاريخ إعداده.
 
+> **تحديث 20 أكتوبر 2026 (بعد التحقق من الـ Repository نفسه):**
+> - **Milestone 5 خلصت** وليها Commits وتوثيق: `docs/MILESTONE_05_SUPPORT_IMPERSONATION_SECURITY.md` و`docs/SAAS_MVP_READINESS.md`. لسه محتاجة Manual Browser Smoke Test من صاحب المشروع.
+> - اتعملت **مراجعة عميقة** لـ Milestones 1–5 (`docs/FCL_SaaS_MVP_Review_Report_2026-10-19.md`) ولقت 7 مشاكل مثبتة بالتشغيل، وبعدها **Milestone 5.1 — Security & Billing Hardening** صلحتهم كلهم ومعاهم الملاحظات المتوسطة. التفاصيل في `docs/MILESTONE_05_1_SECURITY_BILLING_HARDENING.md`.
+> - تعديل الـ Password Minimum من 12 لـ 6 **مبقاش موجود**: الكود فيه `Password::min(12)` والـ Working Tree نضيف.
+> - **فيه Remote دلوقتي:** `github.com/islamkabbary/FCL-SaaS-Platform`. Commits الـ Handover والمراجعة اتعملها Push بإذن صاحب المشروع؛ Commits الـ Milestone 5.1 **محلية ومتعملهاش Push**.
+> - الاختبارات بعد 5.1: **427 test، 426 passed، 1 skipped**. و`composer test` بقى بيكمّل لآخره.
+> - الخطوة الجاية: Browser Smoke Test لـ M5 و M5.1، وبعدها قرارات Production (2FA إلزامي للـ Platform Admin، والسياسات التجارية)، وبعدين تحديد أول FCL Operations Milestone.
+
 ---
 
 ## 0) اقرأ هذا أولًا — الحالة الحالية في دقيقة
@@ -19,7 +27,8 @@
 | 2 | Tenant Users & Permissions | مكتمل، موثق، committed على `main` | نجح |
 | 3 | Central SaaS Platform Management | مكتمل، موثق، committed على `main` | نجح |
 | 4 | Annual Subscriptions, Seats & Billing | مكتمل، موثق، committed على `main` | نجح |
-| 5 | Support, Impersonation & Security Finalization | **تم إعداد Prompt تفصيلي لتنفيذه؛ لا يوجد تأكيد صريح في المحادثة أنه أُرسل بالفعل أو بدأ/اكتمل تنفيذه** | لم يؤكد بعد |
+| 5 | Support, Impersonation & Security Finalization | ~~تم إعداد Prompt تفصيلي لتنفيذه؛ لا يوجد تأكيد صريح في المحادثة أنه أُرسل بالفعل أو بدأ/اكتمل تنفيذه~~ **تحديث 20 أكتوبر:** مكتمل، موثق، committed على `main` | لم يؤكد بعد |
+| 5.1 | Security & Billing Hardening (إصلاحات المراجعة العميقة) | مكتمل، موثق، committed على `main` (20 أكتوبر 2026، بدون Push) | لم يؤكد بعد |
 | المرحلة التالية | FCL Import Operations | **لم يبدأ تنفيذها**؛ المتطلبات التشغيلية التفصيلية لم تعتمد بعد | — |
 
 **آخر أرقام اختبار مُبلّغ عنها من Milestone 4:** `280` اختبارًا، `279 passed`، `1 skipped` (2FA غير مفعّل في ذلك الوقت)، و`PHPStan 0 errors`، وPint و`npm run build` ناجحان، و`npm audit: 0 vulnerabilities`.

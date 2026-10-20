@@ -5,6 +5,8 @@
 > **المرجع الأساسي للمشروع:** `docs/FCL_SaaS_Complete_Project_Handover_2026-10-19.md` و `CLAUDE.md` و باقي `docs/`.
 > **مهم للجلسة المستقبِلة:** تعامل مع الكود الحالي كمصدر الحقيقة. تحقّق من كل Finding بنفسك قبل الإصلاح (أرقام السطور ممكن تتحرك). اتبع قواعد `CLAUDE.md` بالكامل: Commits على `main` باسم Islam Kabbary، بدون AI Attribution، بدون Push إلا بإذن صريح.
 
+> **تحديث 20 أكتوبر 2026:** كل الـ Findings السبعة والملاحظات المتوسطة اتصلحت في **Milestone 5.1** (`docs/MILESTONE_05_1_SECURITY_BILLING_HARDENING.md`). الـ 8 Review Proofs اتنقلوا لملفاتهم الدائمة كـ Regression Tests بتنجح، وفولدر `tests/Feature/Review/` **اتمسح**، فأوامر `RUN_REVIEW_PROOFS` في Appendix A مبقتش بتشغّل حاجة. التقرير ده فاضل زي ما هو كسجل للمراجعة.
+
 ---
 
 ## 0) الخلاصة في دقيقة

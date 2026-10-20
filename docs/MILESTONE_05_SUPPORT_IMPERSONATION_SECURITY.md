@@ -5,6 +5,8 @@ This document describes what was **actually implemented and verified** in Milest
 > **Important:** this milestone did **not** include a professional penetration test. "Verified" below means covered by automated Pest tests and/or the real-server checks in §17, not audited by a third party.
 
 > **Production blocker found before this milestone:** an uncommitted local change outside this milestone lowers the Platform Admin password minimum from 12 to 6 characters (§11.1). It is not part of any Milestone 5 commit and still needs an owner decision.
+>
+> **Updated by [Milestone 5.1](MILESTONE_05_1_SECURITY_BILLING_HARDENING.md) (2026-10-20):** the password-minimum change no longer exists (the code and working tree have `min(12)`). Ending an impersonation or starting a support session now signs the identity out with `logoutCurrentDevice()`, which leaves the account's remember-me token unchanged, and `/logout` during an impersonation is handled by `EnforceImpersonation` itself. The tenant is identified by `InitializeTenancyByStrictSubdomain`. The Platform Admin 2FA lockout now also applies after a fresh password login. The sections below are corrected where these changes apply.
 
 ---
 
@@ -63,7 +65,7 @@ Tenant Details → Start support session
                                      ───────────────────────────────▶ POST /support/handoff  {token}
                                                                        ConsumeSupportHandoff:
                                                                          atomic claim, eligibility re-check,
-                                                                         logout + invalidate, login target,
+                                                                         sign out this device + invalidate, login target,
                                                                          regenerate session, set marker
                                                                        → /dashboard (restricted, banner)
 Every tenant request: EnforceImpersonation re-validates the marker against support_sessions.
@@ -120,7 +122,7 @@ The same building blocks are used (central record, short-lived credential, tenan
 - **Databases:** the support record is central (`CentralConnection`). The target user and notifications are read and written in the tenant database.
 - **Session handler:** `TenantAwareDatabaseSessionHandler` keeps the tenant session in the tenant database, as for any tenant login.
 - **Livewire:** the update route runs the `tenant` group, so `EnforceImpersonation` covers every update.
-- **Middleware order:** `InitializeTenancyBySubdomain → PreventAccessFromCentralDomains → EnsureTenantIsReady → … StartSession → ScopeSessions → EnforceImpersonation → EnsureUserIsActive → auth → …`. It is enforced through the middleware priority list, so impersonation is verified before anything uses the authenticated user.
+- **Middleware order:** `InitializeTenancyByStrictSubdomain (InitializeTenancyBySubdomain before M5.1) → PreventAccessFromCentralDomains → EnsureTenantIsReady → … StartSession → ScopeSessions → EnforceImpersonation → EnsureUserIsActive → auth → …`. It is enforced through the middleware priority list, so impersonation is verified before anything uses the authenticated user.
 
 ---
 
@@ -134,7 +136,7 @@ The same building blocks are used (central record, short-lived credential, tenan
 - **How:**
   1. **Employees → View as** opens a dialog asking for a reason (5–500 characters) and the Tenant Admin's **own password**. The password is checked by the backend action and rate limited: 5 attempts, keyed per tenant and admin.
   2. The admin's session switches to the employee's identity, with a new session id and CSRF token.
-  3. The employee's password, remember token and sessions are never read or changed (tested).
+  3. The employee's password, remember token and sessions are never read or changed (tested). **Correction (M5.1):** until Milestone 5.1, logging out during an employee view went through Fortify's logout, which rotated the employee's remember-me token. Since M5.1 the view is ended with `logoutCurrentDevice()` and neither account is changed (tested).
 - **End:** "End impersonation" restores the Tenant Admin's own identity, again with a new session id. If the initiator is no longer an active Tenant Admin, the browser is logged out instead of being restored.
 - **Nested and circular impersonation** are refused at three levels:
   - the start action refuses while a session marker exists;
@@ -255,6 +257,9 @@ Event records are append-only. Session records only change once, when they end.
 ## 11. Authentication Hardening
 
 ### 11.1 Pre-existing uncommitted change (owner decision required)
+
+> **Resolved (2026-10-20):** this change no longer exists. The working tree is clean and `platform:create-admin` requires `Password::min(12)`. The text below records the state at the end of Milestone 5.
+
 `git diff app/Console/Commands/CreatePlatformAdmin.php`:
 
 ```diff
