@@ -4,7 +4,6 @@ namespace App\Actions\Employees;
 
 use App\Actions\Impersonation\EndImpersonationsFor;
 use App\Billing\SeatGuard;
-use App\Enums\TenantRole;
 use App\Exceptions\NoSeatAvailable;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -51,8 +50,9 @@ class SetEmployeeActivation
         }
 
         DB::transaction(function () use ($actor, $employee): void {
-            // Lock the active Tenant Admins so two admins cannot deactivate each other at once.
-            User::query()->active()->role(TenantRole::TenantAdmin->value)->lockForUpdate()->get();
+            // Lock the active Tenant Admins so two admins cannot deactivate each other at once
+            // (a locking read: see User::activeTenantAdminCount()).
+            User::activeTenantAdminCount();
 
             Gate::forUser($actor)->authorize('deactivate', $employee);
 

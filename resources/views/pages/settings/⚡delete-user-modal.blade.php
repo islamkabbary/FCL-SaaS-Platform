@@ -2,7 +2,9 @@
 
 use App\Concerns\PasswordValidationRules;
 use App\Livewire\Actions\Logout;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -20,14 +22,37 @@ new class extends Component {
             'password' => $this->currentPasswordRules(),
         ]);
 
+        $user = Auth::user();
+
         // Deleting the last active Tenant Admin would leave the company without an administrator.
-        if (Auth::user()->isLastActiveTenantAdmin()) {
+        // The active Tenant Admins are locked first (a locking read, see
+        // User::activeTenantAdminCount()), so two admins deleting themselves, or a concurrent
+        // demotion, cannot both pass the check.
+        $deleted = DB::transaction(function () use ($user): bool {
+            User::activeTenantAdminCount();
+
+            $current = $user->fresh();
+
+            if ($current === null) {
+                return true;
+            }
+
+            if ($current->isLastActiveTenantAdmin()) {
+                return false;
+            }
+
+            $current->delete();
+
+            return true;
+        });
+
+        if (! $deleted) {
             throw ValidationException::withMessages([
                 'password' => __('The last active Tenant Admin cannot delete their account.'),
             ]);
         }
 
-        tap(Auth::user(), $logout(...))->delete();
+        $logout();
 
         $this->redirect('/', navigate: true);
     }

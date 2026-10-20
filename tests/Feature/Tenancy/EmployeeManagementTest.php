@@ -3,12 +3,14 @@
 use App\Actions\Employees\CreateEmployee;
 use App\Actions\Employees\SetEmployeeActivation;
 use App\Actions\Employees\SyncEmployeeRoles;
+use App\Actions\Employees\UpdateEmployee;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
@@ -156,6 +158,42 @@ test('the last active tenant admin cannot be deactivated or demoted', function (
 
     expect($this->admin->refresh()->is_active)->toBeTrue()
         ->and($this->admin->isTenantAdmin())->toBeTrue();
+});
+
+test('changing roles locks the active tenant admins before anything else is read', function () {
+    $secondAdmin = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    $employeeRole = Role::findByName(TenantRole::Employee->value, 'web');
+
+    $first = firstQueriesOfTransactions(fn () => app(UpdateEmployee::class)->handle(
+        $this->admin, $secondAdmin, ['name' => $secondAdmin->name, 'email' => $secondAdmin->email], [$employeeRole->id],
+    ));
+
+    // Otherwise the "last Tenant Admin" count would use a snapshot taken before the lock was
+    // granted and miss a concurrent demotion of the other admin.
+    expect($first[0] ?? '')->toContain('for update')->toContain('`users`')
+        ->and($secondAdmin->refresh()->isTenantAdmin())->toBeFalse();
+});
+
+test('the tenant admin count inside a transaction sees a demotion committed after its snapshot', function () {
+    $secondAdmin = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+
+    // A second database session plays the other admin's concurrent request.
+    config(['database.connections.concurrent' => config('database.connections.tenant')]);
+
+    try {
+        DB::transaction(function () use ($secondAdmin): void {
+            User::query()->count(); // the first plain read fixes this transaction's snapshot
+
+            DB::connection('concurrent')->table('model_has_roles')->where('model_id', $secondAdmin->id)->delete();
+
+            // A plain read still sees both admins; the locking count sees the committed demotion.
+            expect(User::query()->active()->role(TenantRole::TenantAdmin->value)->count())->toBe(2)
+                ->and(User::activeTenantAdminCount())->toBe(1)
+                ->and($this->admin->isLastActiveTenantAdmin())->toBeTrue();
+        });
+    } finally {
+        DB::purge('concurrent');
+    }
 });
 
 test('with two active tenant admins one can deactivate the other, leaving a protected last admin', function () {

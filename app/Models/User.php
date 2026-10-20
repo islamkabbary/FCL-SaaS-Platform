@@ -97,7 +97,42 @@ class User extends Authenticatable
     {
         return $this->is_active
             && $this->isTenantAdmin()
-            && static::query()->active()->role(TenantRole::TenantAdmin->value)->count() === 1;
+            && static::activeTenantAdminCount() === 1;
+    }
+
+    /**
+     * Count the active users holding the Tenant Admin role.
+     *
+     * Inside a transaction this is a locking read: it reads the latest committed rows, whatever
+     * the transaction's snapshot, and locks them until commit. Two admins demoting, deactivating
+     * or deleting each other at once are therefore serialized, and the second one sees the
+     * first one's change. The role is matched through joins rather than the role() scope: the
+     * scope first looks the role up with a plain read (fixing the snapshot), and a subquery of
+     * a locking read is not itself a locking read in MySQL.
+     */
+    public static function activeTenantAdminCount(): int
+    {
+        $tables = config('permission.table_names');
+        $modelKey = config('permission.column_names.model_morph_key');
+
+        $query = static::query();
+        $morphClass = $query->getModel()->getMorphClass();
+
+        $query
+            ->join($tables['model_has_roles'], function ($join) use ($tables, $modelKey, $morphClass): void {
+                $join->on("{$tables['model_has_roles']}.{$modelKey}", '=', 'users.id')
+                    ->where("{$tables['model_has_roles']}.model_type", $morphClass);
+            })
+            ->join($tables['roles'], "{$tables['roles']}.id", '=', "{$tables['model_has_roles']}.role_id")
+            ->where("{$tables['roles']}.name", TenantRole::TenantAdmin->value)
+            ->where("{$tables['roles']}.guard_name", 'web')
+            ->where('users.is_active', true);
+
+        if ($query->getConnection()->transactionLevel() > 0) {
+            $query->lockForUpdate();
+        }
+
+        return $query->distinct()->count('users.id');
     }
 
     /**

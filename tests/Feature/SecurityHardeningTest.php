@@ -66,6 +66,22 @@ test('the last active tenant admin cannot delete their own account', function ()
     expect($admin->fresh())->toBeNull();
 });
 
+test('deleting their own account locks the active tenant admins before the last-admin check', function () {
+    actingInTenant();
+    $admin = tenantAdminUser();
+    $admin->forceFill(['password' => 'password'])->save();
+    User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+
+    $first = firstQueriesOfTransactions(fn () => Livewire::actingAs($admin)
+        ->test('pages::settings.delete-user-modal')
+        ->set('password', 'password')
+        ->call('deleteUser')
+        ->assertHasNoErrors());
+
+    expect($first[0] ?? '')->toContain('for update')->toContain('`users`')
+        ->and($admin->fresh())->toBeNull();
+});
+
 test('platform and tenant abilities deny the other kind of identity instead of failing', function () {
     $platformAdmin = PlatformAdmin::factory()->create();
     $tenant = actingInTenant();

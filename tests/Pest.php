@@ -17,7 +17,11 @@ use App\Models\Tenant;
 use App\Models\TenantSubscription;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -281,6 +285,33 @@ function enableTwoFactorFor(PlatformAdmin $admin): string
     ])->save();
 
     return $secret;
+}
+
+/**
+ * Run the callback and return the first query of every transaction it opens on the given
+ * connection. Under REPEATABLE READ the first plain read fixes a transaction's snapshot,
+ * so a transaction that must see other transactions' commits has to lock first.
+ *
+ * @return list<string>
+ */
+function firstQueriesOfTransactions(Closure $callback, string $connection = 'tenant'): array
+{
+    $first = [];
+    $opened = false;
+
+    Event::listen(TransactionBeginning::class, function (TransactionBeginning $event) use (&$opened, $connection): void {
+        $opened = $opened || $event->connectionName === $connection;
+    });
+    DB::listen(function (QueryExecuted $query) use (&$first, &$opened, $connection): void {
+        if ($opened && $query->connectionName === $connection) {
+            $first[] = $query->sql;
+            $opened = false;
+        }
+    });
+
+    $callback();
+
+    return $first;
 }
 
 /**
