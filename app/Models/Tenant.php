@@ -147,6 +147,25 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     }
 
     /**
+     * The fewest seats of any term already confirmed to start after today (an early
+     * renewal), or null when there is none.
+     */
+    public function confirmedLaterTermSeats(): ?int
+    {
+        $subscription = TenantSubscription::query()->where('tenant_id', $this->getTenantKey())->first();
+
+        if ($subscription === null) {
+            return null;
+        }
+
+        return SubscriptionTerm::query()
+            ->where('tenant_subscription_id', $subscription->id)
+            ->whereDate('starts_on', '>', CarbonImmutable::today()->toDateString())
+            ->get(['seats'])
+            ->reduce(fn (?int $carry, SubscriptionTerm $term): int => $carry === null ? $term->seats : min($carry, $term->seats));
+    }
+
+    /**
      * Search by company name or subdomain.
      *
      * @param  Builder<self>  $query

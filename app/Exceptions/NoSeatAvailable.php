@@ -16,6 +16,13 @@ class NoSeatAvailable extends RuntimeException
             return new self(__('Your company has no active subscription, so no users can be added or reactivated.'));
         }
 
+        if ($usage->isCappedByLaterTerm()) {
+            return new self(__('The renewal already confirmed for your company has :seats seats, and :used users are active. No more users can be added or reactivated.', [
+                'seats' => $usage->confirmedLaterTermSeats,
+                'used' => $usage->used,
+            ]));
+        }
+
         return new self(__('All :limit purchased seats are in use (:used active users). Deactivate a user or request additional seats.', [
             'limit' => $usage->limit,
             'used' => $usage->used,

@@ -195,6 +195,11 @@ new #[Title('Subscription & billing')] class extends Component {
             :heading="__(':count more users are active than purchased seats. No user can be added or reactivated until enough users are deactivated or seats are added.', ['count' => $this->seatUsage->overLimit()])" />
     @endif
 
+    @if ($this->seatUsage->isCappedByLaterTerm())
+        <flux:callout icon="information-circle" class="mt-4" data-test="later-term-seats-callout"
+            :heading="__('The renewal already confirmed has :seats seats, so no more than :seats users can be active from now on.', ['seats' => $this->seatUsage->confirmedLaterTermSeats])" />
+    @endif
+
     @if ($this->status === App\Enums\SubscriptionStatus::Legacy)
         <flux:callout icon="information-circle" class="mt-6" :heading="__('Your company has not been moved to an annual subscription yet. Access and users are not limited until the platform administrator activates one.')" />
     @elseif ($this->status === App\Enums\SubscriptionStatus::None)

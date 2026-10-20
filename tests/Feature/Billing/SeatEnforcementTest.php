@@ -1,14 +1,21 @@
 <?php
 
+use App\Actions\Billing\ActivateSubscription;
+use App\Actions\Billing\RenewSubscription;
+use App\Actions\Billing\RequestSeatChange;
+use App\Actions\Billing\ReviewSeatChangeRequest;
 use App\Actions\Employees\CreateEmployee;
 use App\Actions\Employees\SetEmployeeActivation;
 use App\Billing\SeatGuard;
+use App\Enums\SeatRequestType;
 use App\Enums\TenantRole;
 use App\Exceptions\NoSeatAvailable;
 use App\Models\BillingCharge;
+use App\Models\PlatformAdmin;
 use App\Models\SubscriptionTerm;
 use App\Models\TenantSubscription;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -54,6 +61,44 @@ test('employee creation is blocked when every purchased seat is used', function 
         ->toThrow(NoSeatAvailable::class, 'All 2 purchased seats are in use (2 active users).');
 
     expect(User::query()->where('email', 'two@acme.test')->exists())->toBeFalse();
+});
+
+test('users cannot be added beyond the seats of an already confirmed later term', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15 09:00:00'));
+    $platformAdmin = PlatformAdmin::factory()->create();
+    $plan = testPlan();
+    $tenant = provisionTenant('acme', subscribed: false)->tenant;
+    app(ActivateSubscription::class)->handle($platformAdmin, $tenant, $plan, 5, CarbonImmutable::today());
+
+    // Only the Tenant Admin is active. A reduction to 2 seats is approved, then renewed early.
+    tenancy()->initialize($tenant);
+    $admin = tenantAdminUser();
+    $reduction = app(RequestSeatChange::class)->handle($admin, SeatRequestType::Reduction, 2);
+    tenancy()->end();
+    app(ReviewSeatChangeRequest::class)->approve($platformAdmin, $reduction);
+    $this->travelTo(CarbonImmutable::parse('2026-12-20'));
+    app(RenewSubscription::class)->handle($platformAdmin, $tenant, $plan, 2, false); // starts 2027-01-15
+
+    tenancy()->initialize($tenant);
+    newEmployee($admin, 'one@acme.test');
+
+    // The current term still has 5 purchased seats, but the confirmed next term only 2.
+    expect(fn () => newEmployee($admin, 'two@acme.test'))
+        ->toThrow(NoSeatAvailable::class, 'The renewal already confirmed for your company has 2 seats, and 2 users are active.');
+
+    Livewire::actingAs($admin)
+        ->test('pages::subscription.index')
+        ->assertSeeHtml('data-test="purchased-seats"')
+        ->assertSee('The renewal already confirmed has 2 seats');
+
+    $usage = app(SeatGuard::class)->usage();
+    expect($usage->limit)->toBe(5)
+        ->and($usage->available())->toBe(0);
+
+    // Once the confirmed term has started, its seats are simply the current limit.
+    $this->travelTo(CarbonImmutable::parse('2027-01-15 09:00:00'));
+    expect(app(SeatGuard::class)->usage()->limit)->toBe(2)
+        ->and(app(SeatGuard::class)->usage()->isCappedByLaterTerm())->toBeFalse();
 });
 
 test('the employees page explains that no seats are available', function () {

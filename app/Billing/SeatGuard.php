@@ -64,13 +64,16 @@ class SeatGuard
     }
 
     /**
-     * The current tenant's seat limit and active users.
+     * The current tenant's seat limit, active users and the seats of a confirmed later term.
      */
     public function usage(): SeatUsage
     {
+        $tenant = $this->tenant();
+
         return new SeatUsage(
-            $this->tenant()->seatLimit(),
+            $tenant->seatLimit(),
             User::query()->active()->count(),
+            $tenant->confirmedLaterTermSeats(),
         );
     }
 
