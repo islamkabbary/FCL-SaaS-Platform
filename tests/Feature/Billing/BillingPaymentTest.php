@@ -96,6 +96,22 @@ test('a double-submitted payment form records one payment', function () {
         ->and($this->charge->balance())->toBe(150000);
 });
 
+test('a submission token used for one charge is refused for another', function () {
+    $token = (string) Str::uuid();
+    pay('100', $token)->assertSessionHasNoErrors();
+
+    $other = BillingCharge::query()->create([
+        ...$this->charge->only(['tenant_id', 'tenant_subscription_id', 'subscription_term_id', 'type', 'currency', 'amount', 'description']),
+        'idempotency_key' => 'other-charge',
+        'issued_on' => '2026-05-10',
+    ]);
+
+    expect(fn () => app(RecordPayment::class)->handle($this->platformAdmin, $other, 10000, CarbonImmutable::today(), null, null, $token))
+        ->toThrow(InvalidSubscriptionChange::class, 'This payment form was already used for another charge.');
+
+    expect(BillingPayment::query()->where('billing_charge_id', $other->id)->count())->toBe(0);
+});
+
 test('concurrent payments cannot overpay a charge', function () {
     app(RecordPayment::class)->handle($this->platformAdmin, $this->charge, 150000, CarbonImmutable::today(), null, null, (string) Str::uuid());
 

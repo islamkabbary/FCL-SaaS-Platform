@@ -32,6 +32,12 @@ class RecordPayment
             $existing = BillingPayment::query()->where('submission_token', $submissionToken)->first();
 
             if ($existing !== null) {
+                // A token belongs to one charge's form. Reused for another charge, returning the
+                // existing payment would report a payment that was never recorded for this one.
+                if ($existing->billing_charge_id !== $charge->id) {
+                    throw new InvalidSubscriptionChange(__('This payment form was already used for another charge. Reload the page and enter the payment again.'));
+                }
+
                 // The same form was submitted twice: the payment is already recorded.
                 return $existing;
             }
