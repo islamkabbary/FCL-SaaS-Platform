@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Employees\SyncEmployeeRoles;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
 use App\Models\User;
@@ -62,6 +63,25 @@ test('an existing tenant without roles is backfilled idempotently by tenants:syn
             ->and(DB::table('model_has_roles')->count())->toBe(1)
             ->and(Role::findByName(TenantRole::Employee->value, 'web')->permissions->pluck('name')->all())
             ->toBe([TenantPermission::EmployeesView->value]);
+    });
+});
+
+test('tenants:sync-authorization does not promote a demoted founder again', function () {
+    $tenant = provisionTenant('acme')->tenant;
+
+    $tenant->run(function () {
+        $founder = tenantAdminUser();
+        $second = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+
+        app(SyncEmployeeRoles::class)->handle($second, $founder, [Role::findByName(TenantRole::Employee->value, 'web')->id]);
+        expect($founder->refresh()->isTenantAdmin())->toBeFalse();
+    });
+
+    $this->artisan('tenants:sync-authorization')->assertSuccessful();
+
+    $tenant->run(function () {
+        expect(User::query()->where('is_tenant_admin', true)->sole()->isTenantAdmin())->toBeFalse()
+            ->and(User::query()->role(TenantRole::TenantAdmin->value)->count())->toBe(1);
     });
 });
 

@@ -19,7 +19,8 @@ use Spatie\Permission\PermissionRegistrar;
  *   The Employee role is created without permissions and is never reset afterwards,
  *   so a Tenant Admin's customizations survive later runs.
  * - Gives the Tenant Admin role to the initial Tenant Admin(s) provisioned before roles
- *   existed (users flagged with the legacy is_tenant_admin column).
+ *   existed (users flagged with the legacy is_tenant_admin column), only while nobody in
+ *   the tenant holds that role yet.
  *
  * Must run in tenant context: all records are written to the tenant database.
  */
@@ -43,10 +44,14 @@ class SyncTenantAuthorization
 
             Role::findOrCreate(TenantRole::Employee->value, self::Guard);
 
-            User::query()
-                ->where('is_tenant_admin', true)
-                ->withoutRole(TenantRole::TenantAdmin->value, self::Guard)
-                ->each(fn (User $user) => $user->assignRole(TenantRole::TenantAdmin->value));
+            // Only a tenant that has no Tenant Admin at all predates roles. Once anyone holds the
+            // role, roles are managed by the Tenant Admins, and a founder they demoted (the flag
+            // is never cleared) must not be promoted again on the next deployment.
+            if (! User::query()->role(TenantRole::TenantAdmin->value, self::Guard)->exists()) {
+                User::query()
+                    ->where('is_tenant_admin', true)
+                    ->each(fn (User $user) => $user->assignRole(TenantRole::TenantAdmin->value));
+            }
         });
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();

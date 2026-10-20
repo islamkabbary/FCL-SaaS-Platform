@@ -15,8 +15,6 @@ use App\Actions\Billing\RenewSubscription;
 use App\Actions\Billing\RequestSeatChange;
 use App\Actions\Billing\ReviewSeatChangeRequest;
 use App\Actions\Employees\CreateEmployee;
-use App\Actions\Employees\SyncEmployeeRoles;
-use App\Actions\Tenancy\SyncTenantAuthorization;
 use App\Enums\SeatRequestType;
 use App\Enums\TenantRole;
 use App\Exceptions\NoSeatAvailable;
@@ -24,26 +22,11 @@ use App\Models\PlatformAdmin;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use PragmaRX\Google2FA\Google2FA;
-use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     if (! getenv('RUN_REVIEW_PROOFS')) {
         $this->markTestSkipped('Review proof: run with RUN_REVIEW_PROOFS=1.');
     }
-});
-
-test('[U1] syncing authorization does not re-promote a demoted founder', function () {
-    actingInTenant();
-    $founder = tenantAdminUser();
-    $second = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
-    $employeeRole = Role::findByName(TenantRole::Employee->value, 'web');
-
-    app(SyncEmployeeRoles::class)->handle($second, $founder, [$employeeRole->id]);
-    expect($founder->refresh()->isTenantAdmin())->toBeFalse();
-
-    app(SyncTenantAuthorization::class)->handle();
-
-    expect($founder->refresh()->isTenantAdmin())->toBeFalse();
 });
 
 test('[B1] users cannot be added beyond the seats of an already confirmed next term', function () {
