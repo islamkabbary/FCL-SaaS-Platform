@@ -51,22 +51,3 @@ test('[B1] users cannot be added beyond the seats of an already confirmed next t
     expect(fn () => app(CreateEmployee::class)->handle($admin, ['name' => 'Two', 'email' => 'two@acme.test']))
         ->toThrow(NoSeatAvailable::class);
 });
-
-test('[B2] an approved increase cancels an earlier scheduled reduction', function () {
-    $this->travelTo(CarbonImmutable::parse('2026-09-01 10:00:00'));
-    $platformAdmin = PlatformAdmin::factory()->create();
-    $tenant = actingInTenant(subscribed: false);
-    subscribeTenant($tenant, seats: 2, daysAgo: 184); // term 2026-03-01 → 2027-03-01
-    $admin = tenantAdminUser();
-
-    $reduction = app(RequestSeatChange::class)->handle($admin, SeatRequestType::Reduction, 1);
-    app(ReviewSeatChangeRequest::class)->approve($platformAdmin, $reduction);
-    $increase = app(RequestSeatChange::class)->handle($admin, SeatRequestType::Increase, 3);
-    app(ReviewSeatChangeRequest::class)->approve($platformAdmin, $increase); // term now has 5 seats
-
-    $this->travelTo(CarbonImmutable::parse('2027-02-15'));
-    $quote = app(RenewSubscription::class)->quote($tenant);
-
-    expect($quote->scheduledReduction)->toBeNull()
-        ->and($quote->seats)->toBe(5);
-});

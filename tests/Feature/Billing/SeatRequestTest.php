@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Billing\RenewSubscription;
 use App\Actions\Billing\RequestSeatChange;
 use App\Actions\Billing\ReviewSeatChangeRequest;
 use App\Actions\Employees\CreateEmployee;
@@ -218,6 +219,24 @@ test('a later approved reduction supersedes an earlier one', function () {
 
     expect($first->refresh()->status)->toBe(SeatRequestStatus::Superseded)
         ->and($third->refresh()->status)->toBe(SeatRequestStatus::Approved);
+});
+
+test('an approved increase supersedes a reduction scheduled earlier', function () {
+    $reduction = requestSeats(SeatRequestType::Reduction, 1);
+    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $reduction);
+    $increase = requestSeats(SeatRequestType::Increase, 3);
+    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $increase); // the term now has 5 seats
+
+    expect($reduction->refresh()->status)->toBe(SeatRequestStatus::Superseded)
+        ->and(PlatformAuditLog::query()->where('action', PlatformAuditAction::SeatRequestApproved)->latest('id')->first()->new_values['superseded_reductions'])
+        ->toBe([$reduction->id]);
+
+    // The renewal proposes the seats that were just paid for, not the old reduction.
+    $this->travelTo(CarbonImmutable::parse('2027-02-15'));
+    $quote = app(RenewSubscription::class)->quote($this->tenant);
+
+    expect($quote->scheduledReduction)->toBeNull()
+        ->and($quote->seats)->toBe(5);
 });
 
 test('requests can only be made during an active term', function () {

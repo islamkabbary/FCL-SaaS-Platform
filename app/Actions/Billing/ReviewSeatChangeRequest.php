@@ -25,7 +25,8 @@ use Illuminate\Support\Facades\DB;
  * If the next term was already confirmed by an early renewal, the seats are added to it
  * too and charged for that full term at its snapshot price.
  *
- * Approving a reduction changes nothing now; it is applied by the next renewal.
+ * Approving a reduction changes nothing now; it is applied by the next renewal, unless an
+ * increase is approved before then, which supersedes it.
  *
  * The request row is locked and must still be pending, and the charge's idempotency key
  * is unique per request, so a request can never be approved or charged twice.
@@ -128,14 +129,20 @@ class ReviewSeatChangeRequest
                     $lines,
                 )->id;
 
+                // Buying more seats now cancels an earlier reduction approved for the next renewal;
+                // otherwise the renewal would propose fewer seats than were just paid for. The
+                // tenant can ask for a new reduction from the increased seat count.
+                $superseded = $this->supersedeScheduledReductions($subscription);
+
                 $auditOld = ['seats' => $oldSeats];
-                $auditNew = ['seats' => $term->seats, 'charged' => Money::format(array_sum(array_column($lines, 'amount')), $subscription->currency)];
+                $auditNew = [
+                    'seats' => $term->seats,
+                    'charged' => Money::format(array_sum(array_column($lines, 'amount')), $subscription->currency),
+                    ...($superseded !== [] ? ['superseded_reductions' => $superseded] : []),
+                ];
             } else {
                 // Only the latest approved reduction applies at renewal.
-                SeatChangeRequest::query()
-                    ->where('tenant_subscription_id', $subscription->id)
-                    ->scheduledReduction()
-                    ->update(['status' => SeatRequestStatus::Superseded]);
+                $this->supersedeScheduledReductions($subscription);
 
                 $auditOld = ['next_term_seats' => null];
                 $auditNew = ['next_term_seats' => $request->seats];
@@ -198,6 +205,23 @@ class ReviewSeatChangeRequest
         }
 
         return $request;
+    }
+
+    /**
+     * Mark the approved reductions still waiting for a renewal as superseded.
+     *
+     * @return list<int> The ids of the superseded requests.
+     */
+    protected function supersedeScheduledReductions(TenantSubscription $subscription): array
+    {
+        $query = SeatChangeRequest::query()->where('tenant_subscription_id', $subscription->id)->scheduledReduction();
+        $ids = array_values($query->clone()->get(['id'])->map(fn (SeatChangeRequest $reduction): int => $reduction->id)->all());
+
+        if ($ids !== []) {
+            $query->update(['status' => SeatRequestStatus::Superseded]);
+        }
+
+        return $ids;
     }
 
     /**
