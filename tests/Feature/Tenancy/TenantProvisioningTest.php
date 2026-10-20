@@ -11,7 +11,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Stancl\Tenancy\Database\Models\Domain;
 use Stancl\Tenancy\Events\DatabaseCreated;
+use Stancl\Tenancy\Events\TenantCreated;
 
 function tenantDatabaseExists(string $database): bool
 {
@@ -127,6 +129,27 @@ test('tenant provisioning rejects a subdomain that is already taken', function (
 
     expect(Tenant::query()->count())->toBe(1);
 });
+
+test('a subdomain registered concurrently after validation is reported as taken', function (string $moment) {
+    $other = Tenant::create(['name' => 'Other Co', 'status' => TenantStatus::Pending]);
+
+    // Another request registers "acme" after this one passed validation: before the domain
+    // model's own occupancy check, or after it (then only the unique index refuses it).
+    Event::listen($moment, function () use ($other): void {
+        DB::table('domains')->insert(['domain' => 'acme', 'tenant_id' => $other->id, 'created_at' => now(), 'updated_at' => now()]);
+    });
+
+    $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
+        ->from(route('platform.tenants.create'))
+        ->post(route('platform.tenants.store'), validTenantPayload())
+        ->assertRedirect(route('platform.tenants.create'))
+        ->assertSessionHasErrors(['subdomain' => 'The subdomain has already been taken.']);
+
+    expect(Tenant::query()->pluck('name')->all())->toBe(['Other Co']);
+})->with([
+    'before the domain check' => [TenantCreated::class],
+    'after the domain check' => ['eloquent.creating: '.Domain::class],
+]);
 
 test('a failed provisioning marks the tenant as failed and can be resumed', function () {
     $shouldFail = true;

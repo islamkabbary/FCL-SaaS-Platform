@@ -13,11 +13,13 @@ use App\Http\Requests\Platform\UpdateTenantRequest;
 use App\Models\PlatformAdmin;
 use App\Models\SupportSession;
 use App\Models\Tenant;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Stancl\Tenancy\Exceptions\DomainOccupiedByOtherTenantException;
 
 class TenantController extends Controller
 {
@@ -75,6 +77,11 @@ class TenantController extends Controller
                 'admin_name' => $request->string('admin_name')->toString(),
                 'admin_email' => $request->string('admin_email')->toString(),
             ], $admin);
+        } catch (DomainOccupiedByOtherTenantException|UniqueConstraintViolationException) {
+            // The same subdomain was registered at the same moment, after this request was
+            // validated: found by the domain model's own check, or refused by the unique index
+            // when both requests passed that check. Nothing of this tenant was kept.
+            return back()->withInput()->withErrors(['subdomain' => __('The subdomain has already been taken.')]);
         } catch (TenantProvisioningFailed $exception) {
             report($exception);
 
