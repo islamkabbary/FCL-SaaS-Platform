@@ -83,9 +83,13 @@ class ActivateSubscription
     }
 
     /**
+     * $expectedTotal is the annual total shown in the preview the admin confirmed. When the
+     * plan's prices changed since then, nothing is created: charges cannot be edited, so an
+     * amount nobody reviewed must never be charged.
+     *
      * @throws InvalidSubscriptionChange
      */
-    public function handle(PlatformAdmin $admin, Tenant $tenant, SubscriptionPlan $plan, int $seats, CarbonImmutable $startsOn): TenantSubscription
+    public function handle(PlatformAdmin $admin, Tenant $tenant, SubscriptionPlan $plan, int $seats, CarbonImmutable $startsOn, ?int $expectedTotal = null): TenantSubscription
     {
         // The active-user count comes from the tenant database, outside the central transaction.
         $quote = $this->quote($tenant, $plan, $seats, $startsOn);
@@ -94,7 +98,7 @@ class ActivateSubscription
             throw new InvalidSubscriptionChange($quote['errors'][0]);
         }
 
-        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $tenant, $plan, $seats, $quote): TenantSubscription {
+        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $tenant, $plan, $seats, $quote, $expectedTotal): TenantSubscription {
             // Serializes activations of the same tenant; the unique tenant_id is the final guard.
             $tenant = Tenant::query()->whereKey($tenant->getTenantKey())->lockForUpdate()->firstOrFail();
             $plan = SubscriptionPlan::query()->whereKey($plan->id)->lockForUpdate()->firstOrFail();
@@ -105,6 +109,12 @@ class ActivateSubscription
 
             if (! $plan->is_active) {
                 throw new InvalidSubscriptionChange(__('The plan ":plan" is archived.', ['plan' => $plan->name]));
+            }
+
+            if ($expectedTotal !== null && $plan->annualTotal($seats) !== $expectedTotal) {
+                throw new InvalidSubscriptionChange(__('The plan\'s prices changed after the preview: the annual total is now :total. Review it and confirm again.', [
+                    'total' => $plan->format($plan->annualTotal($seats)),
+                ]));
             }
 
             $subscription = TenantSubscription::query()->create([

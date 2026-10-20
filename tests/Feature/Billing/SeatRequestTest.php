@@ -81,7 +81,7 @@ test('approval adds the seats to the current term and charges them prorated', fu
         ->assertSee('88.77 USD'); // 3 × 12000 × 90 / 365 = 8876.71… → 8877
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.seat-requests.approve', $request), ['review_note' => 'Welcome aboard'])
+        ->post(route('platform.seat-requests.approve', $request), ['review_note' => 'Welcome aboard', 'expected_amount' => 8877])
         ->assertRedirect(route('platform.seat-requests.index'));
 
     $request->refresh();
@@ -114,6 +114,31 @@ test('approval on the first day of the term charges the full annual seat price',
     expect(BillingCharge::query()->sole()->amount)->toBe(24000);
 });
 
+test('an approval is refused when the charge changed since the preview', function () {
+    $request = requestSeats(SeatRequestType::Increase, 3);
+    $this->travelTo(CarbonImmutable::parse('2026-12-01 10:00:00')); // 90 days remain
+
+    $this->actingAs($this->platformAdmin, 'platform')
+        ->get(route('platform.seat-requests.index'))
+        ->assertSee('name="expected_amount" value="8877"', false);
+
+    // Approved the next day, one day fewer is prorated: 3 × 12000 × 89 / 365 = 8778.08… → 8778.
+    $this->travelTo(CarbonImmutable::parse('2026-12-02 10:00:00'));
+
+    $this->actingAs($this->platformAdmin, 'platform')
+        ->post(route('platform.seat-requests.approve', $request), ['expected_amount' => 8877])
+        ->assertSessionHas('error', 'The charge changed since it was previewed: approving today charges 87.78 USD. Review it and approve again.');
+
+    expect($request->refresh()->status)->toBe(SeatRequestStatus::Pending)
+        ->and(BillingCharge::query()->count())->toBe(0);
+
+    $this->actingAs($this->platformAdmin, 'platform')
+        ->post(route('platform.seat-requests.approve', $request), ['expected_amount' => 8778])
+        ->assertSessionHas('status');
+
+    expect(BillingCharge::query()->sole()->amount)->toBe(8778);
+});
+
 test('a request cannot be approved twice or charged twice', function () {
     $request = requestSeats(SeatRequestType::Increase, 1);
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $request);
@@ -122,7 +147,7 @@ test('a request cannot be approved twice or charged twice', function () {
         ->toThrow(InvalidSubscriptionChange::class, 'already approved');
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.seat-requests.approve', $request))
+        ->post(route('platform.seat-requests.approve', $request), ['expected_amount' => 0])
         ->assertSessionHas('error');
 
     expect(BillingCharge::query()->count())->toBe(1)

@@ -43,10 +43,13 @@ class SeatRequestController extends Controller
 
     public function approve(Request $request, SeatChangeRequest $seatRequest, ReviewSeatChangeRequest $review): RedirectResponse
     {
-        $input = $request->validate(['review_note' => ['nullable', 'string', 'max:500']]);
+        $input = $request->validate([
+            'review_note' => ['nullable', 'string', 'max:500'],
+            'expected_amount' => ['required', 'integer', 'min:0'],
+        ]);
 
         try {
-            $review->approve($this->admin($request), $seatRequest, $input['review_note'] ?? null);
+            $review->approve($this->admin($request), $seatRequest, $input['review_note'] ?? null, (int) $input['expected_amount']);
         } catch (InvalidSubscriptionChange $exception) {
             return redirect()->route('platform.seat-requests.index')->with('error', $exception->getMessage());
         }

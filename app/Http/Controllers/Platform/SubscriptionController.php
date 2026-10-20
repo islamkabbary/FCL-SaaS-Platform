@@ -104,6 +104,7 @@ class SubscriptionController extends Controller
             'plan_id' => ['required', 'integer', 'exists:subscription_plans,id'],
             'seats' => ['required', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
             'starts_on' => ['required', 'date_format:Y-m-d'],
+            'expected_total' => ['required', 'integer', 'min:0'],
         ]);
 
         try {
@@ -113,6 +114,7 @@ class SubscriptionController extends Controller
                 SubscriptionPlan::query()->whereKey($input['plan_id'])->firstOrFail(),
                 (int) $input['seats'],
                 CarbonImmutable::parse($input['starts_on']),
+                (int) $input['expected_total'],
             );
         } catch (InvalidSubscriptionChange $exception) {
             return back()->withInput()->withErrors(['subscription' => $exception->getMessage()]);
@@ -154,6 +156,7 @@ class SubscriptionController extends Controller
             'plan_id' => ['required', 'integer', 'exists:subscription_plans,id'],
             'seats' => ['required', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
             'accept_pricing_change' => ['nullable', 'boolean'],
+            'expected_total' => ['required', 'integer', 'min:0'],
         ]);
 
         try {
@@ -163,6 +166,7 @@ class SubscriptionController extends Controller
                 SubscriptionPlan::query()->whereKey($input['plan_id'])->firstOrFail(),
                 (int) $input['seats'],
                 (bool) ($input['accept_pricing_change'] ?? false),
+                (int) $input['expected_total'],
             );
         } catch (InvalidSubscriptionChange $exception) {
             return back()->withInput()->withErrors(['subscription' => $exception->getMessage()]);

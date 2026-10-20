@@ -97,11 +97,15 @@ class ReviewSeatChangeRequest
     }
 
     /**
+     * $expectedAmount is the total shown in the preview the admin approved (0 for a
+     * reduction). When the charge would differ, because the plan's prices changed or the
+     * proration day moved on, nothing is approved: the admin must review the new amount.
+     *
      * @throws InvalidSubscriptionChange
      */
-    public function approve(PlatformAdmin $admin, SeatChangeRequest $request, ?string $note = null): SeatChangeRequest
+    public function approve(PlatformAdmin $admin, SeatChangeRequest $request, ?string $note = null, ?int $expectedAmount = null): SeatChangeRequest
     {
-        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $request, $note): SeatChangeRequest {
+        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $request, $note, $expectedAmount): SeatChangeRequest {
             // Lock the subscription before the request, in the same order as a renewal (which
             // locks the subscription and then updates requests), so the two cannot deadlock.
             // A request never moves to another subscription, so reading its id first is safe.
@@ -113,6 +117,14 @@ class ReviewSeatChangeRequest
 
             if ($request->type === SeatRequestType::Increase) {
                 $lines = $this->quote($request, $today);
+                $amount = array_sum(array_column($lines, 'amount'));
+
+                if ($expectedAmount !== null && $amount !== $expectedAmount) {
+                    throw new InvalidSubscriptionChange(__('The charge changed since it was previewed: approving today charges :amount. Review it and approve again.', [
+                        'amount' => Money::format($amount, $subscription->currency),
+                    ]));
+                }
+
                 $term = $subscription->termOn($today);
                 $futureTerms = $this->futureTerms($subscription, $today);
                 $mostSeats = max([$term->seats ?? 0, ...array_map(fn (SubscriptionTerm $future): int => $future->seats, [...$futureTerms])]);
@@ -143,7 +155,7 @@ class ReviewSeatChangeRequest
                 $auditOld = ['seats' => $oldSeats];
                 $auditNew = [
                     'seats' => $term->seats,
-                    'charged' => Money::format(array_sum(array_column($lines, 'amount')), $subscription->currency),
+                    'charged' => Money::format($amount, $subscription->currency),
                     ...($superseded !== [] ? ['superseded_reductions' => $superseded] : []),
                 ];
             } else {

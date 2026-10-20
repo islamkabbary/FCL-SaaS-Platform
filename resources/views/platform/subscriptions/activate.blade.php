@@ -54,6 +54,7 @@
                         <input type="hidden" name="plan_id" value="{{ $plan->id }}">
                         <input type="hidden" name="seats" value="{{ $seats }}">
                         <input type="hidden" name="starts_on" value="{{ $quote['starts_on']->toDateString() }}">
+                        <input type="hidden" name="expected_total" value="{{ $quote['annual_total'] }}">
                         <flux:button variant="primary" type="submit" data-test="confirm-activation-button">{{ __('Activate and create the annual charge') }}</flux:button>
                     </form>
                 @endif

@@ -99,11 +99,15 @@ class RenewSubscription
     }
 
     /**
+     * $expectedTotal is the annual total shown in the preview the admin confirmed. When the
+     * plan's prices changed since then, nothing is created: charges cannot be edited, so an
+     * amount nobody reviewed must never be charged.
+     *
      * @throws InvalidSubscriptionChange
      */
-    public function handle(PlatformAdmin $admin, Tenant $tenant, SubscriptionPlan $plan, int $seats, bool $acceptPricingChange): SubscriptionTerm
+    public function handle(PlatformAdmin $admin, Tenant $tenant, SubscriptionPlan $plan, int $seats, bool $acceptPricingChange, ?int $expectedTotal = null): SubscriptionTerm
     {
-        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $tenant, $plan, $seats, $acceptPricingChange): SubscriptionTerm {
+        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $tenant, $plan, $seats, $acceptPricingChange, $expectedTotal): SubscriptionTerm {
             // Lock the subscription so two renewals cannot both pass the checks below.
             $subscription = TenantSubscription::query()->where('tenant_id', $tenant->getTenantKey())->lockForUpdate()->first()
                 ?? throw new InvalidSubscriptionChange(__('This tenant has no subscription to renew.'));
@@ -116,6 +120,12 @@ class RenewSubscription
 
             if ($quote->pricingChanged() && ! $acceptPricingChange) {
                 throw new InvalidSubscriptionChange(__('The plan or its prices differ from the current term. Review the new prices and confirm the change.'));
+            }
+
+            if ($expectedTotal !== null && $quote->annualTotal() !== $expectedTotal) {
+                throw new InvalidSubscriptionChange(__('The plan\'s prices changed after the preview: the annual total is now :total. Review it and confirm again.', [
+                    'total' => $quote->plan->format($quote->annualTotal()),
+                ]));
             }
 
             $previous = $quote->previousTerm;

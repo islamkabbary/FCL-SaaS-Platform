@@ -58,6 +58,26 @@ test('a new tenant requires a subscription: users can sign in but not use the ap
     $this->get($tenant->url('settings/profile'))->assertOk();
 });
 
+test('an activation is refused when the plan prices changed after the preview', function () {
+    $tenant = provisionTenant('acme', subscribed: false)->tenant;
+    $plan = testPlan();
+    $startsOn = CarbonImmutable::today()->toDateString();
+
+    $this->actingAs($this->admin, 'platform')
+        ->get(route('platform.subscriptions.activate', [$tenant, 'plan_id' => $plan->id, 'seats' => 10, 'starts_on' => $startsOn]))
+        ->assertSee('name="expected_total" value="220000"', false);
+
+    // The plan's prices change before the previewed activation is confirmed.
+    $plan->update(['annual_base_fee' => 200000]);
+
+    $this->actingAs($this->admin, 'platform')
+        ->post(route('platform.subscriptions.activate.store', $tenant), ['plan_id' => $plan->id, 'seats' => 10, 'starts_on' => $startsOn, 'expected_total' => 220000])
+        ->assertSessionHasErrors(['subscription' => 'The plan\'s prices changed after the preview: the annual total is now 3,200.00 USD. Review it and confirm again.']);
+
+    expect(TenantSubscription::query()->count())->toBe(0)
+        ->and(BillingCharge::query()->count())->toBe(0);
+});
+
 test('platform admins activate a subscription after previewing the annual charge', function () {
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
     $plan = testPlan(['name' => 'Standard']);
@@ -69,7 +89,7 @@ test('platform admins activate a subscription after previewing the annual charge
         ->assertSee('2026-10-20 to 2027-10-19 (inclusive), renews on 2027-10-20');
 
     $this->actingAs($this->admin, 'platform')
-        ->post(route('platform.subscriptions.activate.store', $tenant), ['plan_id' => $plan->id, 'seats' => 10, 'starts_on' => '2026-10-20'])
+        ->post(route('platform.subscriptions.activate.store', $tenant), ['plan_id' => $plan->id, 'seats' => 10, 'starts_on' => '2026-10-20', 'expected_total' => 220000])
         ->assertRedirect(route('platform.subscriptions.show', $tenant))
         ->assertSessionHasNoErrors();
 

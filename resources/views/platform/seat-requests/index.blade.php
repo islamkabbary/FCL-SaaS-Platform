@@ -43,6 +43,7 @@
                     <div class="flex flex-col gap-2 lg:w-72">
                         <form method="POST" action="{{ route('platform.seat-requests.approve', $request) }}" class="flex flex-col gap-2">
                             @csrf
+                            <input type="hidden" name="expected_amount" value="{{ array_sum(array_column($previews[$request->id]['lines'], 'amount')) }}">
                             <flux:input name="review_note" size="sm" :placeholder="__('Note to the tenant (optional)')" />
                             <flux:button size="sm" variant="primary" type="submit" data-test="approve-request-{{ $request->id }}">{{ __('Approve') }}</flux:button>
                         </form>

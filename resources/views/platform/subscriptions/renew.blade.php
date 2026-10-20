@@ -71,6 +71,7 @@
                     @csrf
                     <input type="hidden" name="plan_id" value="{{ $quote->plan->id }}">
                     <input type="hidden" name="seats" value="{{ $quote->seats }}">
+                    <input type="hidden" name="expected_total" value="{{ $quote->annualTotal() }}">
                     @if ($quote->pricingChanged())
                         <flux:checkbox name="accept_pricing_change" value="1" :label="__('I confirm the new plan and prices for this renewal.')" required />
                     @endif
