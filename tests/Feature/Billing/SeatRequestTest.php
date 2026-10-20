@@ -15,6 +15,7 @@ use App\Models\BillingCharge;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditLog;
 use App\Models\SeatChangeRequest;
+use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -237,6 +238,54 @@ test('an approved increase supersedes a reduction scheduled earlier', function (
 
     expect($quote->scheduledReduction)->toBeNull()
         ->and($quote->seats)->toBe(5);
+});
+
+/**
+ * Renew the subscription early (inside the renewal window): the next term starts 2027-03-01.
+ */
+function renewEarly(int $seats): SubscriptionTerm
+{
+    test()->travelTo(CarbonImmutable::parse('2027-02-15 10:00:00'));
+
+    return app(RenewSubscription::class)->handle(
+        test()->platformAdmin, test()->tenant, SubscriptionPlan::query()->findOrFail(test()->term->subscription_plan_id), $seats, false,
+    );
+}
+
+test('a reduction cannot be requested once the next term is confirmed', function () {
+    renewEarly(2);
+
+    expect(fn () => requestSeats(SeatRequestType::Reduction, 1))
+        ->toThrow(InvalidSubscriptionChange::class, 'Your renewal from 2027-03-01 is already confirmed with 2 seats.');
+
+    Livewire::actingAs($this->admin)
+        ->test('pages::subscription.index')
+        ->assertSeeHtml('data-test="reduction-after-renewal"')
+        ->assertDontSeeHtml('data-test="request-reduction-button"');
+});
+
+test('a reduction requested before an early renewal cannot be approved after it', function () {
+    $reduction = requestSeats(SeatRequestType::Reduction, 1);
+    renewEarly(2);
+
+    expect(fn () => app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $reduction))
+        ->toThrow(InvalidSubscriptionChange::class, 'The next term is already confirmed');
+
+    expect($reduction->refresh()->status)->toBe(SeatRequestStatus::Pending);
+});
+
+test('the seat maximum also applies to a confirmed later term', function () {
+    config(['billing.max_seats' => 6]);
+    renewEarly(4); // current term 2 seats, next term 4 seats
+
+    expect(fn () => requestSeats(SeatRequestType::Increase, 3))
+        ->toThrow(InvalidSubscriptionChange::class, 'Request between 1 and 2 additional seats.');
+
+    $increase = requestSeats(SeatRequestType::Increase, 2);
+    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $increase);
+
+    expect($this->term->refresh()->seats)->toBe(4)
+        ->and(SubscriptionTerm::query()->orderByDesc('sequence')->first()->seats)->toBe(6);
 });
 
 test('requests can only be made during an active term', function () {

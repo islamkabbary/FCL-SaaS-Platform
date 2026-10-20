@@ -110,15 +110,17 @@ class ReviewSeatChangeRequest
             if ($request->type === SeatRequestType::Increase) {
                 $lines = $this->quote($request, $today);
                 $term = $subscription->termOn($today);
+                $futureTerms = $this->futureTerms($subscription, $today);
+                $mostSeats = max([$term->seats ?? 0, ...array_map(fn (SubscriptionTerm $future): int => $future->seats, [...$futureTerms])]);
 
-                if ($term === null || $term->seats + $request->seats > config('billing.max_seats')) {
+                if ($term === null || $mostSeats + $request->seats > config('billing.max_seats')) {
                     throw new InvalidSubscriptionChange(__('At most :max seats can be purchased.', ['max' => config('billing.max_seats')]));
                 }
 
                 $oldSeats = $term->seats;
                 $term->forceFill(['seats' => $term->seats + $request->seats])->save();
 
-                foreach ($this->futureTerms($subscription, $today) as $future) {
+                foreach ($futureTerms as $future) {
                     $future->forceFill(['seats' => $future->seats + $request->seats])->save();
                 }
 
@@ -141,6 +143,11 @@ class ReviewSeatChangeRequest
                     ...($superseded !== [] ? ['superseded_reductions' => $superseded] : []),
                 ];
             } else {
+                // Requested before an early renewal: it would only apply a year later.
+                if ([...$this->futureTerms($subscription, $today)] !== []) {
+                    throw new InvalidSubscriptionChange(__('The next term is already confirmed, so this reduction cannot apply at its renewal. Reject the request; the tenant can ask again once that term has started.'));
+                }
+
                 // Only the latest approved reduction applies at renewal.
                 $this->supersedeScheduledReductions($subscription);
 

@@ -243,9 +243,13 @@ new #[Title('Subscription & billing')] class extends Component {
                         <flux:modal.trigger name="request-increase">
                             <flux:button variant="primary" icon="plus" data-test="request-increase-button">{{ __('Request additional seats') }}</flux:button>
                         </flux:modal.trigger>
-                        <flux:modal.trigger name="request-reduction">
-                            <flux:button icon="minus" data-test="request-reduction-button">{{ __('Request fewer seats at renewal') }}</flux:button>
-                        </flux:modal.trigger>
+                        @if ($this->seatUsage->confirmedLaterTermSeats === null)
+                            <flux:modal.trigger name="request-reduction">
+                                <flux:button icon="minus" data-test="request-reduction-button">{{ __('Request fewer seats at renewal') }}</flux:button>
+                            </flux:modal.trigger>
+                        @else
+                            <flux:text data-test="reduction-after-renewal">{{ __('Your next term is already confirmed. Fewer seats can be requested once it has started.') }}</flux:text>
+                        @endif
                     @endif
                 </div>
             @endif
