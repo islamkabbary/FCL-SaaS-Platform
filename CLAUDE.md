@@ -25,3 +25,13 @@ This rule applies to every commit and every push in this repository, not only to
 
 11. **Owner identity only.** Everything committed or pushed to this repository must appear under the owner's name alone: author and committer `Islam Kabbary` with the existing verified repository email. Nothing may be authored, committed, co-authored or signed off as Claude, Claude Code, Anthropic or any AI assistant, and no `Co-Authored-By`, `Generated with` or similar AI trailer may appear in a commit message or pull request description.
 12. **Check before every push.** When a push is explicitly authorized, first list the outgoing commits (`git log origin/main..main --format='%an <%ae> | %cn <%ce>%n%B'`) and confirm that every author and committer is `Islam Kabbary` and that no message mentions AI attribution. If any commit fails this check, do not push; report it to the owner instead.
+
+## FCL Operations Knowledge Base
+
+FCL Ocean Import Operations is planned in [`docs/fcl/`](docs/fcl/README.md). Start there before any FCL work.
+
+- Original research, kept unchanged: `docs/fcl/research/01-global-fcl-research.md` and `docs/fcl/research/02-egypt-operations-research.md`.
+- Decision register: `docs/fcl/BUSINESS_DECISIONS.md`. Open questions: `docs/fcl/OPEN_QUESTIONS.md`.
+- Roadmap and current plan: `docs/fcl/MVP_ROADMAP.md` and `docs/fcl/M1_IMPLEMENTATION_PLAN.md`.
+- Confirmed owner decisions override research suggestions. The repository's current code is the authority for implemented behaviour.
+- Open questions and PROPOSED items are not approved requirements. Do not implement them as if they were.
