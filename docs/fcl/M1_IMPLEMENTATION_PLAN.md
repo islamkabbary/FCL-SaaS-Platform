@@ -1,6 +1,18 @@
 # FCL M1 Implementation Plan — Core Import Job Workspace
 
-**Status:** PROPOSED plan, **not started**. Nothing in this document has been implemented. · **Created:** 2026-10-22 (Phase 0) · **Baseline:** commit `bcd7c38`
+**Status:** in progress. **M1-A1 to M1-A3 implemented and committed** (2026-10-22); everything else is still a proposal. · **Created:** 2026-10-22 (Phase 0) · **Baseline:** commit `bcd7c38`
+
+## Progress log
+
+| Date | Step | State | Notes |
+|---|---|---|---|
+| 2026-10-22 | P0 decisions | Done | Owner approved Q-X01 → BD-T13, Q-S03 → BD-AUD01, PR-08 → BD-SEC04 (stricter: deny FCL reads in every layer, not by naming alone) |
+| 2026-10-22 | **A1** FCL permission vocabulary | **Implemented** | 9 new cases in `App\Enums\TenantPermission`: `audit.view`, `fcl.jobs.view`, `fcl.jobs.view-all-branches`, `fcl.jobs.create`, `fcl.jobs.update`, `fcl.jobs.cancel`, `fcl.aci.correct`, `fcl.parties.view`, `fcl.parties.manage`. Synced to Tenant Admin only; existing tenants need `tenants:sync-authorization`. Names may still be adjusted before features use them |
+| 2026-10-22 | **A2** Impersonation denial | **Implemented** | `RestrictionPolicy` + `ImpersonationServiceProvider` + new `DenyDuringImpersonation` middleware (alias `impersonation.deny`), marker `App\Impersonation\DeniedDuringImpersonation`. See §4.1 |
+| 2026-10-22 | **A3** Tenant audit | **Implemented** | `App\Models\TenantAuditLog`, tenant migration `tenant_audit_logs`, `AppendOnlyBuilder`, `TenantAuditLogPolicy`. Existing tenants need `tenants:migrate`. See §4.2 |
+| — | A4 branch scope primitive | Not started | Not needed by A1–A3; build with the first branch-scoped resource (parties are tenant-wide, so likely M1-B) |
+| — | A5 validators, A6 parties, A7 test support, A8 milestone doc | Not started | Next batch |
+| 2026-10-22 | Verification | See the batch report | Focused tests, protection-removal checks, full `composer test` |
 
 M1 is split into three steps:
 - **M1-A** builds foundations that depend on no operational question.
@@ -99,6 +111,58 @@ The Laravel Boost guidelines in `AGENTS.md` apply: `search-docs` before version-
 - No FCL table exists on the central connection (schema assertion).
 - ISO 6346 validator: valid, invalid and edge cases.
 - ACID normaliser: 16- and 19-digit values both accepted, non-digits rejected, whitespace normalised.
+
+### 4.1 As built: impersonation denial (A2)
+
+FCL access is refused during support access and employee view in every layer, **reads included**. A refusal returns 403 and is recorded in the session's event trail.
+
+| Layer | Rule | Recognised by |
+|---|---|---|
+| HTTP (`EnforceImpersonation` → `RestrictionPolicy::allowsRequest`) | Any method, including GET | Route name starting `fcl.`, or the `impersonation.deny` middleware on the route |
+| HTTP (route middleware `impersonation.deny`) | Same, independently | The middleware itself |
+| Livewire (`before('mount')` and `before('hydrate')`) | The component is never mounted, re-rendered (`$refresh`), updated or called. The listener runs before the component's own boot, mount, hydrate and `updating*` hooks | Name starting `pages::fcl.` or `fcl.`, or `implements DeniedDuringImpersonation` |
+| Gate (`Gate::before`) | FCL permission abilities are not allowlisted. Generic `view`/`viewAny` are refused when the resource is FCL | Class in `App\Models\Fcl\`, or `implements DeniedDuringImpersonation` |
+| Policy | `TenantAuditLogPolicy` refuses the impersonated user itself | — |
+
+**Conventions for every FCL feature:**
+- route names start with `fcl.`, inside a group that also has `impersonation.deny`;
+- page components live under `resources/views/pages/fcl/` (`pages::fcl.*`);
+- models live in `App\Models\Fcl\`.
+
+Each of these is recognised on its own, so one forgotten convention does not open access. Allowing any FCL read during support access needs an approved policy (BD-SEC04).
+
+### 4.2 As built: tenant audit (A3)
+
+**Writing records.** Use `TenantAuditLog::record($action, $actor, $subject, $old, $new, $reason, $metadata)`.
+- `$action` is a string-backed enum of the calling feature, for example a future `App\Enums\Fcl\FclAuditAction`. No action enum is defined yet, because no audited FCL action exists.
+- `$actor` is a `User`, or `null` for the system.
+- **The call must be inside the database transaction of the change.** Outside one it throws, so a change and its record commit or roll back together.
+
+**What a record stores:**
+- action, subject type and id;
+- the effective actor: id, name and email snapshot;
+- during an impersonation, the kind, the session id and the original actor (Platform Admin or Tenant Admin: type, id, name, email);
+- a per-HTTP-request correlation id (none outside HTTP);
+- old values, new values and metadata, each run through `redact()`, which hides password, secret, token, remember, credential, API key, signature, cookie and session keys at any depth;
+- the reason and `created_at`.
+
+**Guards:**
+- tenant context only;
+- the subject must not be a central model;
+- the action must be string-backed.
+
+**Immutability:**
+- `IsAppendOnly` covers changes to loaded records;
+- `AppendOnlyBuilder` (`#[UseEloquentBuilder]`) refuses mass `update`, `upsert`, `touch`, `increment`/`decrement` (also the `Each` variants), `delete` and `forceDelete`;
+- `DB::table()` / `toBase()` and direct database access are not covered (documented limitation).
+
+**Reading.**
+- Requires `audit.view` and an active user.
+- Never during an impersonation.
+- No create, update or delete abilities exist.
+- **No audit UI was built** in this batch.
+
+**Location.** The tenant database only. Tests assert that the central database has no `tenant_audit_logs` table and that `platform_audit_logs` is not written.
 
 **M1-A acceptance:**
 - `composer test` passes: Pint, PHPStan level 7, Pest.
@@ -245,7 +309,8 @@ Each has a provisional answer. The owner may confirm all of them in one reply. *
 
 | Work | Can start | Blocked by |
 |---|---|---|
-| M1-A1 to A8 | **Yes**, once Q-X01 and Q-S03 are confirmed (or accepted provisionally) | — |
+| M1-A1 to A3 | **Done** (2026-10-22) | — |
+| M1-A4 to A8 | **Yes** | A6 parties: Q-D03 provisional (tenant-wide parties) |
 | M1-B migrations and actions | No | Q-P01, Q-P05, Q-P08, Q-A02, Q-A03, Q-A06, Q-D01 (each has a provisional answer to accept) |
 | M1-C1 to C5, C9 | After M1-B | — |
 | M1-C6 / C7 / C8 | After M1-B | Q-BR01 / Q-P04 / Q-P07 |

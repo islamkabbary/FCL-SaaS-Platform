@@ -124,7 +124,7 @@ These are all of them:
 - `impersonation_sessions`, `impersonation_events`
 - `notifications`
 
-**There is no tenant business audit table and no FCL table.**
+**At Phase 0 there was no tenant business audit table and no FCL table.** M1-A added `tenant_audit_logs` (2026-10-22); there is still no FCL business table.
 
 Central tables include:
 - `tenants`, `domains`
@@ -237,12 +237,12 @@ It also drops the tenant databases each test created.
 | 5.1 | FCL transactions live only in the tenant DB; SaaS plans, seats and billing stay central | BD-T10, BD-T11; [CODE] §4.4 |
 | 5.2 | Shipment charges, costs and profitability are unrelated to SaaS billing; never reuse `app/Billing` proration for shipments | BD-T12; R1 L1073 |
 | 5.3 | Every FCL write action authorises inside the action, not only in the component | [CODE] §4.6 pattern |
-| 5.4 | **Impersonation:** FCL writes are denied by the allowlist automatically. However the allowlist **allows the generic abilities `viewAny` and `view` and every GET request**. An FCL policy using those ability names would let support staff *read* FCL data. Use FCL-specific ability names until the owner decides (Q-S01) | `RestrictionPolicy::AllowedAbilities` |
+| 5.4 | **Impersonation:** the allowlist allows the generic abilities `viewAny`/`view` and every GET request for reviewed SaaS pages. **Since M1-A (2026-10-22) FCL is denied in every layer, reads included** (BD-SEC04): FCL routes, components and resources are recognised by naming convention *and* by marker/middleware. Follow the conventions in [M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md) §4.1 | `RestrictionPolicy`, `DenyDuringImpersonation` |
 | 5.5 | New FCL permissions are given to Tenant Admin automatically by the sync; employees get them only through roles | `SyncTenantAuthorization` |
 | 5.6 | Do not cache tenant data (central cache) | `config/tenancy.php` bootstrappers |
 | 5.7 | The first queued FCL job must prove tenant context initialises and reverts, and fails closed | R1 L186–196; no jobs exist yet |
 | 5.8 | Uploads stay disabled until a tenant-aware design exists | M5 §12.1 |
-| 5.9 | No tenant audit exists; FCL must build one in the tenant DB | [CODE] §4.8 |
+| 5.9 | Tenant audit: built in M1-A as `TenantAuditLog` (tenant DB, append-only, written inside the change's transaction). FCL writes must record through it | BD-AUD01; plan §4.2 |
 | 5.10 | Only the `MAIN` branch exists, so branch-scoping tests must seed extra branches. A branch-management UI is a separate decision | [CODE] §4.5; Q-BR02 |
 | 5.11 | Money uses exact decimals (`brick/math`, `App\Billing\Money` pattern), never floats | [CODE]; R1 L806 |
 | 5.12 | Tenant migrations run with `php artisan tenants:migrate`, and permissions sync with `tenants:sync-authorization`, as deployment steps | readiness §4 |

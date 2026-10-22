@@ -11,7 +11,7 @@
 5. An AI recommendation is never labelled as an owner decision. To change a decision, add a new row that supersedes it; do not edit history silently.
 6. SaaS-layer decisions (plans, seats, billing, support access) are recorded in the [handover](../FCL_SaaS_Complete_Project_Handover_2026-10-19.md) §2 and §19 and are not repeated here, except where FCL depends on them.
 
-**Sources:** `OWNER-P0` = the owner's Phase 0 brief (2026-10-22) · `HANDOVER` = handover document 2026-10-19 · `CODE` = repository at `bcd7c38` · `R1`/`R2` = research reports (see [RESEARCH_SYNTHESIS.md](RESEARCH_SYNTHESIS.md)).
+**Sources:** `OWNER-P0` = the owner's Phase 0 brief (2026-10-22) · `OWNER-M1A` = the owner's approval of the first M1 batch (2026-10-22) · `HANDOVER` = handover document 2026-10-19 · `CODE` = repository at `bcd7c38` · `R1`/`R2` = research reports (see [RESEARCH_SYNTHESIS.md](RESEARCH_SYNTHESIS.md)).
 
 ---
 
@@ -70,7 +70,8 @@
 
 | ID | Topic | Decision and rationale | Status | Source | Implications | Date |
 |---|---|---|---|---|---|---|
-| BD-T01 | Architecture | Laravel **monolith**, organised by feature (owner term: modular monolith) | CONFIRMED | OWNER-P0; CODE | Today's code is grouped by technical type with feature subfolders ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §4.1). Exact FCL folder layout: Q-X01 | 2026-10-22 |
+| BD-T01 | Architecture | Laravel **monolith**, organised by feature (owner term: modular monolith) | CONFIRMED | OWNER-P0; CODE | Today's code is grouped by technical type with feature subfolders ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §4.1). FCL layout: BD-T13 | 2026-10-22 |
+| BD-T13 | FCL code layout | Follow the existing Laravel conventions with FCL subfolders: `app/Actions/Fcl/`, `app/Models/Fcl/`, `app/Policies/Fcl/`, `app/Enums/Fcl/`, `tests/Feature/Fcl/`; tenant migrations in `database/migrations/tenant/`. No modular-architecture package; no restructuring of existing code | CONFIRMED (resolves Q-X01, supersedes PR-10) | OWNER-M1A (2026-10-22) | Shared, non-FCL capabilities (tenant audit, permission catalog) stay in their existing generic locations | 2026-10-22 |
 | BD-T02 | Tenancy | **Database per tenant** | CONFIRMED | HANDOVER §2.1; CODE | FCL tables in `database/migrations/tenant/` | 2026-10-19 |
 | BD-T03 | Control plane | The central SaaS/control plane stays separate from tenant operations | CONFIRMED | OWNER-P0; CODE | No FCL model uses `CentralConnection` | 2026-10-22 |
 | BD-T04 | Tenant | Each freight forwarding company is one tenant | CONFIRMED | HANDOVER §2.1 | — | 2026-10-19 |
@@ -90,6 +91,8 @@
 | BD-SEC01 | Impersonation | New FCL **writes are not allowed during impersonation** unless explicitly reviewed | CONFIRMED | OWNER-P0; CODE (`RestrictionPolicy` allowlist) | Do not add FCL methods/components to the allowlist without owner review. FCL **reads** during impersonation: Q-S01 | 2026-10-22 |
 | BD-SEC02 | Default deny | New FCL permissions and actions are **denied by default** until explicitly reviewed | CONFIRMED | OWNER-P0 | Employee role gets no FCL permissions automatically; Tenant Admin receives them via sync ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §5.5) | 2026-10-22 |
 | BD-SEC03 | Uploads | Generic Livewire uploads stay **disabled**; tenant-aware uploads are a dependency of the document milestone | CONFIRMED | OWNER-P0; CODE (`RejectTemporaryUploads`) | No `WithFileUploads` in FCL until M2's secure design | 2026-10-22 |
+| BD-SEC04 | Impersonation reads | **All FCL business access is denied during impersonation, reads included**, until an explicit support-access policy is approved. Do not rely only on permission naming; cover generic `view`/`viewAny`, GET routes, Livewire actions/updates and direct resource access | CONFIRMED (supersedes PR-08) | OWNER-M1A (2026-10-22) | Implemented in M1-A: `RestrictionPolicy` denies FCL routes (name `fcl.*` or middleware `impersonation.deny`), FCL components (`pages::fcl.*`, `fcl.*` or `DeniedDuringImpersonation`) on mount and hydrate, and FCL resources (`App\Models\Fcl\*` or `DeniedDuringImpersonation`) even for `view`/`viewAny` | 2026-10-22 |
+| BD-AUD01 | Tenant audit | A reusable, **append-only tenant-side business audit**, stored only in each tenant database, separate from `PlatformAuditLog`. Captures original and effective actors, action, resource, timestamp, change metadata, support-session/correlation context; never secrets or full payloads; written in the same transaction as the change; not modifiable through normal application operations; reading restricted by permission and denied during impersonation | CONFIRMED (supersedes PR-09) | OWNER-M1A (2026-10-22) | Implemented in M1-A as `App\Models\TenantAuditLog` (table `tenant_audit_logs`), permission `audit.view` | 2026-10-22 |
 
 ## 7. Knowledge governance
 
@@ -115,9 +118,9 @@ These are Claude's Phase 0 recommendations. They are **not** decisions. Approve,
 | PR-05 | Cross-job duplicate ACID / MBL detection with explicit confirmation, no DB uniqueness | BD-A05 | Q-A03, Q-B03 | PROPOSED |
 | PR-06 | Tenant-wide job numbering `IMP-<year>-<6-digit sequence>`, generated under lock in the creation transaction | Simple, unique, readable | Q-P05 | PROPOSED |
 | PR-07 | Parties: one tenant-wide `parties` table + per-job role links; role enum starting with customer, importer, consignee, notify, shipper/exporter, origin agent, carrier | R1 L669; BD-P09 | Q-D01 | PROPOSED |
-| PR-08 | FCL ability names are FCL-specific (`fcl.jobs.view`, …) so that FCL reads are denied during impersonation until reviewed | Closes the `viewAny`/`view` gap ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §5.4) | Q-S01 | PROPOSED |
-| PR-09 | New append-only tenant audit (`fcl` scope first) written explicitly by actions; the job timeline reads from audit + domain events | No tenant audit exists | Q-S03 | PROPOSED |
-| PR-10 | FCL code follows the existing feature-subfolder convention; no new base folder | AGENTS.md | Q-X01 | PROPOSED |
+| PR-08 | FCL ability names are FCL-specific (`fcl.jobs.view`, …) so that FCL reads are denied during impersonation until reviewed | Closes the `viewAny`/`view` gap ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §5.4) | Q-S01 | SUPERSEDED by BD-SEC04 (stricter: all layers, not naming only) |
+| PR-09 | New append-only tenant audit (`fcl` scope first) written explicitly by actions; the job timeline reads from audit + domain events | No tenant audit exists | Q-S03 | SUPERSEDED by BD-AUD01 |
+| PR-10 | FCL code follows the existing feature-subfolder convention; no new base folder | AGENTS.md | Q-X01 | SUPERSEDED by BD-T13 |
 | PR-11 | Livewire only in the MVP; REST API deferred, but all rules in actions | R1 L692–702 | Q-X04 | PROPOSED |
 | PR-12 | Documents, charges and booking are **not** in M1 (unlike R1's M1 list) | Keeps M1 to the operational spine (R1 L1183) | X7 | PROPOSED |
 | PR-13 | Two branch visibility permissions to start (own branch / all branches) | BD-T07, BD-T08 | Q-BR01 | PROPOSED |

@@ -19,13 +19,13 @@ A question can carry several codes.
 
 | Priority | Questions | Needed by |
 |---|---|---|
-| **P0 — before M1-A (foundations)** | Q-X01, Q-S03 | code location and audit design; both have a safe provisional answer and can be confirmed in one reply |
-| **P1 — before M1-B (job creation)** | Q-P01, Q-P05, Q-P08, Q-A02, Q-A03, Q-A06, Q-D01, Q-S01 | first migrations of the Import Job and ACI record |
+| **P0 — before M1-A (foundations)** | ~~Q-X01, Q-S03~~ resolved 2026-10-22 | — |
+| **P1 — before M1-B (job creation)** | Q-P01, Q-P05, Q-P08, Q-A02, Q-A03, Q-A06, Q-D01 (Q-S01 resolved) | first migrations of the Import Job and ACI record |
 | **P2 — before M1-C (workspace, assignment, visibility)** | Q-P04, Q-P07, Q-BR01, Q-BR02 | job list scoping and assignment |
 | **P3 — before a strict rule is coded** | Q-A01, Q-R01 | ACID format validator becomes strict |
 | **Later milestones** | everything else | M2–M6 |
 
-M1-A is blocked only by two architecture confirmations (Q-X01, Q-S03), not by any operational question.
+M1-A1 to A3 are implemented (2026-10-22). The rest of M1-A is blocked by no question.
 
 ---
 
@@ -86,9 +86,9 @@ M1-A is blocked only by two architecture confirmations (Q-X01, Q-S03), not by an
 
 | ID | Question | Class | Provisional approach (not approved) |
 |---|---|---|---|
-| **Q-S01** | May platform support staff and Tenant Admins in employee view **read** FCL data during impersonation? The current allowlist allows the generic abilities `viewAny` and `view` and every GET request ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §5.4), so FCL pages using those ability names would be readable | **BLOCKS M1-B** (policy naming) | Use FCL-specific ability names (e.g. `fcl.jobs.view`) so FCL reads are **denied** during impersonation by default; add them to the allowlist only after the owner decides. FCL writes stay denied (BD-SEC01) |
+| **Q-S01** — **RESOLVED → BD-SEC04** | May platform support staff and Tenant Admins in employee view **read** FCL data during impersonation? The current allowlist allows the generic abilities `viewAny` and `view` and every GET request ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §5.4), so FCL pages using those ability names would be readable | **BLOCKS M1-B** (policy naming) | Use FCL-specific ability names (e.g. `fcl.jobs.view`) so FCL reads are **denied** during impersonation by default; add them to the allowlist only after the owner decides. FCL writes stay denied (BD-SEC01) |
 | **Q-S02** | Which FCL actions are "sensitive" (cancel job, change branch, edit ACID, later customs release, finance approval, document deletion)? | DEFER per milestone | Classify each new action when it is built; sensitive actions need their own permission and reason |
-| **Q-S03** | No tenant-side business audit exists today ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §4.8). Should FCL audit live in the tenant DB only, and should the new tenant audit later also cover employee/role changes? | **BLOCKS M1-A** (audit design) | Tenant DB only, append-only, written explicitly by actions (same style as `PlatformAuditLog`). FCL data never goes to `fcl_central` (BD-T10). Record the original actor if writes are ever allowed during impersonation. Extending it to employees/roles is a separate, later decision |
+| **Q-S03** — **RESOLVED → BD-AUD01** | No tenant-side business audit exists today ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §4.8). Should FCL audit live in the tenant DB only, and should the new tenant audit later also cover employee/role changes? | **BLOCKS M1-A** (audit design) | Tenant DB only, append-only, written explicitly by actions (same style as `PlatformAuditLog`). FCL data never goes to `fcl_central` (BD-T10). Record the original actor if writes are ever allowed during impersonation. Extending it to employees/roles is a separate, later decision |
 
 ## 7. Regulatory and API verification
 
@@ -120,7 +120,7 @@ All **OPS + DEFER**. They come from R2 L1036–1055 and R1 L1179 and should be a
 
 | ID | Question | Class | Provisional approach (not approved) |
 |---|---|---|---|
-| **Q-X01** | The code is a conventional Laravel layout grouped by technical type, not module folders ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §4.1). Should FCL get its own base folder (e.g. `app/Fcl/...`) or follow the existing feature-subfolder convention? | **BLOCKS M1-A** | Follow the existing convention: `app/Actions/ImportJobs/`, `app/Models/`, `app/Enums/`, `app/Policies/`, `resources/views/pages/import-jobs/`. Prefix FCL-specific enums/classes clearly. No new base folder without approval (AGENTS.md) |
+| **Q-X01** — **RESOLVED → BD-T13** | The code is a conventional Laravel layout grouped by technical type, not module folders ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §4.1). Should FCL get its own base folder (e.g. `app/Fcl/...`) or follow the existing feature-subfolder convention? | **BLOCKS M1-A** | Follow the existing convention: `app/Actions/ImportJobs/`, `app/Models/`, `app/Enums/`, `app/Policies/`, `resources/views/pages/import-jobs/`. Prefix FCL-specific enums/classes clearly. No new base folder without approval (AGENTS.md) |
 | **Q-X02** | When a subscription expires, operational routes are fully blocked today (no read-only mode). Should tenants be able to read or export FCL data while expired? | DEFER (before production) | Keep FCL inside `subscription.active`, same as today |
 | **Q-X03** | Is an Arabic / RTL user interface required, and from which milestone? No translations exist today | DEFER · OPS | English UI with `__()` everywhere so translation stays possible; decide before customer pilots |
 | **Q-X04** | REST API in the MVP, or Livewire only? (R1 proposes an API in M1) | DEFER (M6) | Livewire only until an integration needs it; all rules in actions so an API can reuse them (R1 L692–702) |
