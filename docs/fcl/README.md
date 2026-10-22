@@ -2,7 +2,7 @@
 
 This folder is the source of truth for the **FCL Ocean Import Operations** module of the FCL SaaS Platform. The SaaS management layer (Milestones 1–5.1) is documented one level up in [`docs/`](../).
 
-**Current stage:** Phase 0 complete (knowledge integration and planning, 2026-10-22). **No FCL code exists yet.** The next step is FCL M1-A ([M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md) §4), after the owner confirms the P0 questions.
+**Current stage:** FCL M1-A1 to A3 done (permissions, impersonation denial, tenant audit; 2026-10-22). **Resume from [HANDOVER.md](HANDOVER.md).** Progress log: [M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md).
 
 ## Authority order
 
@@ -19,6 +19,7 @@ Open questions are **not** requirements. Do not implement a provisional approach
 
 | File | Purpose | Read when |
 |---|---|---|
+| [HANDOVER.md](HANDOVER.md) | Resume point: current phase, what is delivered, verification, open decisions, next batch, session instructions | First, in a new session or on a new computer |
 | [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) | Vision, scope, users, the **code-verified** SaaS baseline (tenancy, auth, impersonation, audit, uploads, tests) and the constraints FCL inherits | Before any FCL work |
 | [BUSINESS_DECISIONS.md](BUSINESS_DECISIONS.md) | Decision register: CONFIRMED / PROPOSED / OPEN / DEFERRED, with IDs (BD-xx, PR-xx) | Before designing or changing behaviour |
 | [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Decision backlog (Q-xx) with what each question blocks and a provisional approach | Before starting a step; when the owner answers something |
