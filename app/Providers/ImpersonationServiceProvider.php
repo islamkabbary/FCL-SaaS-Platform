@@ -16,6 +16,8 @@ use Livewire\Component;
 use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 
+use function Livewire\before;
+
 /**
  * Restricted interactive impersonation: the Livewire and authorization layers of the
  * restriction policy (the HTTP layer is EnforceImpersonation), and who may impersonate.
@@ -66,14 +68,16 @@ class ImpersonationServiceProvider extends ServiceProvider
      */
     protected function restrictAbilities(): void
     {
-        Gate::before(function (mixed $user, string $ability): ?bool {
+        // The resources are checked too: the generic "view" and "viewAny" abilities stay
+        // allowed for reviewed pages, but never for FCL Operations data.
+        Gate::before(function (mixed $user, string $ability, array $arguments = []): ?bool {
             $active = ActiveImpersonation::current();
 
             if ($active === null || ! $user instanceof User || $user->getKey() !== $active->targetUserId()) {
                 return null;
             }
 
-            return RestrictionPolicy::allowsAbility($ability) ? null : false;
+            return RestrictionPolicy::allowsAbility($ability, $arguments) ? null : false;
         });
 
         // The same steps as the package's provider, in the order it would take them.
@@ -88,6 +92,17 @@ class ImpersonationServiceProvider extends ServiceProvider
      */
     protected function restrictLivewire(): void
     {
+        // Denied components (FCL Operations) may not even be mounted, re-rendered or
+        // hydrated. These listeners run before the component's own boot, mount, hydrate
+        // and updating hooks, so none of its code runs for an impersonated session.
+        before('mount', function (Component $component): void {
+            $this->refuseDeniedComponent($component, 'mount');
+        });
+
+        before('hydrate', function (Component $component): void {
+            $this->refuseDeniedComponent($component, 'hydrate');
+        });
+
         Livewire::listen('call', function (Component $component, string $method): void {
             $active = ActiveImpersonation::current();
 
@@ -111,5 +126,18 @@ class ImpersonationServiceProvider extends ServiceProvider
 
             throw new AuthorizationException(__('This action is not available during an impersonation session.'));
         });
+    }
+
+    protected function refuseDeniedComponent(Component $component, string $stage): void
+    {
+        $active = ActiveImpersonation::current();
+
+        if ($active === null || ! RestrictionPolicy::deniesComponent($component)) {
+            return;
+        }
+
+        $active->recordDenied($component->getName().'@'.$stage, request()->method());
+
+        throw new AuthorizationException(__('This action is not available during an impersonation session.'));
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\DenyDuringImpersonation;
 use App\Http\Middleware\EnforceImpersonation;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsureTenantHasActiveSubscription;
@@ -83,6 +84,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'password.changed' => EnsurePasswordIsChanged::class,
             'subscription.active' => EnsureTenantHasActiveSubscription::class,
+            'impersonation.deny' => DenyDuringImpersonation::class,
         ]);
 
         $middleware->redirectGuestsTo(fn (Request $request): string => $request->routeIs('platform.*')
