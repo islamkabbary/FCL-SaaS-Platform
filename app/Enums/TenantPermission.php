@@ -5,8 +5,10 @@ namespace App\Enums;
 /**
  * Application permissions available inside a tenant (company).
  *
- * Employee and role management, and the company's view of its subscription;
- * FCL Operations permissions will be added in later milestones.
+ * Employee and role management, the company's view of its subscription, the company
+ * audit log, and FCL Operations. FCL permissions are granted to the Tenant Admin role by
+ * tenants:sync-authorization and to nobody else until a Tenant Admin grants them through
+ * a role. None of them is available during an impersonation session (RestrictionPolicy).
  */
 enum TenantPermission: string
 {
@@ -19,6 +21,15 @@ enum TenantPermission: string
     case RolesAssign = 'roles.assign';
     case BillingView = 'billing.view';
     case BillingManage = 'billing.manage';
+    case AuditView = 'audit.view';
+    case FclJobsView = 'fcl.jobs.view';
+    case FclJobsViewAllBranches = 'fcl.jobs.view-all-branches';
+    case FclJobsCreate = 'fcl.jobs.create';
+    case FclJobsUpdate = 'fcl.jobs.update';
+    case FclJobsCancel = 'fcl.jobs.cancel';
+    case FclAciCorrect = 'fcl.aci.correct';
+    case FclPartiesView = 'fcl.parties.view';
+    case FclPartiesManage = 'fcl.parties.manage';
 
     /**
      * Get the human readable label for the permission.
@@ -35,6 +46,15 @@ enum TenantPermission: string
             self::RolesAssign => __('Assign roles to employees'),
             self::BillingView => __('View the subscription, seats and billing history'),
             self::BillingManage => __('Request seat changes'),
+            self::AuditView => __('View the company audit log'),
+            self::FclJobsView => __('FCL: view import jobs of their own branch'),
+            self::FclJobsViewAllBranches => __('FCL: view import jobs of every branch'),
+            self::FclJobsCreate => __('FCL: open import jobs'),
+            self::FclJobsUpdate => __('FCL: edit import jobs'),
+            self::FclJobsCancel => __('FCL: cancel import jobs'),
+            self::FclAciCorrect => __('FCL: correct the ACID of an import job'),
+            self::FclPartiesView => __('FCL: view parties (customers, agents, carriers)'),
+            self::FclPartiesManage => __('FCL: create and edit parties'),
         };
     }
 
