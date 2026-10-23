@@ -10,6 +10,7 @@ use App\Models\BillingPayment;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditLog;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -56,17 +57,28 @@ class RecordPayment
                 throw new InvalidSubscriptionChange(__('The payment date cannot be in the future.'));
             }
 
-            $payment = BillingPayment::query()->create([
-                'billing_charge_id' => $charge->id,
-                'tenant_id' => $charge->tenant_id,
-                'currency' => $charge->currency,
-                'amount' => $amount,
-                'paid_on' => $paidOn,
-                'reference' => $reference,
-                'note' => $note,
-                'submission_token' => $submissionToken,
-                'recorded_by' => $admin->id,
-            ]);
+            // A payment of this charge cannot have been received before the charge existed.
+            if ($paidOn->startOfDay()->lessThan(CarbonImmutable::parse($charge->issued_on)->startOfDay())) {
+                throw new InvalidSubscriptionChange(__('The payment date cannot be before the charge was issued (:date).', ['date' => $charge->issued_on->toDateString()]));
+            }
+
+            try {
+                $payment = BillingPayment::query()->create([
+                    'billing_charge_id' => $charge->id,
+                    'tenant_id' => $charge->tenant_id,
+                    'currency' => $charge->currency,
+                    'amount' => $amount,
+                    'paid_on' => $paidOn,
+                    'reference' => $reference,
+                    'note' => $note,
+                    'submission_token' => $submissionToken,
+                    'recorded_by' => $admin->id,
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                // The same form submitted for two charges at once: each request locked its own
+                // charge, so only the unique token index noticed the second one.
+                throw new InvalidSubscriptionChange(__('This payment form was already used for another charge. Reload the page and enter the payment again.'));
+            }
 
             PlatformAuditLog::record($admin, $charge->tenant, PlatformAuditAction::PaymentRecorded, [
                 'charge_id' => $charge->id,

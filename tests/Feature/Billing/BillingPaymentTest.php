@@ -29,7 +29,7 @@ function pay(string $amount, ?string $token = null): TestResponse
 {
     return test()->actingAs(test()->platformAdmin, 'platform')->post(route('platform.charges.payments.store', test()->charge), [
         'amount' => $amount,
-        'paid_on' => '2026-05-09',
+        'paid_on' => '2026-05-10',
         'reference' => 'TRX-1001',
         'submission_token' => $token ?? (string) Str::uuid(),
     ]);
@@ -56,7 +56,7 @@ test('platform admins record partial and full payments with correct balances', f
     $payment = BillingPayment::query()->first();
     expect($payment->recorded_by)->toBe($this->platformAdmin->id)
         ->and($payment->reference)->toBe('TRX-1001')
-        ->and($payment->paid_on->toDateString())->toBe('2026-05-09')
+        ->and($payment->paid_on->toDateString())->toBe('2026-05-10')
         ->and($payment->currency)->toBe('USD');
 
     $entry = PlatformAuditLog::query()->where('action', PlatformAuditAction::PaymentRecorded)->orderBy('id')->first();
@@ -71,7 +71,7 @@ test('platform admins record partial and full payments with correct balances', f
 test('payments cannot exceed the balance, be zero, be in the future or have too many decimals', function (array $input, string $error) {
     test()->actingAs($this->platformAdmin, 'platform')->post(route('platform.charges.payments.store', $this->charge), [
         'amount' => '100',
-        'paid_on' => '2026-05-09',
+        'paid_on' => '2026-05-10',
         'submission_token' => (string) Str::uuid(),
         ...$input,
     ])->assertSessionHasErrors($error);
@@ -140,7 +140,7 @@ test('the same charge event can never be created twice', function () {
 });
 
 test('tenant admins see their read-only billing history and cannot record payments', function () {
-    app(RecordPayment::class)->handle($this->platformAdmin, $this->charge, 60000, CarbonImmutable::parse('2026-05-09'), 'TRX', null, (string) Str::uuid());
+    app(RecordPayment::class)->handle($this->platformAdmin, $this->charge, 60000, CarbonImmutable::parse('2026-05-10'), 'TRX', null, (string) Str::uuid());
     tenancy()->initialize($this->tenant);
     $admin = tenantAdminUser();
 
@@ -149,12 +149,12 @@ test('tenant admins see their read-only billing history and cannot record paymen
         ->assertSee('Annual subscription 2026-05-10 – 2027-05-09')
         ->assertSee('1,600.00 USD')
         ->assertSee('Partially paid')
-        ->assertSee('Payment May 9, 2026: 600.00 USD')
+        ->assertSee('Payment May 10, 2026: 600.00 USD')
         ->assertDontSee('Record a payment');
 
     // No tenant route can record payments: the platform area does not exist on a tenant subdomain.
     $this->actingAs($admin, 'web')
-        ->post($this->tenant->url("admin/charges/{$this->charge->id}/payments"), ['amount' => '1000', 'paid_on' => '2026-05-09', 'submission_token' => (string) Str::uuid()])
+        ->post($this->tenant->url("admin/charges/{$this->charge->id}/payments"), ['amount' => '1000', 'paid_on' => '2026-05-10', 'submission_token' => (string) Str::uuid()])
         ->assertNotFound();
 
     expect(BillingPayment::query()->count())->toBe(1);

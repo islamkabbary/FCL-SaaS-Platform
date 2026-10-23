@@ -129,7 +129,8 @@ class SubscriptionController extends Controller
     public function createRenewal(Request $request, Tenant $tenant, RenewSubscription $renewSubscription): View|RedirectResponse
     {
         $input = $request->validate([
-            'plan_id' => ['nullable', 'integer'],
+            // An unknown plan is an error, never a silent fallback to the current plan.
+            'plan_id' => ['nullable', 'integer', 'exists:subscription_plans,id'],
             'seats' => ['nullable', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
         ]);
 

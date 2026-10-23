@@ -122,6 +122,14 @@ class ReviewSeatChangeRequest
                     throw new InvalidSubscriptionChange(__('The next term is already confirmed, so this reduction cannot apply at its renewal. Reject the request; the tenant can ask again once that term has started.'));
                 }
 
+                // Requested in an earlier term (left pending through a renewal or an expiry), it
+                // was checked against seats that no longer apply and may not even be a reduction.
+                $currentTerm = $subscription->termOn($today);
+
+                if ($currentTerm === null || $request->subscription_term_id !== $currentTerm->id || $request->seats >= $currentTerm->seats) {
+                    throw new InvalidSubscriptionChange(__('This reduction was requested for an earlier term and no longer applies as asked. Reject the request; the tenant can ask again for the current term.'));
+                }
+
                 // Only the latest approved reduction applies at renewal.
                 $this->supersedeScheduledReductions($subscription);
 
