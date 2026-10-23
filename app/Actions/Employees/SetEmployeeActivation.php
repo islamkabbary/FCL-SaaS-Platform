@@ -54,6 +54,11 @@ class SetEmployeeActivation
             // (a locking read: see User::activeTenantAdminCount()).
             User::activeTenantAdminCount();
 
+            // Re-read both users after the lock: the actor may have been demoted (or the target
+            // promoted) by a request that held it, and their roles were loaded before.
+            $actor = $actor->fresh() ?? throw new AuthorizationException;
+            $employee->refresh();
+
             Gate::forUser($actor)->authorize('deactivate', $employee);
 
             $employee->forceFill([

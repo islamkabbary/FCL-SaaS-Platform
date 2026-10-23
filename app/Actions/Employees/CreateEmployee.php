@@ -12,6 +12,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use LogicException;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -53,7 +54,7 @@ class CreateEmployee
                 'name' => $attributes['name'],
                 'email' => Str::lower($attributes['email']),
                 'password' => $temporaryPassword,
-                'primary_branch_id' => Branch::query()->where('code', Branch::DefaultCode)->sole()->id,
+                'primary_branch_id' => $this->defaultBranchId(),
                 'must_change_password' => true,
                 'is_active' => true,
                 'email_verified_at' => now(),
@@ -63,5 +64,17 @@ class CreateEmployee
 
             return new CreatedEmployee($employee, $temporaryPassword);
         }));
+    }
+
+    /**
+     * The company's default branch: the one flagged as default (its code may change), else
+     * the one with the default code.
+     */
+    protected function defaultBranchId(): int
+    {
+        $id = Branch::query()->where('is_default', true)->orderBy('id')->value('id')
+            ?? Branch::query()->where('code', Branch::DefaultCode)->value('id');
+
+        return is_int($id) ? $id : throw new LogicException('This company has no default branch.');
     }
 }

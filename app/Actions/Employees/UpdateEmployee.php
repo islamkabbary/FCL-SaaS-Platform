@@ -47,6 +47,13 @@ class UpdateEmployee
                 // Lock the active Tenant Admins so two admins cannot demote each other at once
                 // (a locking read: see User::activeTenantAdminCount()).
                 User::activeTenantAdminCount();
+
+                // Re-read both users after the lock and authorize again: the actor may have been
+                // demoted (or the target promoted) by a request that held it.
+                $actor = $actor->fresh() ?? throw new AuthorizationException;
+                $employee->refresh();
+
+                Gate::forUser($actor)->authorize('update', $employee);
             }
 
             $employee->forceFill([
