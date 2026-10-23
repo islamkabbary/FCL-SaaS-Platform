@@ -89,6 +89,25 @@ class AppendOnlyBuilder extends Builder
         throw $this->refused('deleted');
     }
 
+    /**
+     * Passed on to the query builder by Eloquent; it would empty the whole table.
+     */
+    public function truncate(): never
+    {
+        throw $this->refused('deleted');
+    }
+
+    /**
+     * Passed on to the query builder by Eloquent; it updates an existing row in place.
+     *
+     * @param  array<mixed>  $attributes
+     * @param  array<mixed>|callable  $values
+     */
+    public function updateOrInsert(array $attributes, array|callable $values = []): never
+    {
+        throw $this->refused('changed');
+    }
+
     protected function refused(string $verb): LogicException
     {
         return new LogicException(class_basename($this->model).' records cannot be '.$verb.'.');

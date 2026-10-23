@@ -7,10 +7,12 @@ use App\Impersonation\DeniedDuringImpersonation;
 use App\Models\Builders\AppendOnlyBuilder;
 use App\Models\Concerns\IsAppendOnly;
 use BackedEnum;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use JsonSerializable;
 use LogicException;
 
 /**
@@ -67,7 +69,7 @@ class TenantAuditLog extends Model implements DeniedDuringImpersonation
     /**
      * Keys whose values are never stored, at any depth of the recorded values.
      */
-    public const RedactedKeyPattern = '/password|secret|token|remember|credential|api[_-]?key|signature|cookie|^session(_id)?$/i';
+    public const RedactedKeyPattern = '/password|passwd|passphrase|passcode|secret|token|remember|credential|recovery|private[_-]?key|api[_-]?key|signature|cookie|authorization|bearer|card[_-]?number|(^|[_.-])(pwd|pass|otp|pin|cvv|cvc|iban)([_.-]|$)|^session([_-]?(id|key))?$/i';
 
     public const Redacted = '[redacted]';
 
@@ -75,6 +77,21 @@ class TenantAuditLog extends Model implements DeniedDuringImpersonation
      * @var list<string>
      */
     protected $guarded = ['id'];
+
+    /**
+     * True only while record() saves, so no record can be inserted around its checks
+     * (create(), forceCreate(), replicate()->save()) with a forged actor or unredacted values.
+     */
+    private static bool $recording = false;
+
+    protected static function booted(): void
+    {
+        static::creating(function (): void {
+            if (! self::$recording) {
+                throw new LogicException('Tenant audit records can only be written through TenantAuditLog::record().');
+            }
+        });
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -138,7 +155,15 @@ class TenantAuditLog extends Model implements DeniedDuringImpersonation
             'new_values' => self::redact($newValues),
             'metadata' => self::redact($metadata),
             'reason' => $reason,
-        ])->save();
+        ]);
+
+        self::$recording = true;
+
+        try {
+            $record->save();
+        } finally {
+            self::$recording = false;
+        }
 
         return $record;
     }
@@ -156,6 +181,14 @@ class TenantAuditLog extends Model implements DeniedDuringImpersonation
         }
 
         foreach ($values as $key => $value) {
+            // Collections, models and DTOs are stored as their array form; redact that form
+            // too, or their keys would reach the record unchecked.
+            if ($value instanceof Arrayable) {
+                $value = $value->toArray();
+            } elseif ($value instanceof JsonSerializable && is_array($serialized = $value->jsonSerialize())) {
+                $value = $serialized;
+            }
+
             if (is_string($key) && preg_match(self::RedactedKeyPattern, $key) === 1) {
                 $values[$key] = self::Redacted;
             } elseif (is_array($value)) {

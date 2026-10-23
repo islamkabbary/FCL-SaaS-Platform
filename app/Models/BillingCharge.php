@@ -5,7 +5,9 @@ namespace App\Models;
 use App\Billing\Money;
 use App\Enums\ChargeStatus;
 use App\Enums\ChargeType;
+use App\Models\Builders\AppendOnlyBuilder;
 use App\Models\Concerns\IsAppendOnly;
+use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -36,6 +38,7 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * @property-read Collection<int, BillingChargeLine> $lines
  * @property-read Collection<int, BillingPayment> $payments
  */
+#[UseEloquentBuilder(AppendOnlyBuilder::class)]
 class BillingCharge extends Model
 {
     use CentralConnection, IsAppendOnly;

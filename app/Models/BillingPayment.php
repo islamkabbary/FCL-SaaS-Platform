@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Builders\AppendOnlyBuilder;
 use App\Models\Concerns\IsAppendOnly;
+use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -25,6 +27,7 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * @property-read BillingCharge $charge
  * @property-read PlatformAdmin|null $recorder
  */
+#[UseEloquentBuilder(AppendOnlyBuilder::class)]
 class BillingPayment extends Model
 {
     use CentralConnection, IsAppendOnly;

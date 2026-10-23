@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Builders\AppendOnlyBuilder;
 use App\Models\Concerns\IsAppendOnly;
+use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Stancl\Tenancy\Database\Concerns\CentralConnection;
@@ -17,6 +19,7 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * @property array<string, mixed>|null $calculation
  * @property-read BillingCharge $charge
  */
+#[UseEloquentBuilder(AppendOnlyBuilder::class)]
 class BillingChargeLine extends Model
 {
     use CentralConnection, IsAppendOnly;

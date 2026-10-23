@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Builders\AppendOnlyBuilder;
 use App\Models\Concerns\IsAppendOnly;
+use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Stancl\Tenancy\Database\Concerns\CentralConnection;
@@ -17,6 +19,7 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * @property string|null $http_method
  * @property Carbon|null $created_at
  */
+#[UseEloquentBuilder(AppendOnlyBuilder::class)]
 class SupportSessionEvent extends Model
 {
     use CentralConnection, IsAppendOnly;

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\PlatformAuditAction;
 use App\Impersonation\ActiveImpersonation;
+use App\Models\Builders\AppendOnlyBuilder;
+use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -33,6 +35,7 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * @property-read PlatformAdmin|null $admin
  * @property-read Tenant|null $tenant
  */
+#[UseEloquentBuilder(AppendOnlyBuilder::class)]
 class PlatformAuditLog extends Model
 {
     use CentralConnection;
