@@ -27,7 +27,7 @@ beforeEach(function () {
     app(ActivateSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, 5, CarbonImmutable::today());
 });
 
-function requestSeats(SeatRequestType $type, int $seats): SeatChangeRequest
+function renewalTestSeatRequest(SeatRequestType $type, int $seats): SeatChangeRequest
 {
     tenancy()->initialize(test()->tenant);
     $request = app(RequestSeatChange::class)->handle(tenantAdminUser(), $type, $seats);
@@ -70,7 +70,7 @@ test('a renewal confirmed from a form opened before seats were bought is refused
     $staleForm = renderedRenewalForm();
 
     // Meanwhile two seats are bought (and paid for) in the current term.
-    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, requestSeats(SeatRequestType::Increase, 2));
+    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, renewalTestSeatRequest(SeatRequestType::Increase, 2));
 
     submitRenewalForm($staleForm)->assertSessionHasErrors(['subscription' => 'The current term changed since the preview: it now has 7 seats. Review the renewal again.']);
 
@@ -87,7 +87,7 @@ test('a renewal confirmed from a form opened before a reduction was approved is 
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
     $staleForm = renderedRenewalForm();
 
-    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, requestSeats(SeatRequestType::Reduction, 3));
+    app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, renewalTestSeatRequest(SeatRequestType::Reduction, 3));
 
     submitRenewalForm($staleForm)->assertSessionHasErrors(['subscription' => 'An approved seat reduction changed since the preview. Review the renewal again.']);
 
@@ -95,7 +95,7 @@ test('a renewal confirmed from a form opened before a reduction was approved is 
 });
 
 test('an approved reduction is applied when the renewal uses its seats', function () {
-    $reduction = requestSeats(SeatRequestType::Reduction, 3);
+    $reduction = renewalTestSeatRequest(SeatRequestType::Reduction, 3);
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $reduction);
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
 
@@ -107,7 +107,7 @@ test('an approved reduction is applied when the renewal uses its seats', functio
 });
 
 test('an approved reduction is superseded, not applied, when the renewal uses other seats', function () {
-    $reduction = requestSeats(SeatRequestType::Reduction, 3);
+    $reduction = renewalTestSeatRequest(SeatRequestType::Reduction, 3);
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $reduction);
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
 

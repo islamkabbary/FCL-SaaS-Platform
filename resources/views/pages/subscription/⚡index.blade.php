@@ -1,7 +1,7 @@
 <?php
 
 use App\Actions\Billing\RequestSeatChange;
-use App\Billing\Pricing;
+use App\Billing\SeatIncreaseQuote;
 use App\Billing\SeatGuard;
 use App\Billing\SeatUsage;
 use App\Enums\SeatRequestType;
@@ -108,19 +108,27 @@ new #[Title('Subscription & billing')] class extends Component {
     }
 
     /**
-     * Estimated prorated charge for the entered number of additional seats, if valid.
+     * The charge lines an approval today would create for the entered number of additional
+     * seats, if valid: the rest of the current term, plus a renewed term already confirmed.
+     *
+     * @return list<array{description: string, amount: int}>|null
      */
     #[Computed]
-    public function increaseEstimate(): ?int
+    public function increaseEstimate(): ?array
     {
         $seats = filter_var($this->increaseSeats, FILTER_VALIDATE_INT);
-        $term = $this->currentTerm;
 
-        if ($term === null || $seats === false || $seats < 1 || $seats > config('billing.max_seats')) {
+        if ($this->subscription === null || $this->currentTerm === null || $seats === false || $seats < 1 || $seats > config('billing.max_seats')) {
             return null;
         }
 
-        return Pricing::prorate($seats, $term->annual_seat_price, $term->starts_on, $term->ends_on, CarbonImmutable::today())->amount;
+        try {
+            $lines = SeatIncreaseQuote::lines($this->subscription, $seats, CarbonImmutable::today());
+        } catch (InvalidSubscriptionChange) {
+            return null;
+        }
+
+        return array_map(fn (array $line): array => ['description' => $line['description'], 'amount' => $line['amount']], $lines);
     }
 
     public function requestIncrease(RequestSeatChange $requestSeatChange): void
@@ -357,13 +365,18 @@ new #[Title('Subscription & billing')] class extends Component {
             <form wire:submit="requestIncrease" class="space-y-6">
                 <div>
                     <flux:heading size="lg">{{ __('Request additional seats') }}</flux:heading>
-                    <flux:text class="mt-2">{{ __('Additional seats share the current renewal date (:date) and are charged only for the rest of the current term, after approval by the platform administrator.', ['date' => $this->currentTerm->ends_on->toFormattedDateString()]) }}</flux:text>
+                    <flux:text class="mt-2">{{ __('Additional seats share the current renewal date (:date) and are charged for the rest of the current term, after approval by the platform administrator. If your next term is already confirmed, they are added to it too and charged for that full term.', ['date' => $this->currentTerm->ends_on->toFormattedDateString()]) }}</flux:text>
                 </div>
 
                 <flux:input wire:model.live.debounce.300ms="increaseSeats" type="number" min="1" :label="__('Additional seats')" required />
 
                 @if ($this->increaseEstimate !== null)
-                    <flux:callout icon="calculator" :heading="__('Estimated charge if approved today: :amount', ['amount' => $this->currentTerm->format($this->increaseEstimate)])">
+                    <flux:callout icon="calculator" :heading="__('Estimated charge if approved today: :amount', ['amount' => $this->currentTerm->format(array_sum(array_column($this->increaseEstimate, 'amount')))])" data-test="increase-estimate">
+                        @if (count($this->increaseEstimate) > 1)
+                            @foreach ($this->increaseEstimate as $line)
+                                <flux:callout.text>{{ $line['description'] }}: {{ $this->currentTerm->format($line['amount']) }}</flux:callout.text>
+                            @endforeach
+                        @endif
                         <flux:callout.text>{{ __('The final amount is calculated on the day of approval.') }}</flux:callout.text>
                     </flux:callout>
                 @endif

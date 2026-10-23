@@ -4,6 +4,7 @@ namespace App\Actions\Billing;
 
 use App\Billing\Money;
 use App\Billing\Pricing;
+use App\Billing\SeatIncreaseQuote;
 use App\Enums\ChargeType;
 use App\Enums\PlatformAuditAction;
 use App\Enums\SeatRequestStatus;
@@ -48,52 +49,9 @@ class ReviewSeatChangeRequest
             return [];
         }
 
-        $on = Pricing::day($on ?? CarbonImmutable::today());
         $subscription = TenantSubscription::query()->findOrFail($request->tenant_subscription_id);
-        $term = $subscription->termOn($on)
-            ?? throw new InvalidSubscriptionChange(__('The subscription has no active term today, so additional seats cannot be charged. Reject the request instead.'));
 
-        $proration = Pricing::prorate($request->seats, $term->annual_seat_price, $term->starts_on, $term->ends_on, $on);
-
-        $lines = [[
-            'description' => __(':seats additional seats, :from – :to (:remaining of :total days)', [
-                'seats' => $request->seats,
-                'from' => $on->toDateString(),
-                'to' => $term->lastDay()->toDateString(),
-                'remaining' => $proration->remainingDays,
-                'total' => $proration->totalDays,
-            ]),
-            'quantity' => $request->seats,
-            'unit_amount' => $term->annual_seat_price,
-            'amount' => $proration->amount,
-            'calculation' => [
-                'term_id' => $term->id,
-                'annual_seat_price' => $term->annual_seat_price,
-                'seats' => $request->seats,
-                'calculated_on' => $on->toDateString(),
-                'term_starts_on' => $term->starts_on->toDateString(),
-                'term_ends_on' => $term->ends_on->toDateString(),
-                'remaining_days' => $proration->remainingDays,
-                'total_days' => $proration->totalDays,
-                'rounding' => 'half_up_to_minor_unit',
-            ],
-        ]];
-
-        foreach ($this->futureTerms($subscription, $on) as $future) {
-            $lines[] = [
-                'description' => __(':seats additional seats, renewed term :from – :to', [
-                    'seats' => $request->seats,
-                    'from' => $future->starts_on->toDateString(),
-                    'to' => $future->lastDay()->toDateString(),
-                ]),
-                'quantity' => $request->seats,
-                'unit_amount' => $future->annual_seat_price,
-                'amount' => $future->annual_seat_price * $request->seats,
-                'calculation' => ['term_id' => $future->id, 'annual_seat_price' => $future->annual_seat_price, 'seats' => $request->seats],
-            ];
-        }
-
-        return $lines;
+        return SeatIncreaseQuote::lines($subscription, $request->seats, $on ?? CarbonImmutable::today());
     }
 
     /**
@@ -254,10 +212,6 @@ class ReviewSeatChangeRequest
      */
     protected function futureTerms(TenantSubscription $subscription, CarbonImmutable $on): iterable
     {
-        return SubscriptionTerm::query()
-            ->where('tenant_subscription_id', $subscription->id)
-            ->whereDate('starts_on', '>', $on->toDateString())
-            ->orderBy('sequence')
-            ->get();
+        return SeatIncreaseQuote::futureTerms($subscription, $on);
     }
 }

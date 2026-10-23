@@ -2,7 +2,7 @@
 
 namespace App\Actions\Billing;
 
-use App\Billing\Pricing;
+use App\Billing\SeatIncreaseQuote;
 use App\Enums\PlatformAuditAction;
 use App\Enums\SeatRequestStatus;
 use App\Enums\SeatRequestType;
@@ -59,8 +59,9 @@ class RequestSeatChange
                 throw new InvalidSubscriptionChange(__('Request between 1 and :max additional seats.', ['max' => max(1, $maxSeats - $mostSeats)]));
             }
 
-            // An estimate only: the charge is computed again on the day of approval.
-            $estimate = Pricing::prorate($seats, $term->annual_seat_price, $term->starts_on, $term->ends_on, $today)->amount;
+            // An estimate only: the charge is computed again on the day of approval. It uses the
+            // approval's own calculation, so it includes a later term already confirmed.
+            $estimate = SeatIncreaseQuote::total(SeatIncreaseQuote::lines($subscription, $seats, $today));
         } else {
             // A reduction applies at the next renewal. Once that renewal is confirmed, it would
             // only apply a year later and be compared with the wrong term, so it waits.
