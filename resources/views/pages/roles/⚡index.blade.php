@@ -62,6 +62,9 @@ new #[Title('Roles & Permissions')] class extends Component {
 
     public function save(SaveRole $saveRole): void
     {
+        // Stored normalised, so the uniqueness check compares the name that will be saved.
+        $this->name = TenantRole::normalizeName($this->name);
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique(Role::class, 'name')->where('guard_name', 'web')->ignore($this->editingId)],
             'selectedPermissions' => ['array'],

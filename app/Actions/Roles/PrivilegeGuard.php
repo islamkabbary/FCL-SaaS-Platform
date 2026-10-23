@@ -2,6 +2,7 @@
 
 namespace App\Actions\Roles;
 
+use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -23,7 +24,10 @@ class PrivilegeGuard
      */
     public function canGrantPermissions(User $actor, iterable $permissionNames): bool
     {
+        // Only catalog permissions count: one retired from the catalog grants nothing, and
+        // must not make a role or its holders untouchable because nobody holds it anymore.
         return collect($permissionNames)
+            ->intersect(TenantPermission::values())
             ->diff($this->permissionNamesOf($actor))
             ->isEmpty();
     }
@@ -57,6 +61,6 @@ class PrivilegeGuard
      */
     protected function permissionNamesOf(User $user): Collection
     {
-        return $user->getAllPermissions()->pluck('name');
+        return $user->getAllPermissions()->pluck('name')->intersect(TenantPermission::values())->values();
     }
 }

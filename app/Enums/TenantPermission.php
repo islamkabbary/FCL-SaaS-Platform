@@ -59,6 +59,18 @@ enum TenantPermission: string
     }
 
     /**
+     * Permissions renamed since they were first deployed: old name => new name. The sync
+     * moves every grant of an old name to the new one, so a rename keeps who holds it.
+     * Names removed from the catalog without an entry here are deleted with their grants.
+     *
+     * @return array<string, string>
+     */
+    public static function renamed(): array
+    {
+        return [];
+    }
+
+    /**
      * Get every permission name.
      *
      * @return list<string>

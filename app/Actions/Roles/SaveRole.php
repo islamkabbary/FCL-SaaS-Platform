@@ -41,11 +41,15 @@ class SaveRole
             throw new AuthorizationException(__('You cannot grant permissions you do not have.'));
         }
 
+        $name = TenantRole::normalizeName($name);
+
         if ($role !== null && TenantRole::isSystem($role->name) && $role->name !== $name) {
             throw new AuthorizationException(__('Built-in roles cannot be renamed.'));
         }
 
-        if ($role === null && TenantRole::isSystem($name)) {
+        // Creating or renaming a custom role to a built-in name (or a look-alike) would make
+        // its holders pass for Tenant Admins, and the next sync would adopt the role.
+        if (($role === null || ! TenantRole::isSystem($role->name)) && TenantRole::isReservedName($name)) {
             throw new AuthorizationException(__('This role name is reserved.'));
         }
 
