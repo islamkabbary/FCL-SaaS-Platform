@@ -1,6 +1,6 @@
 <?php
 
-use App\Concerns\PasswordValidationRules;
+use App\Concerns\ConfirmsCurrentPassword;
 use App\Concerns\ProfileValidationRules;
 use App\Models\Tenant;
 use App\Notifications\EmailAddressChanged;
@@ -14,7 +14,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Profile settings')] class extends Component {
-    use PasswordValidationRules, ProfileValidationRules;
+    use ConfirmsCurrentPassword, ProfileValidationRules;
 
     public string $name = '';
     public string $email = '';
@@ -43,7 +43,8 @@ new #[Title('Profile settings')] class extends Component {
         // The login email receives the password reset link, so changing it needs the
         // current password (someone at an unlocked session could otherwise take the account).
         if ($validated['email'] !== $oldEmail) {
-            $this->validate(['current_password' => $this->currentPasswordRules()]);
+            $this->validate(['current_password' => ['required', 'string']]);
+            $this->ensureCurrentPassword($user, $this->current_password);
         }
 
         $user->fill($validated);
