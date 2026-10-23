@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
+use Throwable;
 
 /**
  * Starts a Platform Admin's support session in one tenant, as one of its active Tenant
@@ -115,11 +116,24 @@ class StartSupportSession
             return $session;
         });
 
-        // In-app notice to every active Tenant Admin of the company (tenant database).
-        $tenant->run(fn () => Notification::send(
-            User::query()->active()->role(TenantRole::TenantAdmin->value)->get(),
-            new SupportAccessStarted($session),
-        ));
+        // In-app notice to every active Tenant Admin of the company (tenant database). The
+        // session is already committed, so a failed notice is reported rather than failing
+        // the request, and tenancy is always ended again (Tenant::run() does not end it when
+        // its callback throws, which would leave this central request in tenant context).
+        $previous = tenancy()->initialized ? tenancy()->tenant : null;
+
+        try {
+            tenancy()->initialize($tenant);
+
+            Notification::send(
+                User::query()->active()->role(TenantRole::TenantAdmin->value)->get(),
+                new SupportAccessStarted($session),
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+        } finally {
+            $previous !== null ? tenancy()->initialize($previous) : tenancy()->end();
+        }
 
         return [$session, $token];
     }

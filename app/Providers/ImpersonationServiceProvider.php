@@ -103,10 +103,10 @@ class ImpersonationServiceProvider extends ServiceProvider
             $this->refuseDeniedComponent($component, 'hydrate');
         });
 
-        Livewire::listen('call', function (Component $component, string $method): void {
+        Livewire::listen('call', function (Component $component, string $method, array $params = []): void {
             $active = ActiveImpersonation::current();
 
-            if ($active === null || RestrictionPolicy::allowsLivewireCall($method)) {
+            if ($active === null || RestrictionPolicy::allowsLivewireCall($method, $params)) {
                 return;
             }
 

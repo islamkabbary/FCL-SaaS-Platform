@@ -65,6 +65,13 @@ final class RestrictionPolicy
     ];
 
     /**
+     * The allowed pagination methods. Livewire's pagination calls updating/updated hooks
+     * named after the paginator, so only the default paginator and a numeric page are
+     * accepted: a client-chosen name would call any component's update hooks.
+     */
+    public const PaginationMethods = ['gotoPage', 'previousPage', 'nextPage', 'setPage', 'resetPage'];
+
+    /**
      * Components whose public properties may be updated (search boxes, filters, form
      * fields). Property updates of these components have no side effects; saving still
      * requires a method, which stays refused.
@@ -103,13 +110,23 @@ final class RestrictionPolicy
             return false;
         }
 
+        return ! self::containsDeniedResource($arguments);
+    }
+
+    /**
+     * Resources may be passed one by one or in arrays and collections, at any depth.
+     *
+     * @param  iterable<mixed>  $arguments
+     */
+    protected static function containsDeniedResource(iterable $arguments): bool
+    {
         foreach ($arguments as $argument) {
-            if (self::deniesResource($argument)) {
-                return false;
+            if (self::deniesResource($argument) || (is_iterable($argument) && self::containsDeniedResource($argument))) {
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     /**
@@ -158,9 +175,31 @@ final class RestrictionPolicy
             || in_array(DenyDuringImpersonation::class, $middleware, true);
     }
 
-    public static function allowsLivewireCall(string $method): bool
+    /**
+     * @param  array<array-key, mixed>  $params
+     */
+    public static function allowsLivewireCall(string $method, array $params = []): bool
     {
-        return in_array($method, self::AllowedLivewireMethods, true);
+        if (! in_array($method, self::AllowedLivewireMethods, true)) {
+            return false;
+        }
+
+        if (! in_array($method, self::PaginationMethods, true)) {
+            return true;
+        }
+
+        $takesPage = in_array($method, ['gotoPage', 'setPage'], true);
+        $params = array_values($params);
+
+        if (count($params) > ($takesPage ? 2 : 1)) {
+            return false;
+        }
+
+        if ($takesPage && ! (is_int($params[0] ?? null) || (is_string($params[0] ?? null) && ctype_digit($params[0])))) {
+            return false;
+        }
+
+        return ($params[$takesPage ? 1 : 0] ?? 'page') === 'page';
     }
 
     public static function allowsLivewireUpdate(string $component): bool
@@ -173,7 +212,12 @@ final class RestrictionPolicy
      */
     public static function deniesComponent(Component $component): bool
     {
+        $name = $component->getName();
+
+        // Also a page named exactly "fcl" and an "fcl." component in any namespace.
         return $component instanceof DeniedDuringImpersonation
-            || Str::startsWith($component->getName(), self::DeniedComponentPrefixes);
+            || Str::startsWith($name, self::DeniedComponentPrefixes)
+            || $name === 'pages::fcl'
+            || str_contains($name, '::fcl.');
     }
 }
