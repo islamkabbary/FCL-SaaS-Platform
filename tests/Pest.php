@@ -345,3 +345,15 @@ function storeSessionRow(string $id, ?int $userId): void
 {
     DB::table('sessions')->insert(['id' => $id, 'user_id' => $userId, 'payload' => '', 'last_activity' => now()->timestamp]);
 }
+
+/**
+ * Store sessions in the database for this test, as in production (phpunit.xml uses the
+ * array driver, which hides which session rows an action deletes). Call it before the
+ * test's first request.
+ */
+function useDatabaseSessions(): void
+{
+    config(['session.driver' => 'database']);
+    app('session')->forgetDrivers();
+    app()->forgetInstance('session.store');
+}
