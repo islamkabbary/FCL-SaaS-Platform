@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Platform\EndPlatformAdminAccess;
 use App\Enums\PlatformAuditAction;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditLog;
@@ -21,7 +22,7 @@ class ResetPlatformAdminTwoFactor extends Command
      * then log in with their password and must set up an authenticator again before
      * starting support sessions. The reset is recorded in the central audit trail.
      */
-    public function handle(): int
+    public function handle(EndPlatformAdminAccess $endAccess): int
     {
         $argument = $this->argument('email');
         $email = Str::lower(is_string($argument) ? $argument : '');
@@ -51,6 +52,9 @@ class ResetPlatformAdminTwoFactor extends Command
         ])->save();
 
         PlatformAuditLog::recordSystem(null, PlatformAuditAction::TwoFactorReset, ['admin' => $admin->email], 'Reset from the command line');
+
+        // Whoever holds the lost authenticator must not keep a signed-in browser or support session.
+        $endAccess->handle($admin, endSupportSessions: true);
 
         $this->components->info("Two-factor authentication of {$admin->email} was removed.");
 

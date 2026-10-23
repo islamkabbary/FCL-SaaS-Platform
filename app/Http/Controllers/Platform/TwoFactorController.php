@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Platform;
 
+use App\Actions\Platform\EndPlatformAdminAccess;
 use App\Auth\PlatformTwoFactor;
 use App\Enums\PlatformAuditAction;
 use App\Http\Controllers\Controller;
@@ -58,7 +59,7 @@ class TwoFactorController extends Controller
         return redirect()->route('platform.account.security');
     }
 
-    public function confirm(Request $request): Response|RedirectResponse
+    public function confirm(Request $request, EndPlatformAdminAccess $endAccess): Response|RedirectResponse
     {
         $request->validate(['code' => ['required', 'string', 'max:20']]);
         $admin = $this->admin($request);
@@ -80,6 +81,9 @@ class TwoFactorController extends Controller
 
         PlatformAuditLog::record($admin, null, PlatformAuditAction::TwoFactorEnabled);
 
+        // A browser signed in with the password alone (before 2FA) must sign in again.
+        $endAccess->handle($admin, $request->session()->getId());
+
         return $this->recoveryCodesResponse($codes);
     }
 
@@ -97,7 +101,7 @@ class TwoFactorController extends Controller
         return $this->recoveryCodesResponse($codes);
     }
 
-    public function disable(Request $request): RedirectResponse
+    public function disable(Request $request, EndPlatformAdminAccess $endAccess): RedirectResponse
     {
         $admin = $this->admin($request);
 
@@ -122,6 +126,9 @@ class TwoFactorController extends Controller
 
         if ($wasEnabled) {
             PlatformAuditLog::record($admin, null, PlatformAuditAction::TwoFactorDisabled);
+
+            // Authentication got weaker: other browsers and open support sessions end.
+            $endAccess->handle($admin, $request->session()->getId(), endSupportSessions: true);
         }
 
         return redirect()->route('platform.account.security')->with('status', __('Two-factor authentication is disabled.'));
