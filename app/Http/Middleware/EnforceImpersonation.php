@@ -76,11 +76,26 @@ class EnforceImpersonation
             abort(403, __('This action is not available during an impersonation session.'));
         }
 
-        if ($request->isMethod('GET') && ! $request->hasHeader('X-Livewire')) {
-            $active->recordViewed($request->route()?->getName() ?? '/'.$request->path());
+        if (! $request->isMethod('GET')) {
+            return $next($request);
         }
 
-        return $next($request);
+        // Recorded after the request was handled, so the history shows what was actually
+        // seen: a page refused further on (403, e.g. by a "can:" check) is recorded as
+        // denied, not viewed. Every GET counts, whatever its headers: Livewire's own
+        // updates are POST requests, so a client-chosen header cannot hide a page view.
+        $response = $next($request);
+        $action = $request->route()?->getName() ?? '/'.$request->path();
+
+        if ($response->getStatusCode() === Response::HTTP_FORBIDDEN) {
+            if (! $active->hasRecordedDenial($request)) {
+                $active->recordDenied($action, 'GET');
+            }
+        } elseif ($response->getStatusCode() < 400) {
+            $active->recordViewed($action);
+        }
+
+        return $response;
     }
 
     protected function endedResponse(Request $request, ImpersonationEndReason $reason, bool $restored): Response

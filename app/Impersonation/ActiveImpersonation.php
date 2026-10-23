@@ -18,6 +18,11 @@ final readonly class ActiveImpersonation
 {
     public const RequestAttribute = 'impersonation';
 
+    /**
+     * Set on the request once a refusal was recorded, so the request is not recorded twice.
+     */
+    public const DeniedRecordedAttribute = 'impersonation.denied_recorded';
+
     public function __construct(
         public SupportSession|ImpersonationSession $session,
     ) {}
@@ -76,6 +81,15 @@ final readonly class ActiveImpersonation
     public function recordDenied(string $action, ?string $httpMethod = null): void
     {
         $this->session->recordEvent('denied', $action, $httpMethod);
+
+        if (app()->bound('request')) {
+            app('request')->attributes->set(self::DeniedRecordedAttribute, true);
+        }
+    }
+
+    public function hasRecordedDenial(Request $request): bool
+    {
+        return $request->attributes->get(self::DeniedRecordedAttribute) === true;
     }
 
     public function recordViewed(string $action): void
