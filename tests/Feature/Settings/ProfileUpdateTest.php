@@ -21,6 +21,7 @@ test('profile information can be updated', function () {
     $response = Livewire::test('pages::settings.profile')
         ->set('name', 'Test User')
         ->set('email', 'test@example.com')
+        ->set('current_password', 'password')
         ->call('updateProfileInformation');
 
     $response->assertHasNoErrors();

@@ -336,3 +336,12 @@ function startEmployeeView(Tenant $tenant, int $employeeId, string $password = '
         'impersonationPassword' => $password,
     ]);
 }
+
+/**
+ * Store a session row for a user in the current database (tenant or central), as the
+ * database session driver would. Used to prove which sessions an action signs out.
+ */
+function storeSessionRow(string $id, ?int $userId): void
+{
+    DB::table('sessions')->insert(['id' => $id, 'user_id' => $userId, 'payload' => '', 'last_activity' => now()->timestamp]);
+}

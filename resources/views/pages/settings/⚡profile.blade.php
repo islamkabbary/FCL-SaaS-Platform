@@ -1,18 +1,24 @@
 <?php
 
+use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
+use App\Models\Tenant;
+use App\Notifications\EmailAddressChanged;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Profile settings')] class extends Component {
-    use ProfileValidationRules;
+    use PasswordValidationRules, ProfileValidationRules;
 
     public string $name = '';
     public string $email = '';
+    public string $current_password = '';
 
     /**
      * Mount the component.
@@ -29,16 +35,35 @@ new #[Title('Profile settings')] class extends Component {
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
+        $oldEmail = $user->email;
 
+        $this->email = Str::lower(trim($this->email));
         $validated = $this->validate($this->profileRules($user->id));
+
+        // The login email receives the password reset link, so changing it needs the
+        // current password (someone at an unlocked session could otherwise take the account).
+        if ($validated['email'] !== $oldEmail) {
+            $this->validate(['current_password' => $this->currentPasswordRules()]);
+        }
 
         $user->fill($validated);
 
-        if ($user->isDirty('email')) {
+        $emailChanged = $user->isDirty('email');
+
+        if ($emailChanged) {
             $user->email_verified_at = null;
         }
 
         $user->save();
+
+        $this->reset('current_password');
+
+        if ($emailChanged) {
+            $tenant = tenant();
+
+            Notification::route('mail', $oldEmail)
+                ->notify(new EmailAddressChanged($oldEmail, $user->email, $user->name, $tenant instanceof Tenant ? $tenant->name : null));
+        }
 
         Flux::toast(variant: 'success', text: __('Profile updated.'));
     }
@@ -58,6 +83,14 @@ new #[Title('Profile settings')] class extends Component {
                 <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
 
             </div>
+
+            <flux:input
+                wire:model="current_password"
+                :label="__('Current password')"
+                :description="__('Required only when you change your email address.')"
+                type="password"
+                autocomplete="current-password"
+            />
 
             <div class="flex items-center gap-4">
                 <div class="flex items-center justify-end">

@@ -161,7 +161,7 @@ new #[Title('Employees')] class extends Component {
                 $employee = User::query()->findOrFail($this->editingId);
                 $canAssignRoles = $actor->can('assignRoles', $employee);
 
-                $updateEmployee->handle(
+                $emailChanged = $updateEmployee->handle(
                     $actor,
                     $employee,
                     ['name' => $validated['name'], 'email' => $validated['email']],
@@ -169,7 +169,9 @@ new #[Title('Employees')] class extends Component {
                 );
 
                 Flux::modal('employee-form')->close();
-                Flux::toast(variant: 'success', text: __('Employee updated.'));
+                Flux::toast(variant: 'success', text: $emailChanged
+                    ? __('Employee updated. Their email changed, so they were signed out everywhere and the previous address was notified.')
+                    : __('Employee updated.'));
             }
         } catch (AuthorizationException|NoSeatAvailable $exception) {
             Flux::toast(variant: 'danger', text: $exception->getMessage());
