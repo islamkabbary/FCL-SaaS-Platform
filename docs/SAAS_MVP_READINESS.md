@@ -1,6 +1,6 @@
 # SaaS Management MVP — Readiness Assessment (Milestones 1–5)
 
-Assessment date: 2026-10-19, after Milestone 5; **updated 2026-10-20 after Milestone 5.1** (security and billing hardening, see §8). Scope: the SaaS management layer:
+Assessment date: 2026-10-19, after Milestone 5; **updated 2026-10-20 after Milestone 5.1** (security and billing hardening, see §8) and **2026-10-23 after Milestone 5.2** (review hardening, see §9). Scope: the SaaS management layer:
 - central platform;
 - tenant provisioning and isolation;
 - tenant users and permissions;
@@ -59,7 +59,7 @@ The application can be deployed to an **isolated staging environment** once thes
 |---|---|---|
 | HTTPS and domains | NOT VERIFIED | Wildcard DNS and a wildcard TLS certificate for `*.CENTRAL_DOMAIN` (tenants are `{subdomain}.CENTRAL_DOMAIN`). Set `CENTRAL_DOMAIN` and `APP_URL=https://…`. Behind a load balancer, configure trusted proxies (`$middleware->trustProxies(...)` in `bootstrap/app.php`) with the **load balancer's own addresses only, never `at: '*'`**: a trusted `X-Forwarded-Host` decides the host of generated links such as password reset e-mails. Without trusted proxies HTTPS is not detected, HSTS is not sent and generated URLs use `http`. Outside `local`, `trustHosts` (M5.1) accepts only `CENTRAL_DOMAIN` and single-label subdomains of it |
 | Environment | NOT VERIFIED | `APP_ENV=production` (enables `DB::prohibitDestructiveCommands` and the strict `Password::defaults()`), `APP_DEBUG=false`, a new `APP_KEY` (it encrypts the 2FA secrets: rotating it invalidates them), `LOG_LEVEL=warning` or higher |
-| Sessions and cookies | NOT VERIFIED | `SESSION_SECURE_COOKIE=true`; keep `SESSION_DOMAIN` empty (host-only cookies keep the central and tenant sessions apart, which support access relies on). `SESSION_DRIVER=database` is required, because tenant sessions live in each tenant database |
+| Sessions and cookies | NOT VERIFIED | `SESSION_SECURE_COOKIE=true`; keep `SESSION_DOMAIN` empty (host-only cookies keep the central and tenant sessions apart, which support access relies on). `SESSION_DRIVER=database` is required, because tenant sessions live in each tenant database. Recommended (M5.2): a `__Host-` cookie name (`SESSION_COOKIE=__Host-fcl_session`), so that script on a sibling tenant subdomain cannot plant a session cookie for another host. Every Platform Admin needs 2FA at first login (`PLATFORM_REQUIRE_TWO_FACTOR=true`) |
 | Database user | NOT VERIFIED | a dedicated MySQL user limited to the central DB and the tenant prefix, with `CREATE` rights for provisioning. Never root. Locally this is already done (`fcl_app`) |
 | Migrations | PASS WITH LIMITATIONS | `php artisan migrate --force`, then `php artisan tenants:migrate`, then `php artisan tenants:sync-authorization` (needed after M4). All M1–M5 migrations are additive |
 | Support access | PASS WITH LIMITATIONS | off by default. Enable on staging (`SUPPORT_ACCESS_ENABLED=true`) to verify it; keep `SUPPORT_REQUIRE_TWO_FACTOR=true` |
@@ -75,7 +75,7 @@ The application can be deployed to an **isolated staging environment** once thes
 | # | Area | Status | Evidence and required action |
 |---|---|---|---|
 | 1 | Platform Admin password policy | **Resolved** (2026-10-20) | The uncommitted `Password::min(6)` change is gone: the code and the working tree have `min(12)`. Optional: also require `Password::defaults()` in production. An admin created while the weaker rule was in place should rotate their password |
-| 2 | **Platform Admin MFA policy** | **BLOCKED** (decision) | TOTP 2FA exists and is tested (M5), but is **optional** for login; it is mandatory only to start support sessions. Decide whether all Platform Admin logins require 2FA (recommended), then enforce enrollment, e.g. a middleware redirecting un-enrolled admins to Account security |
+| 2 | Platform Admin MFA policy | **Resolved** (2026-10-23, M5.2) | Owner decision: 2FA is mandatory for every Platform Admin (`PLATFORM_REQUIRE_TWO_FACTOR=true`). Un-enrolled admins can only reach enrollment and logout; 2FA cannot be disabled while required; recovery is `platform:reset-two-factor` |
 | 3 | **Backups and restore** | **BLOCKED** | Nothing exists. Every tenant has its own database (`fcl_tenant_<uuid>`), so backups must cover the central database **and** a dynamic list of tenant databases. Restores must be tested. Billing and audit records are append-only and must be included |
 | 4 | **Monitoring and error reporting** | **BLOCKED** | Only the local `single` log file. Needed: central log shipping, an error tracker, uptime checks on central and a sample tenant, and alerts on provisioning failures (a tenant with `failed` status) |
 | 5 | **Deployment and rollback** | **BLOCKED** | No procedure exists. Needed: a documented deploy (maintenance mode, `migrate --force`, `tenants:migrate`, `tenants:sync-authorization`, cache rebuild), a rollback plan (migrations are additive; restore from backup), and a tenant-migration failure policy |
@@ -179,6 +179,30 @@ Still open (low, see the M5.1 document §8):
 - the support hand-over is not bound to the IP that started it;
 - Livewire `__dispatch` and `updating*` hooks run before the impersonation listener (no current exposure);
 - `regenerateRecoveryCodes` accepts a code from an unconfirmed secret;
-- the profile email is not lowercased;
+- ~~the profile email is not lowercased~~ (fixed in M5.2);
 - an unclear error when the Employee role holds a permission the creator lacks;
-- audit records are append-only at the model level only.
+- audit records are append-only at the model level only (M5.2 extended this to the query builder of every append-only model; raw SQL remains outside).
+
+## 9. Second deep review and Milestone 5.2 (2026-10-23)
+
+A second deep review of the whole repository (four independent reviewers, every finding re-checked in code, six proven with temporary tests) found **no Critical or High issue**; tenant isolation held in every path checked. It found 9 Medium and about 15 Low defects. Milestone 5.2 ([details](MILESTONE_05_2_REVIEW_HARDENING.md)) fixed them, each with a regression test run once without its fix.
+
+| Finding | Severity | Status after 5.2 |
+|---|---|---|
+| Account takeover through an employee email change and password reset | Medium | Fixed |
+| Profile email change without the current password; unlimited current-password guesses | Medium | Fixed |
+| Support could hide page views from the access history (`X-Livewire` header) | Medium | Fixed |
+| Deleting a user's sessions logged out the Tenant Admin viewing as them | Medium | Fixed |
+| Renewal from a stale form dropped seats bought after the preview | Medium | Fixed |
+| Seat-increase estimate omitted a confirmed next term | Medium | Fixed |
+| A retired permission locked Tenant Admins out of roles and users | Medium (latent) | Fixed |
+| Support's 2FA check passable after enrolling with a stolen password | Medium | Fixed (2FA mandatory for Platform Admins) |
+| Allowlisted pagination calls could run update hooks while impersonating | Medium (latent) | Fixed |
+| Login 500 on array email, account enumeration by timing, per-account platform throttle, reset flag | Low | Fixed |
+| 2FA changes left other platform browsers and support sessions alive | Low | Fixed |
+| Views recorded before authorization; FCL naming gaps; support notice outside `finally` | Low | Fixed |
+| Stale reduction approval, reduction marked applied wrongly, payment date and token race, unknown plan in preview | Low | Fixed |
+| Custom role renamed to a reserved name; actor privileges not re-read after the lock; default branch lookup | Low | Fixed |
+| Append-only gaps (`truncate`, `updateOrInsert`, bulk updates on platform/billing/event models, forged tenant audit records), redaction gaps, `subject_type` length | Low | Fixed |
+
+Documented only (M5.2 §8): raw SQL on append-only tables, the `__Host-` cookie prefix for production, reset-link mail timing, tenant-unbound Livewire snapshots, lazy components, and the M4 renewal seat-count race.

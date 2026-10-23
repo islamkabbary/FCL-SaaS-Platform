@@ -131,6 +131,14 @@ FCL access is refused during support access and employee view in every layer, **
 
 Each of these is recognised on its own, so one forgotten convention does not open access. Allowing any FCL read during support access needs an approved policy (BD-SEC04).
 
+**Added by SaaS Milestone 5.2 (2026-10-23)** ([doc](../MILESTONE_05_2_REVIEW_HARDENING.md)):
+- `pages::fcl` (a page file named `⚡fcl`) and `fcl.` components in any namespace are denied as well.
+- FCL resources passed to `view`/`viewAny` inside arrays or collections are refused.
+- **Do not use lazy components (`#[Lazy]`, `lazy`) in tenant pages.** Livewire mounts them before the impersonation listener can refuse the call. A test fails if one is added.
+- **Pagination:** only the default `page` paginator works during impersonation. Do not give FCL tables custom paginator names that are expected to work there.
+- **Renaming permissions:** list the old name in `TenantPermission::renamed()` in the same release. Otherwise `tenants:sync-authorization` deletes the old permission and its grants.
+- **Audit:** `TenantAuditLog` accepts records only through `record()`. Pass arrays, Collections or JsonSerializable values, never JSON strings, so that redaction applies.
+
 ### 4.2 As built: tenant audit (A3)
 
 **Writing records.** Use `TenantAuditLog::record($action, $actor, $subject, $old, $new, $reason, $metadata)`.

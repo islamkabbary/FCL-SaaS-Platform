@@ -1,6 +1,6 @@
 # FCL Handover — Resume Point
 
-**Updated:** 2026-10-22 · **Branch:** `main` · **State:** FCL M1-A1 to A3 committed locally. Run `git log origin/main..main` to see what is not yet pushed.
+**Updated:** 2026-10-23 · **Branch:** `main` · **State:** FCL M1-A1 to A3 pushed; SaaS Milestone 5.2 (review hardening) committed locally. Run `git log origin/main..main` to see what is not yet pushed.
 
 Use this page to resume FCL work on another computer or in a new Claude Code session. It is a pointer, not a replacement: the details live in the documents linked below.
 
@@ -9,6 +9,7 @@ Use this page to resume FCL work on another computer or in a new Claude Code ses
 | Phase | State |
 |---|---|
 | SaaS MVP (Milestones 1–5.1) | Done and committed. Owner browser verification of M5 and M5.1 is **still outstanding** |
+| **SaaS M5.2** (review hardening, 2026-10-23) | **Done**, committed locally: every finding of the second deep review fixed; Platform Admin 2FA now mandatory. See [MILESTONE_05_2_REVIEW_HARDENING.md](../MILESTONE_05_2_REVIEW_HARDENING.md) |
 | FCL Phase 0 (research integration, decisions, plan) | Done, commit `9a5edbb` |
 | **FCL M1-A1 to A3** (permissions, impersonation denial, tenant audit) | **Done**, committed 2026-10-22 |
 | FCL M1-A4 to A8, M1-B, M1-C | Not started |
@@ -49,8 +50,9 @@ Use this page to resume FCL work on another computer or in a new Claude Code ses
 1. Clone, then follow the root `README.md` for setup.
 2. Then run:
    - `php artisan migrate`
-   - `php artisan tenants:migrate` (creates `tenant_audit_logs` in every tenant)
-   - `php artisan tenants:sync-authorization` (adds the new permissions)
+   - `php artisan tenants:migrate` (creates `tenant_audit_logs` and, since M5.2, widens its `subject_type`)
+   - `php artisan tenants:sync-authorization` (adds the new permissions; since M5.2 it also deletes permissions no longer in the catalog)
+   - `.env` needs an `APP_KEY` (`php artisan key:generate` after adding an empty `APP_KEY=` line); every Platform Admin must set up 2FA at their next login (`PLATFORM_REQUIRE_TWO_FACTOR`)
 3. Tests use only `fcl_central_testing` and `fcl_test_tenant_*`; `TestCase` refuses anything else. Run `composer test`.
 4. Before any commit, check that the git identity is exactly `Islam Kabbary <islamkabbary@gmail.com>`. The local git config on the previous machine had the name in lowercase.
 
