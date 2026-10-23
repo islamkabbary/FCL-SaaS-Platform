@@ -103,11 +103,16 @@ class RenewSubscription
      * plan's prices changed since then, nothing is created: charges cannot be edited, so an
      * amount nobody reviewed must never be charged.
      *
+     * $expectedPreviousSeats and $expectedReductionId (0 for none) are the current term's
+     * seats and the approved reduction shown in that preview. When either changed since
+     * (seats bought, a reduction approved or superseded), nothing is created: confirming the
+     * old form would silently drop seats just paid for, or ignore the new reduction.
+     *
      * @throws InvalidSubscriptionChange
      */
-    public function handle(PlatformAdmin $admin, Tenant $tenant, SubscriptionPlan $plan, int $seats, bool $acceptPricingChange, ?int $expectedTotal = null): SubscriptionTerm
+    public function handle(PlatformAdmin $admin, Tenant $tenant, SubscriptionPlan $plan, int $seats, bool $acceptPricingChange, ?int $expectedTotal = null, ?int $expectedPreviousSeats = null, ?int $expectedReductionId = null): SubscriptionTerm
     {
-        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $tenant, $plan, $seats, $acceptPricingChange, $expectedTotal): SubscriptionTerm {
+        return DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($admin, $tenant, $plan, $seats, $acceptPricingChange, $expectedTotal, $expectedPreviousSeats, $expectedReductionId): SubscriptionTerm {
             // Lock the subscription so two renewals cannot both pass the checks below.
             $subscription = TenantSubscription::query()->where('tenant_id', $tenant->getTenantKey())->lockForUpdate()->first()
                 ?? throw new InvalidSubscriptionChange(__('This tenant has no subscription to renew.'));
@@ -116,6 +121,16 @@ class RenewSubscription
 
             if (! $quote->isConfirmable()) {
                 throw new InvalidSubscriptionChange($quote->errors[0]);
+            }
+
+            if ($expectedPreviousSeats !== null && $quote->previousTerm->seats !== $expectedPreviousSeats) {
+                throw new InvalidSubscriptionChange(__('The current term changed since the preview: it now has :seats seats. Review the renewal again.', [
+                    'seats' => $quote->previousTerm->seats,
+                ]));
+            }
+
+            if ($expectedReductionId !== null && ($quote->scheduledReduction->id ?? 0) !== $expectedReductionId) {
+                throw new InvalidSubscriptionChange(__('An approved seat reduction changed since the preview. Review the renewal again.'));
             }
 
             if ($quote->pricingChanged() && ! $acceptPricingChange) {
@@ -149,11 +164,16 @@ class RenewSubscription
 
             $subscription->forceFill(['subscription_plan_id' => $quote->plan->id])->save();
 
-            // An approved reduction is consumed by this renewal.
-            SeatChangeRequest::query()
-                ->where('tenant_subscription_id', $subscription->id)
-                ->scheduledReduction()
-                ->update(['status' => SeatRequestStatus::Applied, 'applied_to_term_id' => $term->id]);
+            // An approved reduction is consumed by this renewal: applied when the new term has
+            // exactly its seats, otherwise superseded by the seat count the admin confirmed.
+            $reduction = $quote->scheduledReduction;
+            $reductionApplied = $reduction !== null && $reduction->seats === $term->seats;
+
+            if ($reduction !== null) {
+                SeatChangeRequest::query()->whereKey($reduction->id)->scheduledReduction()->update($reductionApplied
+                    ? ['status' => SeatRequestStatus::Applied, 'applied_to_term_id' => $term->id]
+                    : ['status' => SeatRequestStatus::Superseded]);
+            }
 
             PlatformAuditLog::record($admin, $tenant, PlatformAuditAction::SubscriptionRenewed, [
                 'plan' => $previous->plan_name,
@@ -169,7 +189,11 @@ class RenewSubscription
                 'starts_on' => $term->starts_on->toDateString(),
                 'ends_on' => $term->ends_on->toDateString(),
                 'annual_total' => Money::format($term->annualTotal(), $term->currency),
-            ], $quote->scheduledReduction !== null ? "Applied approved seat reduction #{$quote->scheduledReduction->id}" : null);
+            ], match (true) {
+                $reduction === null => null,
+                $reductionApplied => "Applied approved seat reduction #{$reduction->id}",
+                default => "Approved seat reduction #{$reduction->id} to {$reduction->seats} seats superseded: renewed with {$term->seats} seats",
+            });
 
             $this->createCharge->handle(
                 $admin, $tenant, $subscription, $term, ChargeType::Renewal,

@@ -72,6 +72,8 @@
                     <input type="hidden" name="plan_id" value="{{ $quote->plan->id }}">
                     <input type="hidden" name="seats" value="{{ $quote->seats }}">
                     <input type="hidden" name="expected_total" value="{{ $quote->annualTotal() }}">
+                    <input type="hidden" name="expected_previous_seats" value="{{ $previous->seats }}">
+                    <input type="hidden" name="expected_reduction_id" value="{{ $quote->scheduledReduction->id ?? 0 }}">
                     @if ($quote->pricingChanged())
                         <flux:checkbox name="accept_pricing_change" value="1" :label="__('I confirm the new plan and prices for this renewal.')" required />
                     @endif

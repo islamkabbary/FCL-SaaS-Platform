@@ -157,6 +157,8 @@ class SubscriptionController extends Controller
             'seats' => ['required', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
             'accept_pricing_change' => ['nullable', 'boolean'],
             'expected_total' => ['required', 'integer', 'min:0'],
+            'expected_previous_seats' => ['required', 'integer', 'min:1'],
+            'expected_reduction_id' => ['required', 'integer', 'min:0'],
         ]);
 
         try {
@@ -167,6 +169,8 @@ class SubscriptionController extends Controller
                 (int) $input['seats'],
                 (bool) ($input['accept_pricing_change'] ?? false),
                 (int) $input['expected_total'],
+                (int) $input['expected_previous_seats'],
+                (int) $input['expected_reduction_id'],
             );
         } catch (InvalidSubscriptionChange $exception) {
             return back()->withInput()->withErrors(['subscription' => $exception->getMessage()]);

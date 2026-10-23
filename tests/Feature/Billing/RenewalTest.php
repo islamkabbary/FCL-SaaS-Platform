@@ -52,7 +52,7 @@ test('an on-time renewal starts on the previous renewal date and charges the new
         ->assertDontSee('The plan or prices differ');
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'expected_total' => 160000])
+        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'expected_total' => 160000, 'expected_previous_seats' => 5, 'expected_reduction_id' => 0])
         ->assertRedirect(route('platform.subscriptions.show', $this->tenant))
         ->assertSessionHasNoErrors();
 
@@ -101,7 +101,7 @@ test('a renewal is refused when the plan prices changed after the preview', func
     $this->plan->update(['annual_seat_price' => 15000]);
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'accept_pricing_change' => '1', 'expected_total' => 160000])
+        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'accept_pricing_change' => '1', 'expected_total' => 160000, 'expected_previous_seats' => 5, 'expected_reduction_id' => 0])
         ->assertSessionHasErrors(['subscription' => 'The plan\'s prices changed after the preview: the annual total is now 1,750.00 USD. Review it and confirm again.']);
 
     expect(SubscriptionTerm::query()->count())->toBe(1)
@@ -119,13 +119,13 @@ test('changed plan prices must be shown and explicitly confirmed', function () {
         ->assertSee('the same seats would cost 1,600.00 USD; the new total is 1,750.00 USD', false);
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'expected_total' => 175000])
+        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'expected_total' => 175000, 'expected_previous_seats' => 5, 'expected_reduction_id' => 0])
         ->assertSessionHasErrors('subscription');
 
     expect(SubscriptionTerm::query()->count())->toBe(1);
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'accept_pricing_change' => '1', 'expected_total' => 175000])
+        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'accept_pricing_change' => '1', 'expected_total' => 175000, 'expected_previous_seats' => 5, 'expected_reduction_id' => 0])
         ->assertSessionHasNoErrors();
 
     expect(SubscriptionTerm::query()->count())->toBe(2);
@@ -184,7 +184,7 @@ test('a renewal cannot be confirmed twice', function () {
     expect(fn () => renew(5))->toThrow(InvalidSubscriptionChange::class, 'Renewal opens on 2027-12-16');
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'expected_total' => 160000])
+        ->post(route('platform.subscriptions.renew.store', $this->tenant), ['plan_id' => $this->plan->id, 'seats' => 5, 'expected_total' => 160000, 'expected_previous_seats' => 5, 'expected_reduction_id' => 0])
         ->assertSessionHasErrors('subscription');
 
     expect(SubscriptionTerm::query()->count())->toBe(2)
