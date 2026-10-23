@@ -34,6 +34,8 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="SUPPORT_ACCESS_ENABLED" value="false"/>
         <env name="SUPPORT_REQUIRE_TWO_FACTOR" value="true"/>
+        <!-- Most platform tests sign in without enrolling; the requirement has its own tests. -->
+        <env name="PLATFORM_REQUIRE_TWO_FACTOR" value="false"/>
         <env name="EMPLOYEE_IMPERSONATION_ENABLED" value="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

@@ -21,6 +21,9 @@
                 <div><flux:button type="submit">{{ __('Regenerate recovery codes') }}</flux:button></div>
             </form>
 
+            @if (config('platform.require_two_factor'))
+                <flux:text class="mt-8" data-test="two-factor-required">{{ __('Two-factor authentication is required for Platform Admins and cannot be disabled.') }}</flux:text>
+            @else
             <form method="POST" action="{{ route('platform.account.two-factor.disable') }}" class="mt-8 flex flex-col gap-4">
                 @csrf
                 @method('DELETE')
@@ -30,6 +33,7 @@
                 <flux:input name="recovery_code" :label="__('Or a recovery code')" autocomplete="off" />
                 <div><flux:button variant="danger" type="submit">{{ __('Disable') }}</flux:button></div>
             </form>
+            @endif
         @elseif ($admin->hasPendingTwoFactor())
             <flux:text class="mt-4">{{ __('Scan this QR code with your authenticator app, or enter the setup key, then confirm with the code it shows.') }}</flux:text>
 
@@ -42,7 +46,7 @@
                 <div><flux:button variant="primary" type="submit" data-test="confirm-two-factor-button">{{ __('Confirm') }}</flux:button></div>
             </form>
         @else
-            <flux:callout variant="warning" icon="shield-exclamation" class="mt-4" :heading="__('Not enabled. Platform Admin accounts are highly privileged; an authenticator app is strongly recommended, and is required to start support sessions.')" data-test="two-factor-disabled" />
+            <flux:callout variant="warning" icon="shield-exclamation" class="mt-4" :heading="config('platform.require_two_factor') ? __('Not enabled. Two-factor authentication is required for Platform Admins: set it up to use the platform.') : __('Not enabled. Platform Admin accounts are highly privileged; an authenticator app is strongly recommended, and is required to start support sessions.')" data-test="two-factor-disabled" />
 
             <form method="POST" action="{{ route('platform.account.two-factor.enable') }}" class="mt-6 flex flex-col gap-4">
                 @csrf

@@ -100,6 +100,11 @@ class TwoFactorController extends Controller
     public function disable(Request $request): RedirectResponse
     {
         $admin = $this->admin($request);
+
+        if (config('platform.require_two_factor') && $admin->hasTwoFactorEnabled()) {
+            return redirect()->route('platform.account.security')->with('status', __('Two-factor authentication is required for Platform Admins and cannot be disabled. If the authenticator is lost, an operator can reset it from the command line.'));
+        }
+
         $this->confirmPassword($request, $admin);
 
         if ($admin->hasTwoFactorEnabled()) {

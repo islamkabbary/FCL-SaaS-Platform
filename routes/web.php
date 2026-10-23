@@ -38,7 +38,8 @@ Route::domain(config('tenancy.central_domains')[0])->group(function () {
             Route::post('two-factor-challenge', [TwoFactorChallengeController::class, 'store'])->middleware('throttle:10,1')->name('two-factor.challenge.store');
         });
 
-        Route::middleware('auth:platform')->group(function () {
+        // Every Platform Admin needs confirmed two-factor authentication (config/platform.php).
+        Route::middleware(['auth:platform', 'platform.two-factor'])->group(function () {
             Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
             Route::get('/', DashboardController::class)->name('dashboard');

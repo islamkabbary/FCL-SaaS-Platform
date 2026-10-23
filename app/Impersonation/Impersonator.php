@@ -134,6 +134,11 @@ class Impersonator
                 return ImpersonationEndReason::ActorUnauthorized;
             }
 
+            // Two-factor authentication removed (or reset) after the session started.
+            if ((config('platform.require_two_factor') || config('impersonation.support.require_two_factor')) && ! $admin->hasTwoFactorEnabled()) {
+                return ImpersonationEndReason::ActorUnauthorized;
+            }
+
             $targetEligible = static fn (User $target): bool => $target->isTenantAdmin();
         } else {
             if (! config('impersonation.employee.enabled')) {
