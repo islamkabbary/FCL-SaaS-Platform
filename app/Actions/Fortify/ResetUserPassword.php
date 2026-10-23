@@ -26,8 +26,10 @@ class ResetUserPassword implements ResetsUserPasswords
             'password' => $this->passwordRules(),
         ])->validate();
 
+        // The user chose this password, so a temporary password no longer has to be changed.
         $user->forceFill([
             'password' => $input['password'],
+            'must_change_password' => false,
         ])->save();
 
         $this->endOtherSessions->handle($user);

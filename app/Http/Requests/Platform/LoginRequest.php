@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Platform;
 
+use App\Auth\DummyPasswordCheck;
 use App\Models\PlatformAdmin;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -17,6 +18,14 @@ class LoginRequest extends FormRequest
      * Maximum failed attempts per email and IP address before being locked out.
      */
     protected const MaxAttempts = 5;
+
+    /**
+     * Maximum failed attempts per account from any number of IP addresses, per hour, so a
+     * distributed guess against one Platform Admin is bounded too.
+     */
+    protected const MaxAccountAttempts = 20;
+
+    protected const AccountDecaySeconds = 3600;
 
     /**
      * Determine if the user is authorized to make this request.
@@ -56,8 +65,14 @@ class LoginRequest extends FormRequest
         $provider = Auth::guard('platform')->getProvider();
         $admin = $provider->retrieveByCredentials(['email' => $credentials['email']]);
 
+        if (! $admin instanceof PlatformAdmin) {
+            // Same work as a wrong password, so timing does not reveal unknown accounts.
+            DummyPasswordCheck::run((string) $credentials['password']);
+        }
+
         if (! $admin instanceof PlatformAdmin || ! $provider->validateCredentials($admin, $credentials)) {
             RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->accountThrottleKey(), self::AccountDecaySeconds);
 
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
@@ -67,6 +82,7 @@ class LoginRequest extends FormRequest
         $provider->rehashPasswordIfRequired($admin, $credentials);
 
         RateLimiter::clear($this->throttleKey());
+        RateLimiter::clear($this->accountThrottleKey());
 
         return $admin;
     }
@@ -78,13 +94,19 @@ class LoginRequest extends FormRequest
      */
     protected function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), self::MaxAttempts)) {
+        $key = match (true) {
+            RateLimiter::tooManyAttempts($this->throttleKey(), self::MaxAttempts) => $this->throttleKey(),
+            RateLimiter::tooManyAttempts($this->accountThrottleKey(), self::MaxAccountAttempts) => $this->accountThrottleKey(),
+            default => null,
+        };
+
+        if ($key === null) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds = RateLimiter::availableIn($key);
 
         throw ValidationException::withMessages([
             'email' => __('auth.throttle', [
@@ -100,5 +122,13 @@ class LoginRequest extends FormRequest
     protected function throttleKey(): string
     {
         return 'platform-login|'.Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+    }
+
+    /**
+     * Get the rate limiting key of the account, whatever the IP address.
+     */
+    protected function accountThrottleKey(): string
+    {
+        return 'platform-login-account|'.Str::transliterate(Str::lower($this->string('email')));
     }
 }

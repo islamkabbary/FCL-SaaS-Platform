@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Actions\Fortify\ResetUserPassword;
+use App\Auth\DummyPasswordCheck;
 use App\Http\Responses\PasswordResetLinkRequestedResponse;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -48,7 +49,14 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::authenticateUsing(function (Request $request): ?User {
             $user = User::query()->where('email', $request->string(Fortify::username())->lower()->toString())->first();
 
-            if ($user === null || ! Hash::check($request->string('password')->toString(), $user->password)) {
+            if ($user === null) {
+                // Same work as a wrong password, so timing does not reveal unknown accounts.
+                DummyPasswordCheck::run($request->string('password')->toString());
+
+                return null;
+            }
+
+            if (! Hash::check($request->string('password')->toString(), $user->password)) {
                 return null;
             }
 
@@ -84,7 +92,9 @@ class FortifyServiceProvider extends ServiceProvider
 
         RateLimiter::for('login', function (Request $request) {
             // Scoped per tenant so the same email on two companies never shares a lockout.
-            $throttleKey = Str::transliterate(tenant()?->getTenantKey().'|'.Str::lower($request->input(Fortify::username())).'|'.$request->ip());
+            // The limiter runs before validation, so a non-string email must not throw here.
+            $email = $request->input(Fortify::username());
+            $throttleKey = Str::transliterate(tenant()?->getTenantKey().'|'.Str::lower(is_string($email) ? $email : '').'|'.$request->ip());
 
             return Limit::perMinute(5)->by($throttleKey);
         });
