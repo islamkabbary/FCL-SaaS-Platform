@@ -1,7 +1,7 @@
 <?php
 
 use App\Actions\Auth\EndOtherSessions;
-use App\Concerns\ConfirmsCurrentPassword;
+use App\Auth\CurrentPasswordConfirmation;
 use App\Concerns\PasswordValidationRules;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +13,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Security settings')] class extends Component {
-    use ConfirmsCurrentPassword, PasswordValidationRules;
+    use PasswordValidationRules;
 
     public string $current_password = '';
     public string $password = '';
@@ -32,7 +32,7 @@ new #[Title('Security settings')] class extends Component {
     /**
      * Update the password for the currently authenticated user.
      */
-    public function updatePassword(EndOtherSessions $endOtherSessions): void
+    public function updatePassword(EndOtherSessions $endOtherSessions, CurrentPasswordConfirmation $currentPassword): void
     {
         $user = Auth::user();
 
@@ -43,7 +43,7 @@ new #[Title('Security settings')] class extends Component {
             ]);
 
             // Rate limited: a hijacked session must not be able to guess the password.
-            $this->ensureCurrentPassword($user, $validated['current_password']);
+            $currentPassword->ensure($user, $validated['current_password']);
         } catch (ValidationException $e) {
             $this->reset('current_password', 'password', 'password_confirmation');
 

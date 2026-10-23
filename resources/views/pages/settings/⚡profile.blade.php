@@ -1,6 +1,6 @@
 <?php
 
-use App\Concerns\ConfirmsCurrentPassword;
+use App\Auth\CurrentPasswordConfirmation;
 use App\Concerns\ProfileValidationRules;
 use App\Models\Tenant;
 use App\Notifications\EmailAddressChanged;
@@ -14,7 +14,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Profile settings')] class extends Component {
-    use ConfirmsCurrentPassword, ProfileValidationRules;
+    use ProfileValidationRules;
 
     public string $name = '';
     public string $email = '';
@@ -32,7 +32,7 @@ new #[Title('Profile settings')] class extends Component {
     /**
      * Update the profile information for the currently authenticated user.
      */
-    public function updateProfileInformation(): void
+    public function updateProfileInformation(CurrentPasswordConfirmation $currentPassword): void
     {
         $user = Auth::user();
         $oldEmail = $user->email;
@@ -44,7 +44,7 @@ new #[Title('Profile settings')] class extends Component {
         // current password (someone at an unlocked session could otherwise take the account).
         if ($validated['email'] !== $oldEmail) {
             $this->validate(['current_password' => ['required', 'string']]);
-            $this->ensureCurrentPassword($user, $this->current_password);
+            $currentPassword->ensure($user, $this->current_password);
         }
 
         $user->fill($validated);

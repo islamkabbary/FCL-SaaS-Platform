@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Concerns;
+namespace App\Auth;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -12,27 +12,27 @@ use Illuminate\Validation\ValidationException;
  * email, account deletion), with a per-user lockout so a hijacked session cannot try a
  * dictionary of guesses. Scoped per tenant, like the other tenant limiters.
  */
-trait ConfirmsCurrentPassword
+class CurrentPasswordConfirmation
 {
-    protected int $maxCurrentPasswordAttempts = 5;
+    public const MaxAttempts = 5;
 
-    protected int $currentPasswordLockoutSeconds = 300;
+    public const LockoutSeconds = 300;
 
     /**
      * @throws ValidationException
      */
-    protected function ensureCurrentPassword(User $user, string $password, string $field = 'current_password'): void
+    public function ensure(User $user, string $password, string $field = 'current_password'): void
     {
         $key = 'current-password|'.tenant()?->getTenantKey().'|'.$user->getKey();
 
-        if (RateLimiter::tooManyAttempts($key, $this->maxCurrentPasswordAttempts)) {
+        if (RateLimiter::tooManyAttempts($key, self::MaxAttempts)) {
             throw ValidationException::withMessages([
                 $field => __('Too many attempts. Please try again in :seconds seconds.', ['seconds' => RateLimiter::availableIn($key)]),
             ]);
         }
 
         if (! Hash::check($password, $user->password)) {
-            RateLimiter::hit($key, $this->currentPasswordLockoutSeconds);
+            RateLimiter::hit($key, self::LockoutSeconds);
 
             throw ValidationException::withMessages([$field => __('The password is incorrect.')]);
         }

@@ -1,6 +1,6 @@
 <?php
 
-use App\Concerns\ConfirmsCurrentPassword;
+use App\Auth\CurrentPasswordConfirmation;
 use App\Livewire\Actions\Logout;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -9,14 +9,12 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 new class extends Component {
-    use ConfirmsCurrentPassword;
-
     public string $password = '';
 
     /**
      * Delete the currently authenticated user.
      */
-    public function deleteUser(Logout $logout): void
+    public function deleteUser(Logout $logout, CurrentPasswordConfirmation $currentPassword): void
     {
         $this->validate([
             'password' => ['required', 'string'],
@@ -25,7 +23,7 @@ new class extends Component {
         $user = Auth::user();
 
         // Rate limited: a hijacked session must not be able to guess the password.
-        $this->ensureCurrentPassword($user, $this->password, 'password');
+        $currentPassword->ensure($user, $this->password, 'password');
 
         // Deleting the last active Tenant Admin would leave the company without an administrator.
         // The active Tenant Admins are locked first (a locking read, see
