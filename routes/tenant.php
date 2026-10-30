@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\TenantPermission;
 use App\Http\Controllers\Tenant\EndImpersonationController;
 use App\Http\Controllers\Tenant\SupportHandoffController;
+use App\Models\Fcl\Party;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Role;
@@ -61,6 +62,14 @@ Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
         Route::livewire('roles', 'pages::roles.index')
             ->middleware('can:viewAny,'.Role::class)
             ->name('roles.index');
+
+        // FCL Operations. Route names start with "fcl." and the group carries
+        // "impersonation.deny": both refuse every FCL request during an impersonation.
+        Route::prefix('fcl')->name('fcl.')->middleware('impersonation.deny')->group(function () {
+            Route::livewire('parties', 'pages::fcl.parties.index')
+                ->middleware('can:viewAny,'.Party::class)
+                ->name('parties.index');
+        });
     });
 });
 

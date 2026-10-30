@@ -33,6 +33,14 @@
                     </flux:sidebar.group>
                 @endif
 
+                @can('viewAny', App\Models\Fcl\Party::class)
+                    <flux:sidebar.group :heading="__('Operations')" class="grid">
+                        <flux:sidebar.item icon="building-office-2" :href="route('fcl.parties.index')" :current="request()->routeIs('fcl.parties.*')" wire:navigate data-test="sidebar-parties">
+                            {{ __('Parties') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endcan
+
                 @if (auth()->user()->can(App\Enums\TenantPermission::BillingView->value) || auth()->user()->can('view-access-history'))
                     <flux:sidebar.group :heading="__('Company')" class="grid">
                         @can(App\Enums\TenantPermission::BillingView->value)
