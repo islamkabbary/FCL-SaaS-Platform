@@ -2,7 +2,7 @@
 
 This folder is the source of truth for the **FCL Ocean Import Operations** module of the FCL SaaS Platform. The SaaS management layer (Milestones 1–5.1) is documented one level up in [`docs/`](../).
 
-**Current stage:** FCL M1-A1 to A3 done (permissions, impersonation denial, tenant audit; 2026-10-22). **Resume from [HANDOVER.md](HANDOVER.md).** Progress log: [M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md).
+**Current stage:** FCL M1-A1 to A3 done (permissions, impersonation denial, tenant audit; 2026-10-22) and M1-A5 to A8 done (identifier validators, parties, test helpers; 2026-10-30, report: [FCL_M1_IMPORT_JOB_WORKSPACE.md](../FCL_M1_IMPORT_JOB_WORKSPACE.md)). **Resume from [HANDOVER.md](HANDOVER.md).** Progress log: [M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md).
 
 ## Authority order
 

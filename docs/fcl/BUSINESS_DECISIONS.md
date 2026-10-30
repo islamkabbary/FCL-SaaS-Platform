@@ -11,7 +11,7 @@
 5. An AI recommendation is never labelled as an owner decision. To change a decision, add a new row that supersedes it; do not edit history silently.
 6. SaaS-layer decisions (plans, seats, billing, support access) are recorded in the [handover](../FCL_SaaS_Complete_Project_Handover_2026-10-19.md) §2 and §19 and are not repeated here, except where FCL depends on them.
 
-**Sources:** `OWNER-P0` = the owner's Phase 0 brief (2026-10-22) · `OWNER-M1A` = the owner's approval of the first M1 batch (2026-10-22) · `HANDOVER` = handover document 2026-10-19 · `CODE` = repository at `bcd7c38` · `R1`/`R2` = research reports (see [RESEARCH_SYNTHESIS.md](RESEARCH_SYNTHESIS.md)).
+**Sources:** `OWNER-P0` = the owner's Phase 0 brief (2026-10-22) · `OWNER-M1A` = the owner's approval of the first M1 batch (2026-10-22) · `OWNER-M1A5` = the owner's answers before M1-A5 to A7 (2026-10-23) · `HANDOVER` = handover document 2026-10-19 · `CODE` = repository at `bcd7c38` · `R1`/`R2` = research reports (see [RESEARCH_SYNTHESIS.md](RESEARCH_SYNTHESIS.md)).
 
 ---
 
@@ -65,6 +65,10 @@
 | BD-F08 | Container lifecycle | Container lifecycle is **independent per container** | CONFIRMED | OWNER-P0; R2 L251–264 | Per-container state, events, release and return | 2026-10-22 |
 | BD-F09 | Release processes | **Customs Release, Carrier Release, Terminal Readiness and Delivery** are separate processes | CONFIRMED | OWNER-P0; R2 L77, L358 | Separate gates; delivery readiness is derived | 2026-10-22 |
 | BD-F10 | Closure | **Operational Closure and Financial Closure** are distinct | CONFIRMED | OWNER-P0; R2 L441 | Two separate timestamps / states; delivered ≠ closed | 2026-10-22 |
+| BD-D01 | Parties shared | Parties are **master data shared by every branch** of the company. Branch scope applies to jobs, not to parties | CONFIRMED (resolves Q-D02) | OWNER-M1A5 | One tenant-wide `parties` table; no branch column. Implemented in M1-A6 | 2026-10-23 |
+| BD-D02 | Duplicate parties | A party with the same name or tax number as an existing one gets a **warning listing the similar parties and is saved after the user confirms**. No database uniqueness rule | CONFIRMED (resolves Q-D03 for M1; merge tooling stays deferred) | OWNER-M1A5 | Implemented in M1-A6: normalised name and tax-number keys, `PossibleDuplicateParty`, confirmation recorded in the audit metadata | 2026-10-23 |
+| BD-D03 | Party fields (first version) | Legal name (required), tax/registration number, country, notes, active flag. Phone, email, address and roles come later | CONFIRMED | OWNER-M1A5 | Implemented in M1-A6. Party roles per job remain Q-D01 (M1-B) | 2026-10-23 |
+| BD-D04 | FCL permission names | The nine names added in M1-A1 (`audit.view`, `fcl.jobs.view`, `fcl.jobs.view-all-branches`, `fcl.jobs.create`, `fcl.jobs.update`, `fcl.jobs.cancel`, `fcl.aci.correct`, `fcl.parties.view`, `fcl.parties.manage`) are **approved as they are** | CONFIRMED | OWNER-M1A5 | Features may now depend on them. A later rename must be listed in `TenantPermission::renamed()` | 2026-10-23 |
 
 ## 5. Multi-tenancy and branches
 
@@ -117,7 +121,7 @@ These are Claude's Phase 0 recommendations. They are **not** decisions. Approve,
 | PR-04 | ACI record entity: `acid` string, optional link to one BL, notes; no lifecycle timestamps in M1 | BD-A04/A05; X3 | Q-A02, Q-A04 | PROPOSED |
 | PR-05 | Cross-job duplicate ACID / MBL detection with explicit confirmation, no DB uniqueness | BD-A05 | Q-A03, Q-B03 | PROPOSED |
 | PR-06 | Tenant-wide job numbering `IMP-<year>-<6-digit sequence>`, generated under lock in the creation transaction | Simple, unique, readable | Q-P05 | PROPOSED |
-| PR-07 | Parties: one tenant-wide `parties` table + per-job role links; role enum starting with customer, importer, consignee, notify, shipper/exporter, origin agent, carrier | R1 L669; BD-P09 | Q-D01 | PROPOSED |
+| PR-07 | Parties: one tenant-wide `parties` table + per-job role links; role enum starting with customer, importer, consignee, notify, shipper/exporter, origin agent, carrier | R1 L669; BD-P09 | Q-D01 | PARTLY CONFIRMED: the tenant-wide table by BD-D01; per-job roles still PROPOSED |
 | PR-08 | FCL ability names are FCL-specific (`fcl.jobs.view`, …) so that FCL reads are denied during impersonation until reviewed | Closes the `viewAny`/`view` gap ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §5.4) | Q-S01 | SUPERSEDED by BD-SEC04 (stricter: all layers, not naming only) |
 | PR-09 | New append-only tenant audit (`fcl` scope first) written explicitly by actions; the job timeline reads from audit + domain events | No tenant audit exists | Q-S03 | SUPERSEDED by BD-AUD01 |
 | PR-10 | FCL code follows the existing feature-subfolder convention; no new base folder | AGENTS.md | Q-X01 | SUPERSEDED by BD-T13 |

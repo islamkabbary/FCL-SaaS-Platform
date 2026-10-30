@@ -1,6 +1,6 @@
 # FCL Handover — Resume Point
 
-**Updated:** 2026-10-23 · **Branch:** `main` · **State:** FCL M1-A1 to A3 pushed; SaaS Milestone 5.2 (review hardening) committed locally. Run `git log origin/main..main` to see what is not yet pushed.
+**Updated:** 2026-10-30 · **Branch:** `main` · **State:** FCL M1-A1 to A3 pushed; SaaS Milestone 5.2 (review hardening) and FCL M1-A5 to A8 committed locally. Run `git log origin/main..main` to see what is not yet pushed.
 
 Use this page to resume FCL work on another computer or in a new Claude Code session. It is a pointer, not a replacement: the details live in the documents linked below.
 
@@ -12,7 +12,8 @@ Use this page to resume FCL work on another computer or in a new Claude Code ses
 | **SaaS M5.2** (review hardening, 2026-10-23) | **Done**, committed locally: every finding of the second deep review fixed; Platform Admin 2FA now mandatory. See [MILESTONE_05_2_REVIEW_HARDENING.md](../MILESTONE_05_2_REVIEW_HARDENING.md) |
 | FCL Phase 0 (research integration, decisions, plan) | Done, commit `9a5edbb` |
 | **FCL M1-A1 to A3** (permissions, impersonation denial, tenant audit) | **Done**, committed 2026-10-22 |
-| FCL M1-A4 to A8, M1-B, M1-C | Not started |
+| **FCL M1-A5 to A8** (identifier validators, parties, test helpers, milestone report) | **Done**, committed locally 2026-10-30. See [FCL_M1_IMPORT_JOB_WORKSPACE.md](../FCL_M1_IMPORT_JOB_WORKSPACE.md) |
+| FCL M1-A4 (branch scope), M1-B, M1-C | Not started. A4 is built with the first branch-scoped resource (M1-B) |
 
 ## 2. What M1-A1 to A3 delivered
 
@@ -36,6 +37,16 @@ Use this page to resume FCL work on another computer or in a new Claude Code ses
   - Reading needs `audit.view` and is never allowed during impersonation.
   - There is no audit UI yet. Details: [M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md) §4.2.
 
+## 2b. What M1-A5 to A8 delivered
+
+- **A5 — Validators.** `App\Rules\Fcl\ContainerNumber` (ISO 6346, check digit, deliberate override) and `App\Rules\Fcl\Acid` (lenient: digits only, a warning for a length other than 16 or 19). Not used by a screen yet.
+- **A6 — Parties.** Company-wide master data (BD-D01 to BD-D03): table `parties` in each tenant database, `App\Models\Fcl\Party`, audited `CreateParty` / `UpdateParty`, a warning with "Save anyway" for likely duplicates (BD-D02), and the page `/fcl/parties` under the new sidebar group **Operations**. Denied in every layer during an impersonation.
+- **A6 — Access history.** A Livewire update refused by a page's re-applied `can:` check is now recorded as denied (it was not recorded before).
+- **A7 — Test helpers.** `defaultBranch()`, `extraBranch()`, `userInBranch()`, `createParty()` in `tests/Pest.php`.
+- **A8 — Report.** [FCL_M1_IMPORT_JOB_WORKSPACE.md](../FCL_M1_IMPORT_JOB_WORKSPACE.md), to be completed at the end of M1.
+
+Verification of this batch: `composer test` passed on 2026-10-30: Pint, PHPStan level 7 with 0 errors, Pest 685 tests (684 passed, 1 skipped), 2,815 assertions. Details and the independent review: the report's §7. Real server and browser: **not done**.
+
 ## 3. Verification (2026-10-22)
 
 | Check | Result |
@@ -50,7 +61,7 @@ Use this page to resume FCL work on another computer or in a new Claude Code ses
 1. Clone, then follow the root `README.md` for setup.
 2. Then run:
    - `php artisan migrate`
-   - `php artisan tenants:migrate` (creates `tenant_audit_logs` and, since M5.2, widens its `subject_type`)
+   - `php artisan tenants:migrate` (creates `tenant_audit_logs`, since M5.2 widens its `subject_type`, and since M1-A6 creates `parties`)
    - `php artisan tenants:sync-authorization` (adds the new permissions; since M5.2 it also deletes permissions no longer in the catalog)
    - `.env` needs an `APP_KEY` (`php artisan key:generate` after adding an empty `APP_KEY=` line); every Platform Admin must set up 2FA at their next login (`PLATFORM_REQUIRE_TWO_FACTOR`)
 3. Tests use only `fcl_central_testing` and `fcl_test_tenant_*`; `TestCase` refuses anything else. Run `composer test`.
@@ -62,19 +73,19 @@ Full list: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
 
 | Needed for | Questions |
 |---|---|
-| Next batch (A5–A7) | **Q-D03**: are parties shared across all branches of a company (provisional yes)? Confirmation of the nine permission names before features depend on them |
 | M1-B job creation | Q-P01 Pre-Alert required fields · Q-P05 job numbering · Q-P08 branch on creation · Q-A02 which ACID level is required · Q-A03 duplicate ACID across jobs · Q-A06 ACID correction · Q-D01 party roles |
 | M1-C | Q-P04 assignment · Q-P07 role seeding · Q-BR01 visibility scopes · Q-BR02 branch management |
 | Strict ACID validation | Q-A01: the official ACID format (19 vs 16 digits) needs a source |
 
+Answered on 2026-10-23 for M1-A5 to A7: Q-D02 → BD-D01 (parties shared by every branch), Q-D03 → BD-D02 (a warning, then save; merge tooling stays deferred), BD-D03 (party fields), BD-D04 (the nine permission names approved).
+
 ## 6. Next recommended batch (not started)
 
-**M1-A5 to A7:**
-- the ISO 6346 container-number validator and a **lenient** ACID normaliser;
-- party master data (tenant-wide, audited create/update, an "Operations" sidebar group, following the §4.1 conventions);
-- FCL test helpers.
+**M1-B — Import Job creation**, once the owner answers, or explicitly accepts the provisional answers to, Q-P01, Q-P05, Q-P08, Q-A02, Q-A03, Q-A06 and Q-D01 ([M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md) §5). Each has a provisional answer, so one reply can unblock the batch. M1-B also brings:
+- the branch-scope primitive (A4), with jobs as the first branch-scoped resource;
+- the first use of `App\Rules\Fcl\Acid`, on job creation, and job parties linking `parties` to jobs in a role.
 
-Add a branch-scope primitive (A4) only when the first branch-scoped resource needs it. Do **not** start M1-B until the P1 questions above are answered.
+Do **not** start M1-B migrations before those answers: they shape the schema.
 
 ## 7. Instructions for the next Claude Code session
 

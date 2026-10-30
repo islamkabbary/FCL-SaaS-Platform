@@ -25,7 +25,7 @@ A question can carry several codes.
 | **P3 — before a strict rule is coded** | Q-A01, Q-R01 | ACID format validator becomes strict |
 | **Later milestones** | everything else | M2–M6 |
 
-M1-A1 to A3 are implemented (2026-10-22). The rest of M1-A is blocked by no question.
+M1-A1 to A3 (2026-10-22) and A5 to A8 (2026-10-30) are implemented. A4 waits for the first branch-scoped resource and is blocked by no question.
 
 ---
 
@@ -59,8 +59,8 @@ M1-A1 to A3 are implemented (2026-10-22). The rest of M1-A is blocked by no ques
 | ID | Question | Class | Provisional approach (not approved) |
 |---|---|---|---|
 | **Q-D01** | Which party roles are needed on a job (customer, importer, consignee, notify, shipper/exporter, origin agent, carrier, customs broker, trucker)? Is the customer always the importer? | **BLOCKS M1-B** (role list) · OPS | One tenant-wide `parties` table (a legal entity), roles attached **per job** (`job_parties`). Start with: customer, importer, consignee, notify party, shipper/exporter, origin agent, carrier. Role list in code as an enum that can grow |
-| **Q-D02** | Are parties shared across all branches of a tenant? | DEFER | Yes, tenant-wide master data; visibility of *jobs* is what is branch-scoped |
-| **Q-D03** | How are duplicate parties detected (same company typed twice)? | DEFER · OPS | Soft warning on similar name / same tax ID; merge tooling later |
+| **Q-D02** — **RESOLVED → BD-D01** | Are parties shared across all branches of a tenant? | DEFER (answered 2026-10-23) | Yes, tenant-wide master data; visibility of *jobs* is what is branch-scoped |
+| **Q-D03** — **RESOLVED → BD-D02** (for M1) | How are duplicate parties detected (same company typed twice)? | DEFER · OPS (answered 2026-10-23: a warning, then save after confirmation; merge tooling stays deferred) | Soft warning on similar name / same tax ID; merge tooling later |
 | **Q-D04** | Are carriers and terminals master data the platform should seed (global reference) or tenant-maintained? | DEFER | Tenant-maintained parties in M1. A central read-only reference list (UN/LOCODE, carrier SCAC) is a later, explicit decision (R1 L182) |
 
 ## 4. Bills of lading, containers, booking

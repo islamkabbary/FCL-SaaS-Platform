@@ -1,6 +1,6 @@
 # FCL M1 Implementation Plan — Core Import Job Workspace
 
-**Status:** in progress. **M1-A1 to M1-A3 implemented and committed** (2026-10-22); everything else is still a proposal. · **Created:** 2026-10-22 (Phase 0) · **Baseline:** commit `bcd7c38`
+**Status:** in progress. **M1-A1 to A3 (2026-10-22) and M1-A5 to A8 (2026-10-30) implemented and committed**; A4 waits for the first branch-scoped resource; M1-B and M1-C are still proposals. · **Created:** 2026-10-22 (Phase 0) · **Baseline:** commit `bcd7c38`
 
 ## Progress log
 
@@ -11,8 +11,13 @@
 | 2026-10-22 | **A2** Impersonation denial | **Implemented** | `RestrictionPolicy` + `ImpersonationServiceProvider` + new `DenyDuringImpersonation` middleware (alias `impersonation.deny`), marker `App\Impersonation\DeniedDuringImpersonation`. See §4.1 |
 | 2026-10-22 | **A3** Tenant audit | **Implemented** | `App\Models\TenantAuditLog`, tenant migration `tenant_audit_logs`, `AppendOnlyBuilder`, `TenantAuditLogPolicy`. Existing tenants need `tenants:migrate`. See §4.2 |
 | — | A4 branch scope primitive | Not started | Not needed by A1–A3; build with the first branch-scoped resource (parties are tenant-wide, so likely M1-B) |
-| — | A5 validators, A6 parties, A7 test support, A8 milestone doc | Not started | Next batch |
-| 2026-10-22 | Verification | See the batch report | Focused tests, protection-removal checks, full `composer test` |
+| 2026-10-23 | Owner answers before A5–A7 | Done | Q-D02 → BD-D01 (parties shared by every branch), Q-D03 → BD-D02 (warning, then save after confirmation), BD-D03 (party fields of the first version), BD-D04 (the nine permission names approved as they are) |
+| 2026-10-30 | **A5** Identifier validators | **Implemented** | `App\Rules\Fcl\ContainerNumber` (ISO 6346) and `App\Rules\Fcl\Acid` (lenient). Not used by a feature yet. See §4.3 |
+| 2026-10-30 | **A6** Parties | **Implemented** | Tenant migration `parties`, `App\Models\Fcl\Party`, `CreateParty` / `UpdateParty` (audited), page `/fcl/parties`, sidebar group "Operations". Existing tenants need `tenants:migrate`. See §4.4 |
+| 2026-10-30 | **A7** Test support | **Implemented** | `defaultBranch()`, `extraBranch()`, `userInBranch()`, `createParty()` in `tests/Pest.php`; `Database\Factories\Fcl\PartyFactory` |
+| 2026-10-30 | **A8** Milestone doc | **Started** | [`docs/FCL_M1_IMPORT_JOB_WORKSPACE.md`](../FCL_M1_IMPORT_JOB_WORKSPACE.md), completed at the end of M1 (C11) |
+| 2026-10-22 | A1–A3 verification | See the batch report | Focused tests, protection-removal checks, full `composer test` |
+| 2026-10-30 | A5–A8 verification | See the [report](../FCL_M1_IMPORT_JOB_WORKSPACE.md) §7 | Independent review of the batch, focused tests, protection-removal checks, full `composer test` |
 
 M1 is split into three steps:
 - **M1-A** builds foundations that depend on no operational question.
@@ -86,12 +91,12 @@ The Laravel Boost guidelines in `AGENTS.md` apply: `search-docs` before version-
 
 | # | Deliverable | Details | Depends on |
 |---|---|---|---|
-| A1 | FCL permission vocabulary | Add FCL cases to `TenantPermission`, for example `fcl.jobs.view`, `fcl.jobs.view_all_branches`, `fcl.jobs.create`, `fcl.jobs.update`, `fcl.jobs.cancel`, `fcl.aci.correct`, `fcl.parties.view`, `fcl.parties.manage`. Labels for the role editor. The sync gives them to Tenant Admin only; Employee gets none (BD-SEC02) | PR-08; final names reviewed by owner |
+| A1 | FCL permission vocabulary | Add FCL cases to `TenantPermission`, for example `fcl.jobs.view`, `fcl.jobs.view-all-branches`, `fcl.jobs.create`, `fcl.jobs.update`, `fcl.jobs.cancel`, `fcl.aci.correct`, `fcl.parties.view`, `fcl.parties.manage`. Labels for the role editor. The sync gives them to Tenant Admin only; Employee gets none (BD-SEC02) | PR-08; final names reviewed by owner |
 | A2 | Impersonation stance | **Do not** add FCL abilities, routes, components or methods to `RestrictionPolicy`. Add tests proving that FCL writes **and** reads are refused during support access and employee view (BD-SEC01, Q-S01) | — |
 | A3 | Tenant audit | New tenant migration and append-only model for FCL audit entries, written explicitly by actions. Fields:<br>- actor user id and actor email snapshot<br>- original actor during impersonation, if writes are ever allowed<br>- action enum<br>- subject type and id<br>- the job id, for the timeline<br>- old/new values (JSON)<br>- reason<br>- created_at<br><br>Never store passwords, tokens or session ids (R1 L997–1010) | PR-09 / Q-S03 |
-| A4 | Branch scope primitive | One place that answers "may this user see/act on a job of branch X", plus one query scope for lists: own branch via `primary_branch_id`, or all branches with `fcl.jobs.view_all_branches`. Unit and feature tested with seeded extra branches (only `MAIN` exists in production tenants, Q-BR02) | PR-13 |
+| A4 | Branch scope primitive | One place that answers "may this user see/act on a job of branch X", plus one query scope for lists: own branch via `primary_branch_id`, or all branches with `fcl.jobs.view-all-branches`. Unit and feature tested with seeded extra branches (only `MAIN` exists in production tenants, Q-BR02) | PR-13 |
 | A5 | Identifier validators | Pure, unit-tested classes:<br>- ISO 6346 container number: normalisation, owner code, serial, check digit (R1 L104)<br>- ACID normaliser plus a **lenient** format check: string, digits only, warning on an unexpected length; no hard 16/19 rule (BD-A02, Q-A01)<br><br>Neither validator ever claims external verification (BD-A03) | — |
-| A6 | Parties (master data) | Tenant migration `parties`: legal name, optional tax/registration number, optional country code, notes, active flag, timestamps, created_by. Actions `CreateParty` / `UpdateParty` (audited) and a list/create/edit page under a new "Operations" sidebar group. No ACID requirement (BD-P09). Soft duplicate warning on name/tax number | Q-D03 provisional |
+| A6 | Parties (master data) | Tenant migration `parties`: legal name, optional tax/registration number, optional country code, notes, active flag, timestamps, created_by. Actions `CreateParty` / `UpdateParty` (audited) and a list/create/edit page under a new "Operations" sidebar group. No ACID requirement (BD-P09). Soft duplicate warning on name/tax number | BD-D01 to BD-D03 (owner, 2026-10-23); as built in §4.4 |
 | A7 | Test support | FCL factories/helpers in `tests/Pest.php` style, for example a helper to seed a second branch and a user in it | — |
 | A8 | Documentation | Start `docs/FCL_M1_IMPORT_JOB_WORKSPACE.md` (milestone doc); update [BUSINESS_DECISIONS.md](BUSINESS_DECISIONS.md) with any confirmed P0 answers | — |
 
@@ -139,10 +144,12 @@ Each of these is recognised on its own, so one forgotten convention does not ope
 - **Renaming permissions:** list the old name in `TenantPermission::renamed()` in the same release. Otherwise `tenants:sync-authorization` deletes the old permission and its grants.
 - **Audit:** `TenantAuditLog` accepts records only through `record()`. Pass arrays, Collections or JsonSerializable values, never JSON strings, so that redaction applies.
 
+**Added by M1-A6:** a request that `EnforceImpersonation` lets through and that is refused with 403 further on is recorded as denied whatever its method, once. In practice this is a Livewire update (POST) of a page opened before the impersonation: Livewire re-applies the page's `can:` check, which the Gate refuses for `App\Models\Fcl` resources. The record names the component, for example `livewire.update: pages::fcl.parties.index`. Refusals by the allowlist, by `impersonation.deny` and by the Livewire listeners were already recorded; this gap was the only one. On such a page the `can:` check refuses before the `hydrate` listener, which remains the layer for FCL components without a `can:` check.
+
 ### 4.2 As built: tenant audit (A3)
 
 **Writing records.** Use `TenantAuditLog::record($action, $actor, $subject, $old, $new, $reason, $metadata)`.
-- `$action` is a string-backed enum of the calling feature, for example a future `App\Enums\Fcl\FclAuditAction`. No action enum is defined yet, because no audited FCL action exists.
+- `$action` is a string-backed enum of the calling feature, for FCL `App\Enums\Fcl\FclAuditAction`: add a case and its label for each new audited action.
 - `$actor` is a `User`, or `null` for the system.
 - **The call must be inside the database transaction of the change.** Outside one it throws, so a change and its record commit or roll back together.
 
@@ -172,10 +179,39 @@ Each of these is recognised on its own, so one forgotten convention does not ope
 
 **Location.** The tenant database only. Tests assert that the central database has no `tenant_audit_logs` table and that `platform_audit_logs` is not written.
 
+### 4.3 As built: identifier validators (A5)
+
+Two validation rules in `app/Rules/Fcl/`, Laravel's standard folder for rules. Each is also a set of pure static functions, unit-tested in `tests/Unit/Fcl/IdentifierValidatorsTest.php`. **Neither claims external verification** (BD-A03). No feature uses them yet: M1-B will use `Acid`, M1-C `ContainerNumber`.
+
+| Rule | Normalisation | Refused | Accepted with a warning |
+|---|---|---|---|
+| `ContainerNumber` (ISO 6346) | Upper case; spaces, dashes and invisible format characters removed; fullwidth characters written as ASCII | Anything but three letters, a category identifier (U, J or Z), six digits and a check digit. A wrong check digit, unless the rule is built with `ContainerNumber::allowWrongCheckDigit()` (for the audited override planned in M1-C) | — |
+| `Acid` (lenient, BD-A02, Q-A01) | All whitespace and invisible format characters removed; fullwidth, Arabic-Indic and Extended Arabic-Indic digits written as ASCII digits; leading zeros kept | Empty values, any non-digit (letters, hyphens, signs, decimal points), non-strings | A length other than 16 or 19 (`Acid::lengthWarning()`) |
+
+- The check digit follows ISO 6346: letter values 10 to 38 skipping multiples of 11, weights 2^position, the sum modulo 11, a remainder of 10 written as 0. Tested against the published examples CSQU 305438 3 and MSKU 907032 3.
+- Empty values are left to `required`, as for every non-implicit Laravel rule.
+- When Q-A01 gets an official source, replace the one `Acid` class.
+
+### 4.4 As built: parties (A6)
+
+Owner decisions BD-D01 to BD-D04 (2026-10-23).
+
+| Part | As built |
+|---|---|
+| Table | Tenant migration `2026_10_23_200000_create_parties_table`: `legal_name`, `name_key` (indexed), `tax_number` (50, nullable), `tax_number_key` (indexed), `country_code` (2, nullable), `notes`, `is_active` (default true, indexed), `created_by` (users, null on delete), timestamps. No branch column (BD-D01), no ACID (BD-P09), no unique constraint (BD-D02) |
+| Model | `App\Models\Fcl\Party`, policy bound with `#[UsePolicy]`. A `saving` hook keeps the duplicate keys in step with the values |
+| Policy | `App\Policies\Fcl\PartyPolicy`: `viewAny`/`view` need `fcl.parties.view`, `create`/`update` need `fcl.parties.manage`; non-tenant identities are refused. A missing permission row denies rather than fails (`checkPermissionTo`), because `viewAny` runs on every page for the sidebar. There is no delete: a party is deactivated |
+| Actions | `CreateParty` and `UpdateParty`: authorize, validate (`ValidatePartyAttributes`), then one transaction with the change and its `TenantAuditLog` record. `UpdateParty` locks the row, keeps attributes it is not given and audits only the changed attributes; an unchanged save writes nothing |
+| Duplicates | `Party::similarTo()`: the same name key (compatibility-decomposed, lower case, no diacritics or tatweel, Arabic letter variants folded, letters and digits of any script) or the same tax-number key (letters and digits, Arabic-Indic digits as ASCII). The actions throw `PossibleDuplicateParty` until `$confirmedSimilarIds` covers every similar party, so a party the user was not shown gives a new warning; the audit metadata records `confirmed_despite_similar_party_ids`. An update checks only a key that changes |
+| Validation | In the action, so every caller is covered: legal name required, at most 255 characters, whitespace collapsed; tax number at most 50; country a two-letter code, stored upper case (not checked against an ISO list); notes at most 2,000; active flag boolean |
+| Page | `pages::fcl.parties.index` at `/fcl/parties`, route `fcl.parties.index` in a group with `impersonation.deny`, inside `subscription.active`, with `can:viewAny` on `Party`. Search by name or tax number (with or without separators), status filter (active by default), default paginator, create and edit modal, a warning listing the similar parties with "Save anyway" |
+| Sidebar | New group "Operations" with "Parties", shown to users who may view parties |
+| Audit actions | `App\Enums\Fcl\FclAuditAction`: `fcl.party.created`, `fcl.party.updated` |
+
 **M1-A acceptance:**
 - `composer test` passes: Pint, PHPStan level 7, Pest.
 - No new package.
-- No change to SaaS behaviour, except the new permission rows and the sidebar group.
+- No change to SaaS behaviour, except the new permission rows, the sidebar group and the access-history fix of M1-A6 (§4.1).
 
 ---
 
@@ -221,7 +257,7 @@ Each has a provisional answer. The owner may confirm all of them in one reply. *
   - the same ACID twice on one job is refused.
 - **Branch:**
   - a user in branch X without the all-branches permission cannot see, open or update a job of branch Y, through the list, the URL and a real Livewire request;
-  - with `fcl.jobs.view_all_branches` they can.
+  - with `fcl.jobs.view-all-branches` they can.
 - **Tenant isolation:**
   - a job id from tenant A requested on tenant B returns 404;
   - identical numeric ids in both tenants do not leak.
@@ -318,7 +354,8 @@ Each has a provisional answer. The owner may confirm all of them in one reply. *
 | Work | Can start | Blocked by |
 |---|---|---|
 | M1-A1 to A3 | **Done** (2026-10-22) | — |
-| M1-A4 to A8 | **Yes** | A6 parties: Q-D03 provisional (tenant-wide parties) |
+| M1-A5 to A8 | **Done** (2026-10-30) | — |
+| M1-A4 branch scope primitive | With the first branch-scoped resource (M1-B) | — |
 | M1-B migrations and actions | No | Q-P01, Q-P05, Q-P08, Q-A02, Q-A03, Q-A06, Q-D01 (each has a provisional answer to accept) |
 | M1-C1 to C5, C9 | After M1-B | — |
 | M1-C6 / C7 / C8 | After M1-B | Q-BR01 / Q-P04 / Q-P07 |

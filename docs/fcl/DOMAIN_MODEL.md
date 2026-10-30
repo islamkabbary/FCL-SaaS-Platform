@@ -102,13 +102,16 @@ Display vocabulary is a product proposal, not official NAFEZA wording (R2 L689).
 
 ### 3.2 Party (master data) and Job Party (role)
 
-- **Party.** A legal entity known to the tenant: importer, customer, exporter, agent, carrier, broker or trucker. It is tenant-wide, independent of jobs, and may exist **without** any ACID or job [C BD-P09; P PR-07].
+- **Party.** A legal entity known to the tenant: importer, customer, exporter, agent, carrier, broker or trucker. It is tenant-wide, independent of jobs, and may exist **without** any ACID or job [C BD-P09, BD-D01].
 - **Job Party.** Links a party to a job **in a role**: customer, importer, consignee, notify party, shipper/exporter, origin agent or carrier. Later roles may include customs broker, trucker and empty depot.
 - **Cardinality.** A job has 0..n parties per role, and the same party can play several roles on one job (customer = importer = consignee is common). A party has 0..n jobs.
 - **Invariants:**
   - I-P1. Origin agent is optional [C BD-F04].
   - I-P2. Which roles are required at creation is open [? Q-P01, Q-D01]. The proposal requires only the customer [P PR-03].
   - I-P3. Importer tax ID and exporter identifiers are stored as attributes of the party, without format validation until verified [? Q-A07].
+  - I-P4. Parties are shared by every branch of the company; branch scope applies to jobs, not to parties [C BD-D01].
+  - I-P5. A likely duplicate (same name or tax number after normalisation) is a warning: the user may confirm and keep both. There is no uniqueness rule [C BD-D02].
+- **As built (M1-A6, 2026-10-30).** `App\Models\Fcl\Party` with legal name, tax number, country, notes and active flag [C BD-D03]; see [M1_IMPLEMENTATION_PLAN.md](M1_IMPLEMENTATION_PLAN.md) §4.4. Job Party is not built yet (M1-B).
 - **Extension.** Contacts, addresses, a party's branch affinity, merge/dedupe tooling, and a central read-only carrier/port reference (a separate explicit decision, R1 L182).
 
 ### 3.3 ACI Record (ACID)
@@ -249,7 +252,7 @@ It would be a **separate** entity, for example a "Pre-Alert intake", with its ow
   - or the user holds an "all branches" permission;
   - later, explicitly granted extra branches [P PR-13; ? Q-BR01].
 - **Per action.**
-  - Proposed vocabulary (to be finalised in M1-A): `fcl.jobs.view`, `fcl.jobs.create`, `fcl.jobs.update`, `fcl.jobs.cancel`, `fcl.jobs.view_all_branches`, `fcl.aci.correct`, `fcl.parties.manage`. BLs and containers are covered by job update.
+  - Vocabulary (names approved in BD-D04; the full list of nine is in `App\Enums\TenantPermission`): `fcl.jobs.view`, `fcl.jobs.create`, `fcl.jobs.update`, `fcl.jobs.cancel`, `fcl.jobs.view-all-branches`, `fcl.aci.correct`, `fcl.parties.manage`. BLs and containers are covered by job update.
   - Later: `fcl.jobs.assign`, `fcl.jobs.change_branch`, then customs, release, delivery and finance permissions per milestone (R2 L941–978).
   - All are FCL-specific names [P PR-08].
 - **Impersonation.** Writes are denied [C BD-SEC01]. Reads depend on Q-S01.
