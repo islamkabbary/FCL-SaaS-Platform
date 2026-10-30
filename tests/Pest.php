@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Fcl\CreateParty;
 use App\Actions\Impersonation\StartSupportSession;
 use App\Actions\Tenancy\ProvisioningResult;
 use App\Actions\Tenancy\ProvisionTenant;
@@ -9,6 +10,8 @@ use App\Enums\SubscriptionTermKind;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
 use App\Enums\TenantStatus;
+use App\Models\Branch;
+use App\Models\Fcl\Party;
 use App\Models\PlatformAdmin;
 use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
@@ -20,6 +23,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
@@ -356,4 +360,54 @@ function useDatabaseSessions(): void
     config(['session.driver' => 'database']);
     app('session')->forgetDrivers();
     app()->forgetInstance('session.store');
+}
+
+/*
+|--------------------------------------------------------------------------
+| FCL Operations
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * The default branch of the current tenant, created by provisioning.
+ */
+function defaultBranch(): Branch
+{
+    return Branch::query()->where('is_default', true)->sole();
+}
+
+/**
+ * A branch besides the default one in the current tenant. Companies only have their default
+ * branch so far (Q-BR02), so tests of branch behaviour seed the other branches they need.
+ */
+function extraBranch(string $code = 'ALX', string $name = 'Alexandria Branch'): Branch
+{
+    return Branch::factory()->create(['code' => $code, 'name' => $name]);
+}
+
+/**
+ * A user of the current tenant working in the given branch, holding exactly the given permissions.
+ *
+ * @param  list<TenantPermission>  $permissions
+ * @param  array<string, mixed>  $attributes
+ */
+function userInBranch(Branch $branch, array $permissions, array $attributes = []): User
+{
+    return userWithPermissions($permissions, [...$attributes, 'primary_branch_id' => $branch->id]);
+}
+
+/**
+ * A party of the current tenant, created through the audited action by $actor (the Tenant
+ * Admin by default), as the application creates them.
+ *
+ * @param  array<string, mixed>  $attributes
+ * @param  list<int>  $confirmedSimilarIds  The similar parties a duplicate warning would list.
+ */
+function createParty(array $attributes = [], ?User $actor = null, array $confirmedSimilarIds = []): Party
+{
+    return app(CreateParty::class)->handle(
+        $actor ?? tenantAdminUser(),
+        [...Arr::only(Party::factory()->raw(), Party::EditableAttributes), ...$attributes],
+        $confirmedSimilarIds,
+    );
 }
