@@ -49,3 +49,20 @@ test('an employee view records pages viewed with any headers', function () {
 
     expect(ImpersonationEvent::query()->where('type', 'viewed')->where('action', 'employees.index')->count())->toBe(1);
 });
+
+test('a Livewire update refused by the page authorization is recorded as denied', function () {
+    // A page the Tenant Admin opened before the support session started.
+    loginToTenant($this->tenant, $this->tenant->run(fn () => tenantAdminUser()));
+    $html = (string) $this->get($this->tenant->url('access-history'))->assertOk()->getContent();
+    preg_match('/wire:snapshot="([^"]+)"/', $html, $match);
+
+    [, $token] = startSupportSession($this->platformAdmin, $this->tenant);
+    postHandoff($this->tenant, $token)->assertRedirect();
+
+    // Livewire re-applies the page's "can:" check to the update, which refuses it.
+    $this->withHeaders(['X-Livewire' => '1'])->postJson($this->tenant->url(route('livewire.update', absolute: false)), [
+        'components' => [['snapshot' => html_entity_decode($match[1], ENT_QUOTES), 'updates' => [], 'calls' => [['method' => '$refresh', 'params' => [], 'metadata' => []]]]],
+    ])->assertForbidden();
+
+    expect(supportEvents())->toBe([['type' => 'denied', 'action' => 'livewire.update: pages::access-history.index', 'http_method' => 'POST']]);
+});

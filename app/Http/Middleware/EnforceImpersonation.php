@@ -9,6 +9,7 @@ use App\Impersonation\RestrictionPolicy;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Fortify\Contracts\LogoutResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -76,26 +77,45 @@ class EnforceImpersonation
             abort(403, __('This action is not available during an impersonation session.'));
         }
 
-        if (! $request->isMethod('GET')) {
-            return $next($request);
-        }
-
         // Recorded after the request was handled, so the history shows what was actually
-        // seen: a page refused further on (403, e.g. by a "can:" check) is recorded as
-        // denied, not viewed. Every GET counts, whatever its headers: Livewire's own
-        // updates are POST requests, so a client-chosen header cannot hide a page view.
+        // seen: a request refused further on (403, e.g. by a "can:" check, also one that
+        // Livewire re-applies to an update) is recorded as denied, once. Every successful
+        // GET is recorded as viewed, whatever its headers: Livewire's own updates are POST
+        // requests, so a client-chosen header cannot hide a page view.
         $response = $next($request);
         $action = $request->route()?->getName() ?? '/'.$request->path();
 
         if ($response->getStatusCode() === Response::HTTP_FORBIDDEN) {
             if (! $active->hasRecordedDenial($request)) {
-                $active->recordDenied($action, 'GET');
+                $active->recordDenied($this->deniedAction($request, $action), $request->method());
             }
-        } elseif ($response->getStatusCode() < 400) {
+        } elseif ($request->isMethod('GET') && $response->getStatusCode() < 400) {
             $active->recordViewed($action);
         }
 
         return $response;
+    }
+
+    /**
+     * The refused action. A Livewire update is named after its components (as in
+     * "livewire.update: pages::fcl.parties.index"), so the history shows which page was
+     * refused; Livewire has verified the snapshots before it re-applies a page's checks.
+     */
+    protected function deniedAction(Request $request, string $action): string
+    {
+        if ($action !== 'livewire.update') {
+            return $action;
+        }
+
+        $names = collect(Arr::wrap($request->input('components')))
+            ->map(fn (mixed $component): mixed => is_array($component) && is_string($component['snapshot'] ?? null)
+                ? (json_decode($component['snapshot'], true)['memo']['name'] ?? null)
+                : null)
+            ->filter(fn (mixed $name): bool => is_string($name))
+            ->unique()
+            ->implode(', ');
+
+        return $names === '' ? $action : $action.': '.$names;
     }
 
     protected function endedResponse(Request $request, ImpersonationEndReason $reason, bool $restored): Response
