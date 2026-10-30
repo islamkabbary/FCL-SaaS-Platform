@@ -108,6 +108,9 @@ test('starting requires the platform admin to re-enter their password', function
 });
 
 test('repeated wrong passwords are rate limited', function () {
+    // The message counts down in seconds, so a second passing mid-test must not change it.
+    $this->freezeTime();
+
     foreach (range(1, 5) as $attempt) {
         $this->actingAs($this->admin, 'platform')->post(route('platform.support-sessions.store', $this->tenant), [
             'target_user_id' => $this->tenantAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'wrong',
