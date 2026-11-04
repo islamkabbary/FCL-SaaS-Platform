@@ -88,9 +88,13 @@ php artisan db:seed --class=MainAccountsSeeder
 
 ### What happened on the local development database
 
-- The two new migrations and the pending locale migrations ran, in the central database and in the `test1` tenant.
-- `islam` and `ibrahim` were created. **An existing Platform Admin named `zyad` (`zz@zz.com`) was reused: its email stayed, but its password changed.**
-- `Demo Freight` was provisioned. The `zyad` user inside the `test1` company was not touched.
+The database was rebuilt with `migrate:fresh --seed` after the migrations were merged (section 7):
+
+- The previous central data was removed, including the `test1` company record and the Platform Admin `zz@zz.com`.
+- The two tenant databases left behind, `test1` and the first `Demo Freight`, were then dropped at the owner's request, with the old tenant storage folder. This cannot be undone.
+- The database now holds the three Platform Admins and one company, `Demo Freight`.
+
+`/storage/tenant*/` is now in `.gitignore`, because a package can write per-tenant files there.
 
 ## 4. Files
 
@@ -102,7 +106,7 @@ php artisan db:seed --class=MainAccountsSeeder
 | Seeder | `database/seeders/MainAccountsSeeder.php`, `database/seeders/DatabaseSeeder.php` |
 | Language | `lang/ar.json`, `lang/ar/validation.php`, `lang/en/validation.php` |
 
-**Migrations:** `add_username_to_users_table` (tenant) and `add_username_to_platform_admins_table` (central). Each generates usernames for existing rows, then makes the column required and unique.
+**Migrations:** `username` and `username_changed_at` are in the tenant `create_users_table`, and `username` is in the central `create_platform_admins_table`. See "Migrations merged" in section 7.
 
 **Packages:** none added.
 
@@ -110,7 +114,7 @@ php artisan db:seed --class=MainAccountsSeeder
 
 New files:
 
-- `tests/Feature/UsernameLoginTest.php`: username and email login on both sides, capitals, wrong password, deactivated user, non-string input, throttling, isolation between companies, generation and the migration backfill.
+- `tests/Feature/UsernameLoginTest.php`: username and email login on both sides, capitals, wrong password, deactivated user, non-string input, throttling, isolation between companies, and generation.
 - `tests/Feature/ChangeUsernameTest.php`: one change only, audit, wrong password, invalid or taken values, ownership, and refusal during a support session.
 - `tests/Feature/PlatformTwoFactorSwitchTest.php`: login without a code, no enrollment, 404 pages, support session with the password only, and restoring two-factor.
 - `tests/Feature/MainAccountsSeederTest.php`: accounts, demo company, repeat runs, reuse of an existing admin, and refusal in production or without a password.
@@ -149,6 +153,12 @@ php artisan tenants:migrate --force
 npm run build
 php artisan config:cache
 ```
+
+### Migrations merged
+
+All eight `add_*` migrations were merged into the `create_*` migrations of their tables and deleted, and the development database was rebuilt with `migrate:fresh --seed`. The `widen_subject_type_of_tenant_audit_logs` migration is not an `add_*` file and stays.
+
+**An existing database does not receive these columns from `migrate`,** because its `create_*` migrations already ran. Any environment created before this change must be rebuilt, or altered by hand. There is no longer a backfill that generates usernames for existing rows. Older milestone reports still name the deleted files as history.
 
 Add `PLATFORM_TWO_FACTOR_ENABLED`. It defaults to off, so set it to `true` wherever two-factor must stay on. Do not run `MainAccountsSeeder` in production.
 
