@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TenantRole;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,6 +27,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property bool $must_change_password
  * @property bool $is_active
  * @property Carbon|null $deactivated_at
+ * @property string|null $locale
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -36,7 +38,7 @@ use Spatie\Permission\Traits\HasRoles;
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements HasLocalePreference
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
@@ -54,6 +56,14 @@ class User extends Authenticatable
     protected $attributes = [
         'is_active' => true,
     ];
+
+    /**
+     * The language of the mail and notifications sent to this account.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
+    }
 
     /**
      * Get the attributes that should be cast.

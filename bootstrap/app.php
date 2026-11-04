@@ -9,6 +9,7 @@ use App\Http\Middleware\EnsureTenantIsReady;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\InitializeTenancyByStrictSubdomain;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\ThrottlePasswordResetLinkRequests;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -61,6 +62,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // impersonation is verified before anything else uses the authenticated user.
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: EnforceImpersonation::class);
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: EnsureUserIsActive::class);
+        // The language may come from the user, so it is read only after the checks above.
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: SetLocale::class);
 
         /*
          * Outside local and tests, refuse any Host other than a central domain or a single
@@ -75,8 +78,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ])
             ->all(), subdomains: false);
 
-        // Baseline security headers on every web response (central and tenant).
-        $middleware->web(append: SecurityHeaders::class);
+        // Baseline security headers and the request's language on every web response.
+        $middleware->web(append: [SecurityHeaders::class, SetLocale::class]);
 
         // The support handoff is posted from the central domain; its single-use,
         // tenant-bound credential replaces the CSRF token.

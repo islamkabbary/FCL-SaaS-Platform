@@ -11,6 +11,7 @@ use App\Http\Controllers\Platform\TenantAccessController;
 use App\Http\Controllers\Platform\TenantController;
 use App\Http\Controllers\Platform\TwoFactorChallengeController;
 use App\Http\Controllers\Platform\TwoFactorController;
+use App\Http\Controllers\SwitchLocaleController;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::domain(config('tenancy.central_domains')[0])->group(function () {
     Route::view('/', 'welcome')->name('central.home');
+
+    Route::post('locale', SwitchLocaleController::class)->middleware('throttle:20,1')->name('central.locale.switch');
 
     Route::prefix('admin')->name('platform.')->group(function () {
         Route::middleware('guest:platform')->group(function () {

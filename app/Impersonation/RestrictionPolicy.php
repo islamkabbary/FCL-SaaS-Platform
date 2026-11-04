@@ -45,6 +45,7 @@ final class RestrictionPolicy
      */
     public const AllowedRoutes = [
         'impersonation.end',
+        'locale.switch',
         'logout',
         'livewire.update',
     ];

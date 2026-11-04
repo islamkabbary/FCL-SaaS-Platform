@@ -82,6 +82,15 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    /*
+    | The interface languages, each with its name written in that language.
+    */
+
+    'supported_locales' => [
+        'en' => 'English',
+        'ar' => 'العربية',
+    ],
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*

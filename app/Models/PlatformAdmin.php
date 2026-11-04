@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\PlatformAdminFactory;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,16 +23,25 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * @property list<string>|null $two_factor_recovery_codes Encrypted at rest.
  * @property Carbon|null $two_factor_confirmed_at
  * @property int|null $two_factor_last_timestep
+ * @property string|null $locale
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
-class PlatformAdmin extends Authenticatable
+class PlatformAdmin extends Authenticatable implements HasLocalePreference
 {
     /** @use HasFactory<PlatformAdminFactory> */
     use CentralConnection, HasFactory;
+
+    /**
+     * The language of the mail and notifications sent to this account.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
+    }
 
     /**
      * Get the attributes that should be cast.

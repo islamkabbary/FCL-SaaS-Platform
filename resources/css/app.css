@@ -28,6 +28,10 @@
     --color-accent-foreground: var(--color-white);
 }
 
+html:lang(ar) {
+    --font-sans: 'Cairo', ui-sans-serif, system-ui, sans-serif;
+}
+
 @layer theme {
     .dark {
         --color-accent: var(--color-white);
