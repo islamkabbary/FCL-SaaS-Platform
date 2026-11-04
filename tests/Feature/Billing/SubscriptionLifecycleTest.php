@@ -28,7 +28,7 @@ function employeeLogin(Tenant $tenant, string $email = 'employee@acme.test'): vo
     // auth manager; a real tenant request always starts with the "web" guard.
     auth()->shouldUse('web');
     $tenant->run(fn () => User::factory()->create(['email' => $email]));
-    test()->post($tenant->url('login'), ['email' => $email, 'password' => 'password'])->assertSessionHasNoErrors();
+    test()->post($tenant->url('login'), ['login' => $email, 'password' => 'password'])->assertSessionHasNoErrors();
 }
 
 test('the existing-tenant migration keeps tenants created before subscriptions as legacy', function () {
@@ -154,9 +154,9 @@ test('an expired subscription restricts the application, including existing sess
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
     subscribeTenant($tenant, seats: 10, daysAgo: 360);
 
-    $this->post($tenant->url('login'), ['email' => 'admin@acme.test', 'password' => 'password'])->assertSessionHasErrors();
+    $this->post($tenant->url('login'), ['login' => 'admin@acme.test', 'password' => 'password'])->assertSessionHasErrors();
     $tenant->run(fn () => tenantAdminUser()->forceFill(['password' => 'password'])->save());
-    $this->post($tenant->url('login'), ['email' => 'admin@acme.test', 'password' => 'password'])->assertSessionHasNoErrors();
+    $this->post($tenant->url('login'), ['login' => 'admin@acme.test', 'password' => 'password'])->assertSessionHasNoErrors();
 
     $html = $this->get($tenant->url('employees'))->assertOk()->getContent();
     preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);

@@ -326,7 +326,7 @@ function loginToTenant(Tenant $tenant, User $user): void
     auth()->shouldUse('web');
     $tenant->run(fn () => $user->forceFill(['password' => 'password', 'must_change_password' => false])->save());
 
-    test()->post($tenant->url('login'), ['email' => $user->email, 'password' => 'password'])->assertSessionHasNoErrors();
+    test()->post($tenant->url('login'), ['login' => $user->email, 'password' => 'password'])->assertSessionHasNoErrors();
 }
 
 /**

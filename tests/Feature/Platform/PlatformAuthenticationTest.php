@@ -10,7 +10,7 @@ test('platform admins can authenticate on the central domain', function () {
     $admin = PlatformAdmin::factory()->create();
 
     $response = $this->post(route('platform.login.store'), [
-        'email' => $admin->email,
+        'login' => $admin->email,
         'password' => 'password',
     ]);
 
@@ -26,9 +26,9 @@ test('platform admins can not authenticate with an invalid password', function (
     $admin = PlatformAdmin::factory()->create();
 
     $this->post(route('platform.login.store'), [
-        'email' => $admin->email,
+        'login' => $admin->email,
         'password' => 'wrong-password',
-    ])->assertSessionHasErrors(['email' => __('auth.failed')]);
+    ])->assertSessionHasErrors(['login' => __('auth.failed')]);
 
     $this->assertGuest('platform');
 });
@@ -37,13 +37,13 @@ test('platform login is locked after too many failed attempts', function () {
     $admin = PlatformAdmin::factory()->create();
 
     foreach (range(1, 5) as $attempt) {
-        $this->post(route('platform.login.store'), ['email' => $admin->email, 'password' => 'wrong-password']);
+        $this->post(route('platform.login.store'), ['login' => $admin->email, 'password' => 'wrong-password']);
     }
 
     $this->post(route('platform.login.store'), [
-        'email' => $admin->email,
+        'login' => $admin->email,
         'password' => 'password',
-    ])->assertSessionHasErrors('email');
+    ])->assertSessionHasErrors('login');
 
     $this->assertGuest('platform');
 });

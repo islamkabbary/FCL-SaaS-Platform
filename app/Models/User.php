@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasUsername;
 use App\Enums\TenantRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Translation\HasLocalePreference;
@@ -28,6 +29,8 @@ use Spatie\Permission\Traits\HasRoles;
  * @property bool $is_active
  * @property Carbon|null $deactivated_at
  * @property string|null $locale
+ * @property string $username
+ * @property Carbon|null $username_changed_at
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -41,7 +44,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements HasLocalePreference
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, HasRoles, HasUsername, Notifiable;
 
     /**
      * The guard used for roles and permissions. Tenant users always authenticate through "web".
@@ -74,6 +77,7 @@ class User extends Authenticatable implements HasLocalePreference
     {
         return [
             'email_verified_at' => 'datetime',
+            'username_changed_at' => 'datetime',
             'password' => 'hashed',
             'is_tenant_admin' => 'boolean',
             'must_change_password' => 'boolean',

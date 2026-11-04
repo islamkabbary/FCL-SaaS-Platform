@@ -12,9 +12,9 @@ test('a tenant login with an array email is a validation error, not a server err
     $tenant = actingInTenant();
     auth()->shouldUse('web');
 
-    $this->post($tenant->url('login'), ['email' => ['x@acme.test'], 'password' => 'secret'])
+    $this->post($tenant->url('login'), ['login' => ['x@acme.test'], 'password' => 'secret'])
         ->assertStatus(302)
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasErrors('login');
 });
 
 test('a tenant login for an unknown email still checks a password hash', function () {
@@ -22,7 +22,7 @@ test('a tenant login for an unknown email still checks a password hash', functio
     auth()->shouldUse('web');
     Hash::spy();
 
-    $this->post($tenant->url('login'), ['email' => 'nobody@acme.test', 'password' => 'secret'])->assertSessionHasErrors('email');
+    $this->post($tenant->url('login'), ['login' => 'nobody@acme.test', 'password' => 'secret'])->assertSessionHasErrors('login');
 
     Hash::shouldHaveReceived('check')->once()->withArgs(fn (string $password, string $hash) => $hash === DummyPasswordCheck::Hash);
 });
@@ -30,7 +30,7 @@ test('a tenant login for an unknown email still checks a password hash', functio
 test('a platform login for an unknown email still checks a password hash', function () {
     Hash::spy();
 
-    $this->post(route('platform.login.store'), ['email' => 'nobody@platform.test', 'password' => 'secret'])->assertSessionHasErrors('email');
+    $this->post(route('platform.login.store'), ['login' => 'nobody@platform.test', 'password' => 'secret'])->assertSessionHasErrors('login');
 
     Hash::shouldHaveReceived('check')->once()->withArgs(fn (string $password, string $hash) => $hash === DummyPasswordCheck::Hash);
 });
@@ -44,13 +44,13 @@ test('a platform admin account is locked after twenty failures spread over many 
 
     foreach (range(1, 20) as $attempt) {
         $this->withServerVariables(['REMOTE_ADDR' => "10.0.0.{$attempt}"])
-            ->post(route('platform.login.store'), ['email' => $admin->email, 'password' => 'wrong-password']);
+            ->post(route('platform.login.store'), ['login' => $admin->email, 'password' => 'wrong-password']);
     }
 
     // A new address with the right password is refused while the account is locked.
     $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.1'])
-        ->post(route('platform.login.store'), ['email' => $admin->email, 'password' => 'correct-password'])
-        ->assertSessionHasErrors('email');
+        ->post(route('platform.login.store'), ['login' => $admin->email, 'password' => 'correct-password'])
+        ->assertSessionHasErrors('login');
 
     $this->assertGuest('platform');
 });

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasUsername;
 use Database\Factories\PlatformAdminFactory;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,6 +25,7 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * @property Carbon|null $two_factor_confirmed_at
  * @property int|null $two_factor_last_timestep
  * @property string|null $locale
+ * @property string $username
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -33,7 +35,7 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
 class PlatformAdmin extends Authenticatable implements HasLocalePreference
 {
     /** @use HasFactory<PlatformAdminFactory> */
-    use CentralConnection, HasFactory;
+    use CentralConnection, HasFactory, HasUsername;
 
     /**
      * The language of the mail and notifications sent to this account.

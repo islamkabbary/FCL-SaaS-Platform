@@ -737,5 +737,16 @@
     "Deploy now": "انشر الآن",
     "Welcome": "مرحبًا",
     "M j, Y": "j M Y",
-    "D, M j, Y g:i A": "D، j M Y g:i A"
+    "D, M j, Y g:i A": "D، j M Y g:i A",
+    "Username": "اسم المستخدم",
+    "Username or email": "اسم المستخدم أو البريد الإلكتروني",
+    "Change username": "تغيير اسم المستخدم",
+    "Username changed": "تم تغيير اسم المستخدم",
+    "Username changed.": "تم تغيير اسم المستخدم.",
+    "You can change your username once. After that it cannot be changed.": "يمكنك تغيير اسم المستخدم مرة واحدة فقط، ولا يمكن تغييره بعد ذلك.",
+    "You have already used your one username change.": "لقد استخدمت بالفعل فرصة تغيير اسم المستخدم.",
+    "The username can only be changed once.": "لا يمكن تغيير اسم المستخدم إلا مرة واحدة.",
+    "The username must start with a letter and contain 3 to 30 lowercase letters, numbers, dots, hyphens or underscores.": "يجب أن يبدأ اسم المستخدم بحرف وأن يتكون من 3 إلى 30 حرفًا إنجليزيًا صغيرًا أو رقمًا أو نقطة أو شرطة.",
+    "Tenant Admin username": "اسم المستخدم لمسؤول الشركة",
+    "Search name, username or email": "البحث بالاسم أو اسم المستخدم أو البريد الإلكتروني"
 }

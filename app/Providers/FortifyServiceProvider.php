@@ -47,7 +47,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
         Fortify::authenticateUsing(function (Request $request): ?User {
-            $user = User::query()->where('email', $request->string(Fortify::username())->lower()->toString())->first();
+            $user = User::query()->whereLogin($request->string(Fortify::username())->lower()->toString())->first();
 
             if ($user === null) {
                 // Same work as a wrong password, so timing does not reveal unknown accounts.
@@ -91,10 +91,10 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('login', function (Request $request) {
-            // Scoped per tenant so the same email on two companies never shares a lockout.
-            // The limiter runs before validation, so a non-string email must not throw here.
-            $email = $request->input(Fortify::username());
-            $throttleKey = Str::transliterate(tenant()?->getTenantKey().'|'.Str::lower(is_string($email) ? $email : '').'|'.$request->ip());
+            // Scoped per tenant so the same login on two companies never shares a lockout.
+            // The limiter runs before validation, so a non-string value must not throw here.
+            $login = $request->input(Fortify::username());
+            $throttleKey = Str::transliterate(tenant()?->getTenantKey().'|'.Str::lower(is_string($login) ? $login : '').'|'.$request->ip());
 
             return Limit::perMinute(5)->by($throttleKey);
         });

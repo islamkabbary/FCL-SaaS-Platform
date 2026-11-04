@@ -6,14 +6,13 @@
             @csrf
 
             <flux:input
-                name="email"
-                :label="__('Email address')"
-                :value="old('email')"
-                type="email" dir="ltr"
+                name="login"
+                :label="__('Username or email')"
+                :value="old('login')"
+                type="text" dir="ltr"
                 required
                 autofocus
-                autocomplete="email"
-                placeholder="email@example.com"
+                autocomplete="username"
             />
 
             <flux:input

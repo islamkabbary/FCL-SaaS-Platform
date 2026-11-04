@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
 class LoginRequest extends FormRequest
 {
     /**
-     * Maximum failed attempts per email and IP address before being locked out.
+     * Maximum failed attempts per login value and IP address before being locked out.
      */
     protected const MaxAttempts = 5;
 
@@ -43,7 +43,7 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'login' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
         ];
     }
@@ -61,9 +61,9 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $credentials = $this->only('email', 'password');
+        $credentials = $this->only('password');
         $provider = Auth::guard('platform')->getProvider();
-        $admin = $provider->retrieveByCredentials(['email' => $credentials['email']]);
+        $admin = PlatformAdmin::query()->whereLogin(Str::lower($this->string('login')->toString()))->first();
 
         if (! $admin instanceof PlatformAdmin) {
             // Same work as a wrong password, so timing does not reveal unknown accounts.
@@ -75,7 +75,7 @@ class LoginRequest extends FormRequest
             RateLimiter::hit($this->accountThrottleKey(), self::AccountDecaySeconds);
 
             throw ValidationException::withMessages([
-                'email' => __('auth.failed'),
+                'login' => __('auth.failed'),
             ]);
         }
 
@@ -109,7 +109,7 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($key);
 
         throw ValidationException::withMessages([
-            'email' => __('auth.throttle', [
+            'login' => __('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
@@ -121,7 +121,7 @@ class LoginRequest extends FormRequest
      */
     protected function throttleKey(): string
     {
-        return 'platform-login|'.Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return 'platform-login|'.Str::transliterate(Str::lower($this->string('login')).'|'.$this->ip());
     }
 
     /**
@@ -129,6 +129,6 @@ class LoginRequest extends FormRequest
      */
     protected function accountThrottleKey(): string
     {
-        return 'platform-login-account|'.Str::transliterate(Str::lower($this->string('email')));
+        return 'platform-login-account|'.Str::transliterate(Str::lower($this->string('login')));
     }
 }

@@ -48,9 +48,9 @@ class CreatePlatformAdmin extends Command
             return self::FAILURE;
         }
 
-        PlatformAdmin::create(['name' => $name, 'email' => $email, 'password' => $password]);
+        $admin = PlatformAdmin::create(['name' => $name, 'email' => $email, 'password' => $password]);
 
-        $this->components->info("Platform admin [{$email}] created.");
+        $this->components->info("Platform admin [{$email}] created with the username [{$admin->username}].");
 
         return self::SUCCESS;
     }

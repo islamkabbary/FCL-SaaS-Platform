@@ -8,7 +8,7 @@ test('the tenant admin can log in with the temporary password on the tenant subd
     $result = provisionTenant('acme');
 
     $this->post($result->tenant->url('login'), [
-        'email' => $result->adminEmail,
+        'login' => $result->adminEmail,
         'password' => $result->temporaryPassword,
     ])->assertSessionHasNoErrors()->assertRedirect('/dashboard');
 

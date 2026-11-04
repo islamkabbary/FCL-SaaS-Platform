@@ -41,8 +41,8 @@ describe('on a tenant', function () {
     test('validation messages use the active language', function () {
         $this->post(route('locale.switch'), ['locale' => 'ar']);
 
-        $this->post(route('login.store'), ['email' => '', 'password' => 'password'])
-            ->assertSessionHasErrors(['email' => 'حقل البريد الإلكتروني مطلوب.']);
+        $this->post(route('login.store'), ['login' => '', 'password' => 'password'])
+            ->assertSessionHasErrors(['login' => 'حقل اسم المستخدم أو البريد الإلكتروني مطلوب.']);
     });
 
     test('a user keeps their chosen language in a new session', function () {

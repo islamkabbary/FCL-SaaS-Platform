@@ -177,7 +177,7 @@ test('users of a suspended tenant cannot sign in', function () {
     $tenant = tenantWithEmployee('acme');
     app(SuspendTenant::class)->handle($this->admin, $tenant, 'Contract under review');
 
-    $this->post($tenant->url('login'), ['email' => 'employee@acme.test', 'password' => 'password'])
+    $this->post($tenant->url('login'), ['login' => 'employee@acme.test', 'password' => 'password'])
         ->assertForbidden();
 
     $this->assertGuest('web');
@@ -186,7 +186,7 @@ test('users of a suspended tenant cannot sign in', function () {
 test('an existing session cannot bypass suspension, and works again after reactivation', function () {
     $tenant = tenantWithEmployee('acme');
 
-    $this->post($tenant->url('login'), ['email' => 'employee@acme.test', 'password' => 'password'])
+    $this->post($tenant->url('login'), ['login' => 'employee@acme.test', 'password' => 'password'])
         ->assertSessionHasNoErrors();
     $this->get($tenant->url('dashboard'))->assertOk();
 
@@ -207,7 +207,7 @@ test('an existing session cannot bypass suspension, and works again after reacti
 test('livewire requests to a suspended tenant are refused', function () {
     $tenant = tenantWithEmployee('acme');
 
-    $this->post($tenant->url('login'), ['email' => 'employee@acme.test', 'password' => 'password']);
+    $this->post($tenant->url('login'), ['login' => 'employee@acme.test', 'password' => 'password']);
 
     // A real component snapshot, as the browser would send it back.
     $html = $this->get($tenant->url('settings/profile'))->assertOk()->getContent();
@@ -233,7 +233,7 @@ test('suspending one tenant does not affect another', function () {
 
     $this->get($acme->url('login'))->assertForbidden();
 
-    $this->post($globex->url('login'), ['email' => 'employee@globex.test', 'password' => 'password'])
+    $this->post($globex->url('login'), ['login' => 'employee@globex.test', 'password' => 'password'])
         ->assertSessionHasNoErrors();
     $this->get($globex->url('dashboard'))->assertOk();
 
@@ -274,7 +274,7 @@ test('suspension and reactivation keep provisioning state and tenant data intact
         ->and($entry->new_values)->toBe(['access_status' => 'active'])
         ->and($entry->reason)->toBe('Contract renewed');
 
-    $this->post($tenant->url('login'), ['email' => 'employee@acme.test', 'password' => 'password'])
+    $this->post($tenant->url('login'), ['login' => 'employee@acme.test', 'password' => 'password'])
         ->assertSessionHasNoErrors();
     $this->assertAuthenticated('web');
 });

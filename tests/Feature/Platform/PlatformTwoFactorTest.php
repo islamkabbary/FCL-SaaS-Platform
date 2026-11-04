@@ -25,13 +25,13 @@ function totp(string $secret, int $offset = 0): string
 
 function passwordStep(): TestResponse
 {
-    return test()->post(route('platform.login.store'), ['email' => 'ops@platform.test', 'password' => 'password']);
+    return test()->post(route('platform.login.store'), ['login' => 'ops@platform.test', 'password' => 'password']);
 }
 
 test('without two-factor the password logs in directly, and platform logins are never remembered', function () {
     $this->get(route('platform.login'))->assertOk()->assertDontSee('Remember me');
 
-    $this->post(route('platform.login.store'), ['email' => 'ops@platform.test', 'password' => 'password', 'remember' => 'on'])
+    $this->post(route('platform.login.store'), ['login' => 'ops@platform.test', 'password' => 'password', 'remember' => 'on'])
         ->assertRedirect(route('platform.dashboard'))
         ->assertCookieMissing(Auth::guard('platform')->getRecallerName());
 
@@ -154,7 +154,7 @@ test('a fresh password login stays locked out after too many invalid codes', fun
     passwordStep()->assertRedirect(route('platform.two-factor.challenge'));
     $this->post(route('platform.two-factor.challenge.store'), ['code' => totp($secret)])
         ->assertRedirect(route('platform.login'))
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasErrors('login');
     $this->assertGuest('platform');
 
     $this->travel(301)->seconds();

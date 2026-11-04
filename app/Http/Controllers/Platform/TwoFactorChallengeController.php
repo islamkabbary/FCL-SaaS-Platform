@@ -45,7 +45,7 @@ class TwoFactorChallengeController extends Controller
         $admin = $this->pendingAdmin($request);
 
         if ($admin === null) {
-            return redirect()->route('platform.login')->withErrors(['email' => __('Please log in again.')]);
+            return redirect()->route('platform.login')->withErrors(['login' => __('Please log in again.')]);
         }
 
         $key = 'platform-two-factor|'.$admin->id;
@@ -55,7 +55,7 @@ class TwoFactorChallengeController extends Controller
         if (RateLimiter::tooManyAttempts($key, self::MaxAttempts)) {
             $request->session()->forget(AuthenticatedSessionController::PendingTwoFactorKey);
 
-            return redirect()->route('platform.login')->withErrors(['email' => __('Too many invalid codes. Please try again in :seconds seconds.', [
+            return redirect()->route('platform.login')->withErrors(['login' => __('Too many invalid codes. Please try again in :seconds seconds.', [
                 'seconds' => RateLimiter::availableIn($key),
             ])]);
         }
@@ -64,7 +64,7 @@ class TwoFactorChallengeController extends Controller
             if (RateLimiter::hit($key, 300) >= self::MaxAttempts) {
                 $request->session()->forget(AuthenticatedSessionController::PendingTwoFactorKey);
 
-                return redirect()->route('platform.login')->withErrors(['email' => __('Too many invalid codes. Please try again in :seconds seconds.', [
+                return redirect()->route('platform.login')->withErrors(['login' => __('Too many invalid codes. Please try again in :seconds seconds.', [
                     'seconds' => RateLimiter::availableIn($key),
                 ])]);
             }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Users\ChangeUsername;
 use App\Auth\CurrentPasswordConfirmation;
 use App\Concerns\ProfileValidationRules;
 use App\Models\Tenant;
@@ -19,6 +20,8 @@ new #[Title('Profile settings')] class extends Component {
     public string $name = '';
     public string $email = '';
     public string $current_password = '';
+    public string $username = '';
+    public string $username_password = '';
 
     /**
      * Mount the component.
@@ -27,6 +30,7 @@ new #[Title('Profile settings')] class extends Component {
     {
         $this->name = Auth::user()->name;
         $this->email = Auth::user()->email;
+        $this->username = Auth::user()->username;
     }
 
     /**
@@ -69,6 +73,23 @@ new #[Title('Profile settings')] class extends Component {
         Flux::toast(variant: 'success', text: __('Profile updated.'));
     }
 
+    /**
+     * Use the one allowed change of the generated username, after the current password.
+     */
+    public function changeUsername(CurrentPasswordConfirmation $currentPassword, ChangeUsername $changeUsername): void
+    {
+        $user = Auth::user();
+
+        $this->validate(['username_password' => ['required', 'string']]);
+        $currentPassword->ensure($user, $this->username_password, 'username_password');
+
+        $this->username = $changeUsername->handle($user, $this->username)->username;
+        $this->reset('username_password');
+
+        Auth::user()->refresh();
+
+        Flux::toast(variant: 'success', text: __('Username changed.'));
+    }
 }; ?>
 
 <section class="w-full">
@@ -102,6 +123,22 @@ new #[Title('Profile settings')] class extends Component {
 
             </div>
         </form>
+
+        <flux:separator class="my-6" />
+
+        @if (auth()->user()->username_changed_at !== null)
+            <flux:input dir="ltr" :label="__('Username')" :value="auth()->user()->username" :description="__('You have already used your one username change.')" readonly data-test="username-locked" />
+        @else
+            <form wire:submit="changeUsername" class="my-6 w-full space-y-6" data-test="username-form">
+                <flux:input wire:model="username" dir="ltr" :label="__('Username')" :description="__('You can change your username once. After that it cannot be changed.')" required autocomplete="username" />
+
+                <flux:input wire:model="username_password" :label="__('Current password')" type="password" required autocomplete="current-password" />
+
+                <flux:button variant="primary" type="submit" data-test="change-username-button">
+                    {{ __('Change username') }}
+                </flux:button>
+            </form>
+        @endif
 
             <livewire:pages::settings.delete-user-form />
     </x-pages::settings.layout>

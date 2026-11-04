@@ -12,7 +12,7 @@ beforeEach(function () {
 });
 
 test('a deactivated employee loses their active session on the next request', function () {
-    $this->post(route('login.store'), ['email' => 'emp@acme.test', 'password' => 'password'])
+    $this->post(route('login.store'), ['login' => 'emp@acme.test', 'password' => 'password'])
         ->assertSessionHasNoErrors();
     $this->get(route('dashboard'))->assertOk();
 
@@ -46,8 +46,8 @@ test('deactivation deletes the employee\'s stored sessions and rotates the remem
 test('a deactivated employee cannot log in', function () {
     app(SetEmployeeActivation::class)->handle($this->admin, $this->employee, false);
 
-    $this->post(route('login.store'), ['email' => 'emp@acme.test', 'password' => 'password'])
-        ->assertSessionHasErrors(['email' => 'This account has been deactivated.']);
+    $this->post(route('login.store'), ['login' => 'emp@acme.test', 'password' => 'password'])
+        ->assertSessionHasErrors(['login' => 'This account has been deactivated.']);
 
     $this->assertGuest('web');
 });
@@ -55,15 +55,15 @@ test('a deactivated employee cannot log in', function () {
 test('a wrong password does not reveal that an account is deactivated', function () {
     app(SetEmployeeActivation::class)->handle($this->admin, $this->employee, false);
 
-    $this->post(route('login.store'), ['email' => 'emp@acme.test', 'password' => 'wrong-password'])
-        ->assertSessionHasErrors(['email' => __('auth.failed')]);
+    $this->post(route('login.store'), ['login' => 'emp@acme.test', 'password' => 'wrong-password'])
+        ->assertSessionHasErrors(['login' => __('auth.failed')]);
 });
 
 test('a reactivated employee can log in again', function () {
     app(SetEmployeeActivation::class)->handle($this->admin, $this->employee, false);
     app(SetEmployeeActivation::class)->handle($this->admin, $this->employee, true);
 
-    $this->post(route('login.store'), ['email' => 'emp@acme.test', 'password' => 'password'])
+    $this->post(route('login.store'), ['login' => 'emp@acme.test', 'password' => 'password'])
         ->assertSessionHasNoErrors();
 
     $this->assertAuthenticatedAs($this->employee->refresh(), 'web');

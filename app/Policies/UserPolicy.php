@@ -23,6 +23,14 @@ class UserPolicy
         return $user instanceof User ? null : false;
     }
 
+    /**
+     * A username is changed only by its owner. It is not on the impersonation allowlist.
+     */
+    public function changeUsername(User $actor, User $target): bool
+    {
+        return $actor->is($target);
+    }
+
     public function viewAny(User $actor): bool
     {
         return $actor->hasPermissionTo(TenantPermission::EmployeesView->value);

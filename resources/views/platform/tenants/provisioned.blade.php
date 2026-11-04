@@ -18,6 +18,11 @@
                 <flux:text>{{ $result->adminEmail }}</flux:text>
             </div>
 
+            <div>
+                <flux:label>{{ __('Tenant Admin username') }}</flux:label>
+                <flux:text><bdi dir="ltr">{{ $adminUsername }}</bdi></flux:text>
+            </div>
+
             <flux:input dir="ltr" :label="__('Temporary password')" :value="$result->temporaryPassword" readonly copyable data-test="temporary-password" />
         </flux:card>
 

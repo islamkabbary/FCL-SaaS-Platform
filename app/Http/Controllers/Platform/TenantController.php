@@ -13,6 +13,7 @@ use App\Http\Requests\Platform\UpdateTenantRequest;
 use App\Models\PlatformAdmin;
 use App\Models\SupportSession;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -94,6 +95,7 @@ class TenantController extends Controller
 
         return response()
             ->view('platform.tenants.provisioned', [
+                'adminUsername' => $result->tenant->run(fn () => User::query()->where('email', $result->adminEmail)->value('username')),
                 'result' => $result,
                 'loginUrl' => $result->tenant->url('login'),
             ])

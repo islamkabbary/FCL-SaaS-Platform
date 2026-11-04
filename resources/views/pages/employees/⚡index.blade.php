@@ -52,6 +52,8 @@ new #[Title('Employees')] class extends Component {
 
     public ?string $createdEmployeeEmail = null;
 
+    public ?string $createdEmployeeUsername = null;
+
     /**
      * "View as" (employee impersonation) form.
      */
@@ -95,7 +97,8 @@ new #[Title('Employees')] class extends Component {
             ->with(['roles', 'primaryBranch'])
             ->when($this->search !== '', fn ($query) => $query->where(fn ($query) => $query
                 ->where('name', 'like', '%'.$this->search.'%')
-                ->orWhere('email', 'like', '%'.$this->search.'%')))
+                ->orWhere('email', 'like', '%'.$this->search.'%')
+                ->orWhere('username', 'like', '%'.$this->search.'%')))
             ->when($this->status === 'active', fn ($query) => $query->where('is_active', true))
             ->when($this->status === 'inactive', fn ($query) => $query->where('is_active', false))
             ->when($this->role !== '', fn ($query) => $query->whereHas('roles', fn ($query) => $query->whereKey((int) $this->role)))
@@ -154,6 +157,7 @@ new #[Title('Employees')] class extends Component {
 
                 $this->temporaryPassword = $created->temporaryPassword;
                 $this->createdEmployeeEmail = $created->employee->email;
+                $this->createdEmployeeUsername = $created->employee->username;
 
                 Flux::modal('employee-form')->close();
                 Flux::modal('employee-created')->show();
@@ -244,6 +248,7 @@ new #[Title('Employees')] class extends Component {
     {
         $this->temporaryPassword = null;
         $this->createdEmployeeEmail = null;
+        $this->createdEmployeeUsername = null;
     }
 
     protected function setActivation(int $employeeId, bool $active, SetEmployeeActivation $setEmployeeActivation): void
@@ -294,7 +299,7 @@ new #[Title('Employees')] class extends Component {
     @endif
 
     <div class="mt-6 flex flex-col gap-3 sm:flex-row">
-        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search name or email')" class="sm:max-w-xs" />
+        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search name, username or email')" class="sm:max-w-xs" />
 
         <flux:select wire:model.live="status" class="sm:max-w-40">
             <flux:select.option value="">{{ __('All statuses') }}</flux:select.option>
@@ -324,6 +329,7 @@ new #[Title('Employees')] class extends Component {
                 <flux:table.row :key="$employee->id">
                     <flux:table.cell>
                         <div class="font-medium text-zinc-800 dark:text-white">{{ $employee->name }}</div>
+                        <div class="text-xs text-zinc-500"><bdi dir="ltr">{{ $employee->username }}</bdi></div>
                         <div class="text-xs text-zinc-500">{{ $employee->email }}</div>
                     </flux:table.cell>
                     <flux:table.cell>{{ $employee->primaryBranch->name }}</flux:table.cell>
@@ -429,6 +435,7 @@ new #[Title('Employees')] class extends Component {
 
             @if ($temporaryPassword)
                 <flux:text>{{ $createdEmployeeEmail }}</flux:text>
+                <flux:input dir="ltr" :label="__('Username')" :value="$createdEmployeeUsername" readonly copyable data-test="created-employee-username" />
                 <flux:input dir="ltr" :label="__('Temporary password')" :value="$temporaryPassword" readonly copyable data-test="employee-temporary-password" />
             @endif
 

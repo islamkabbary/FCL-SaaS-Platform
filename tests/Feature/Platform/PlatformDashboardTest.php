@@ -55,6 +55,6 @@ test('the dashboard lists recent administration activity', function () {
 });
 
 test('platform admins land on the dashboard after signing in', function () {
-    $this->post(route('platform.login.store'), ['email' => $this->admin->email, 'password' => 'password'])
+    $this->post(route('platform.login.store'), ['login' => $this->admin->email, 'password' => 'password'])
         ->assertRedirect(route('platform.dashboard', absolute: false));
 });
