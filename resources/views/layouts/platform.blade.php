@@ -37,7 +37,11 @@
                 @include('partials.locale-switcher')
             </div>
 
-            <flux:link class="me-4 text-sm max-2xl:hidden!" :href="route('platform.account.security')" data-test="account-security-link">{{ auth('platform')->user()->email }}</flux:link>
+            @if (App\Auth\PlatformTwoFactor::isEnabled())
+                <flux:link class="me-4 text-sm max-2xl:hidden!" :href="route('platform.account.security')" data-test="account-security-link">{{ auth('platform')->user()->email }}</flux:link>
+            @else
+                <flux:text class="me-4 text-sm max-2xl:hidden!">{{ auth('platform')->user()->email }}</flux:text>
+            @endif
 
             <form method="POST" action="{{ route('platform.logout') }}">
                 @csrf

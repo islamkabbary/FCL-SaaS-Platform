@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsurePlatformTwoFactor;
 use App\Http\Middleware\EnsureTenantHasActiveSubscription;
 use App\Http\Middleware\EnsureTenantIsReady;
+use App\Http\Middleware\EnsureTwoFactorIsAvailable;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\InitializeTenancyByStrictSubdomain;
 use App\Http\Middleware\SecurityHeaders;
@@ -90,6 +91,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'subscription.active' => EnsureTenantHasActiveSubscription::class,
             'impersonation.deny' => DenyDuringImpersonation::class,
             'platform.two-factor' => EnsurePlatformTwoFactor::class,
+            'platform.two-factor-available' => EnsureTwoFactorIsAvailable::class,
         ]);
 
         $middleware->redirectGuestsTo(fn (Request $request): string => $request->routeIs('platform.*')

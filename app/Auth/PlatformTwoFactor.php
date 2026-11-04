@@ -29,6 +29,22 @@ class PlatformTwoFactor
 
     public function __construct(protected Google2FA $engine) {}
 
+    /**
+     * Whether two-factor authentication is switched on at all (BD-SEC05).
+     */
+    public static function isEnabled(): bool
+    {
+        return (bool) config('platform.two_factor_enabled');
+    }
+
+    /**
+     * Whether starting a support session needs an authenticator code.
+     */
+    public static function isRequiredForSupportSessions(): bool
+    {
+        return self::isEnabled() && config('impersonation.support.require_two_factor');
+    }
+
     public function generateSecret(): string
     {
         return $this->engine->generateSecretKey(32);

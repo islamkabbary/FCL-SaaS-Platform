@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Auth\PlatformTwoFactor;
 use App\Models\PlatformAdmin;
 use Closure;
 use Illuminate\Http\Request;
@@ -35,7 +36,8 @@ class EnsurePlatformTwoFactor
     {
         $admin = Auth::guard('platform')->user();
 
-        if (! config('platform.require_two_factor')
+        if (! PlatformTwoFactor::isEnabled()
+            || ! config('platform.require_two_factor')
             || ! $admin instanceof PlatformAdmin
             || $admin->hasTwoFactorEnabled()
             || $request->routeIs(...self::EnrollmentRoutes)) {

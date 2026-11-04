@@ -65,7 +65,7 @@ class SupportSessionController extends Controller
             'tenant' => $tenant->load('domains'),
             'ineligibility' => $ineligibility,
             'targets' => $ineligibility === null ? $startSupportSession->eligibleTargets($tenant) : collect(),
-            'requiresTwoFactor' => (bool) config('impersonation.support.require_two_factor'),
+            'requiresTwoFactor' => PlatformTwoFactor::isRequiredForSupportSessions(),
             'hasTwoFactor' => $admin->hasTwoFactorEnabled(),
             'lifetime' => (int) config('impersonation.support.lifetime_minutes'),
         ]);
@@ -82,7 +82,7 @@ class SupportSessionController extends Controller
     {
         /** @var PlatformAdmin $admin */
         $admin = $request->user('platform');
-        $requiresTwoFactor = (bool) config('impersonation.support.require_two_factor');
+        $requiresTwoFactor = PlatformTwoFactor::isRequiredForSupportSessions();
 
         $validated = $request->validate([
             'target_user_id' => ['required', 'integer'],

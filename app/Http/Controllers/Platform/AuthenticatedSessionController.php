@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Platform;
 
+use App\Auth\PlatformTwoFactor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Platform\LoginRequest;
 use Illuminate\Http\RedirectResponse;
@@ -39,7 +40,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if ($admin->hasTwoFactorEnabled()) {
+        if (PlatformTwoFactor::isEnabled() && $admin->hasTwoFactorEnabled()) {
             $request->session()->put(self::PendingTwoFactorKey, [
                 'id' => $admin->id,
                 'expires_at' => now()->addMinutes(self::PendingTwoFactorMinutes)->getTimestamp(),

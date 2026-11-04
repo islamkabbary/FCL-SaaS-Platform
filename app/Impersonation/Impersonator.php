@@ -2,6 +2,7 @@
 
 namespace App\Impersonation;
 
+use App\Auth\PlatformTwoFactor;
 use App\Enums\ImpersonationEndReason;
 use App\Enums\ImpersonationKind;
 use App\Enums\ImpersonationStatus;
@@ -135,7 +136,7 @@ class Impersonator
             }
 
             // Two-factor authentication removed (or reset) after the session started.
-            if ((config('platform.require_two_factor') || config('impersonation.support.require_two_factor')) && ! $admin->hasTwoFactorEnabled()) {
+            if (PlatformTwoFactor::isEnabled() && (config('platform.require_two_factor') || config('impersonation.support.require_two_factor')) && ! $admin->hasTwoFactorEnabled()) {
                 return ImpersonationEndReason::ActorUnauthorized;
             }
 
