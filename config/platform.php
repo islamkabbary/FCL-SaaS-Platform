@@ -24,4 +24,10 @@ return [
 
     'two_factor_enabled' => (bool) env('PLATFORM_TWO_FACTOR_ENABLED', false),
 
+    /*
+    | The shared password of MainAccountsSeeder. Development only; leave it out of Git.
+    */
+
+    'seed_accounts_password' => env('SEED_ACCOUNTS_PASSWORD'),
+
 ];
