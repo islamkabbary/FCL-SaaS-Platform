@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->isLocale('ar') ? 'rtl' : 'ltr' }}" class="dark">
     <head>
         @include('partials.head')
     </head>
@@ -70,6 +70,10 @@
                 </flux:sidebar.item>
             </flux:sidebar.nav>
 
+            <div class="hidden lg:block">
+                @include('partials.locale-switcher')
+            </div>
+
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
 
@@ -78,6 +82,8 @@
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
             <flux:spacer />
+
+            @include('partials.locale-switcher')
 
             <flux:dropdown position="top" align="end">
                 <flux:profile
@@ -118,7 +124,7 @@
                             as="button"
                             type="submit"
                             icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer"
+                            class="w-full cursor-pointer rtl:[&_svg]:rotate-180"
                             data-test="logout-button"
                         >
                             {{ __('Log out') }}

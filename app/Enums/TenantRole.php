@@ -11,6 +11,18 @@ enum TenantRole: string
     case Employee = 'Employee';
 
     /**
+     * The name of a role to display: built-in roles are translated, custom roles stay as entered.
+     */
+    public static function displayName(string $roleName): string
+    {
+        return match (self::tryFrom($roleName)) {
+            self::TenantAdmin => __('Tenant Admin'),
+            self::Employee => __('Employee'),
+            null => $roleName,
+        };
+    }
+
+    /**
      * Determine whether the given role name belongs to a built-in role.
      */
     public static function isSystem(string $roleName): bool

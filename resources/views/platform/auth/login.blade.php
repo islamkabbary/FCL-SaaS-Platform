@@ -9,7 +9,7 @@
                 name="email"
                 :label="__('Email address')"
                 :value="old('email')"
-                type="email"
+                type="email" dir="ltr"
                 required
                 autofocus
                 autocomplete="email"

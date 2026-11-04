@@ -63,7 +63,7 @@
 
     <div class="mt-10 flex items-center justify-between">
         <flux:heading size="lg" level="2">{{ __('Recent administration activity') }}</flux:heading>
-        <flux:button size="sm" variant="ghost" icon-trailing="arrow-right" :href="route('platform.tenants.index')">
+        <flux:button size="sm" variant="ghost" icon-trailing="arrow-right" class="rtl:[&_svg]:rotate-180" :href="route('platform.tenants.index')">
             {{ __('All tenants') }}
         </flux:button>
     </div>

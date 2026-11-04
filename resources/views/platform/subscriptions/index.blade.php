@@ -44,9 +44,9 @@
                     <flux:table.cell><flux:badge size="sm" inset="top bottom" :color="$status->color()">{{ $status->label() }}</flux:badge></flux:table.cell>
                     <flux:table.cell>{{ ($current ?? $latest)?->plan_name ?? '—' }}</flux:table.cell>
                     <flux:table.cell>{{ $current?->seats ?? '—' }}</flux:table.cell>
-                    <flux:table.cell>{{ $latest?->ends_on->toFormattedDateString() ?? '—' }}</flux:table.cell>
+                    <flux:table.cell>{{ $latest?->ends_on->translatedFormat(__('M j, Y')) ?? '—' }}</flux:table.cell>
                     <flux:table.cell align="end">
-                        <flux:button size="sm" variant="ghost" inset="top bottom" icon-trailing="chevron-right" :href="route('platform.subscriptions.show', $tenant)">{{ __('Manage') }}</flux:button>
+                        <flux:button size="sm" variant="ghost" inset="top bottom" icon-trailing="chevron-right" class="rtl:[&_svg]:rotate-180" :href="route('platform.subscriptions.show', $tenant)">{{ __('Manage') }}</flux:button>
                     </flux:table.cell>
                 </flux:table.row>
             @empty

@@ -29,18 +29,18 @@
             <dd class="whitespace-pre-line sm:col-span-2">{{ $session->reason }}</dd>
 
             <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Started') }}</dt>
-            <dd class="sm:col-span-2">{{ $session->started_at->toDayDateTimeString() }}</dd>
+            <dd class="sm:col-span-2">{{ $session->started_at->translatedFormat(__('D, M j, Y g:i A')) }}</dd>
 
             <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Entered the company') }}</dt>
-            <dd class="sm:col-span-2">{{ $session->handoff_consumed_at?->toDayDateTimeString() ?? __('Not entered') }}</dd>
+            <dd class="sm:col-span-2">{{ $session->handoff_consumed_at?->translatedFormat(__('D, M j, Y g:i A')) ?? __('Not entered') }}</dd>
 
             <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Expires') }}</dt>
-            <dd class="sm:col-span-2">{{ $session->expires_at->toDayDateTimeString() }}</dd>
+            <dd class="sm:col-span-2">{{ $session->expires_at->translatedFormat(__('D, M j, Y g:i A')) }}</dd>
 
             <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Ended') }}</dt>
             <dd class="sm:col-span-2">
                 @if ($session->ended_at)
-                    {{ $session->ended_at->toDayDateTimeString() }} · {{ $session->end_reason?->label() }}
+                    {{ $session->ended_at->translatedFormat(__('D, M j, Y g:i A')) }} · {{ $session->end_reason?->label() }}
                     @if ($session->ended_by_email) · {{ $session->ended_by_email }} @endif
                 @else
                     —
@@ -66,11 +66,11 @@
         <flux:table.rows>
             @forelse ($events as $event)
                 <flux:table.row :key="$event->id">
-                    <flux:table.cell class="whitespace-nowrap">{{ $event->created_at?->toDayDateTimeString() }}</flux:table.cell>
+                    <flux:table.cell class="whitespace-nowrap">{{ $event->created_at?->translatedFormat(__('D, M j, Y g:i A')) }}</flux:table.cell>
                     <flux:table.cell>
                         <flux:badge size="sm" inset="top bottom" :color="$event->type === 'denied' ? 'red' : 'zinc'">{{ $event->type === 'denied' ? __('Refused') : __('Viewed') }}</flux:badge>
                     </flux:table.cell>
-                    <flux:table.cell class="font-mono text-xs">{{ $event->http_method }} {{ $event->action }}</flux:table.cell>
+                    <flux:table.cell class="font-mono text-xs"><bdi dir="ltr">{{ $event->http_method }} {{ $event->action }}</bdi></flux:table.cell>
                 </flux:table.row>
             @empty
                 <flux:table.row>

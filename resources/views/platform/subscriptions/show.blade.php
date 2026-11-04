@@ -66,9 +66,9 @@
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Plan') }}</dt>
                 <dd class="sm:col-span-3">{{ $currentTerm->plan_name }} ({{ $currentTerm->currency }})</dd>
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Effective') }}</dt>
-                <dd class="sm:col-span-3">{{ __(':start to :end (inclusive)', ['start' => $currentTerm->starts_on->toFormattedDateString(), 'end' => $currentTerm->lastDay()->toFormattedDateString()]) }}</dd>
+                <dd class="sm:col-span-3">{{ __(':start to :end (inclusive)', ['start' => $currentTerm->starts_on->translatedFormat(__('M j, Y')), 'end' => $currentTerm->lastDay()->translatedFormat(__('M j, Y'))]) }}</dd>
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Next renewal') }}</dt>
-                <dd class="sm:col-span-3" data-test="renewal-date">{{ $currentTerm->ends_on->toFormattedDateString() }}</dd>
+                <dd class="sm:col-span-3" data-test="renewal-date">{{ $currentTerm->ends_on->translatedFormat(__('M j, Y')) }}</dd>
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Prices (snapshot)') }}</dt>
                 <dd class="sm:col-span-3">{{ $currentTerm->format($currentTerm->annual_base_fee) }} + {{ __('seat') }} × {{ $currentTerm->format($currentTerm->annual_seat_price) }}</dd>
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Seats') }}</dt>
@@ -124,7 +124,7 @@
             @forelse ($requests as $request)
                 <flux:table.row :key="$request->id">
                     <flux:table.cell>{{ $request->id }}</flux:table.cell>
-                    <flux:table.cell>{{ $request->created_at?->toFormattedDateString() }} · {{ $request->requested_by_email }}</flux:table.cell>
+                    <flux:table.cell>{{ $request->created_at?->translatedFormat(__('M j, Y')) }} · {{ $request->requested_by_email }}</flux:table.cell>
                     <flux:table.cell>{{ $request->type->label() }}</flux:table.cell>
                     <flux:table.cell>{{ $request->seats }}</flux:table.cell>
                     <flux:table.cell><flux:badge size="sm" inset="top bottom" :color="$request->status->color()">{{ $request->status->label() }}</flux:badge></flux:table.cell>

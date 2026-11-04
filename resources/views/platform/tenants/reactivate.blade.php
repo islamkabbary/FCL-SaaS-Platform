@@ -8,7 +8,7 @@
     <div class="mt-4 max-w-xl">
         <flux:heading size="xl" level="1">{{ __('Reactivate :name?', ['name' => $tenant->name]) }}</flux:heading>
 
-        <flux:callout icon="information-circle" class="mt-6" :heading="__('Suspended on :date', ['date' => $tenant->suspended_at?->toDayDateTimeString()])">
+        <flux:callout icon="information-circle" class="mt-6" :heading="__('Suspended on :date', ['date' => $tenant->suspended_at?->translatedFormat(__('D, M j, Y g:i A'))])">
             <flux:callout.text>{{ __('Reason') }}: {{ $tenant->suspension_reason }}</flux:callout.text>
             <flux:callout.text>{{ __('The company\'s users regain access immediately with their existing accounts, roles and data. Nothing is re-provisioned.') }}</flux:callout.text>
         </flux:callout>

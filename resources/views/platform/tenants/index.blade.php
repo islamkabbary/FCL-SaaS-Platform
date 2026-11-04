@@ -67,9 +67,9 @@
                     <flux:table.cell>
                         <flux:badge size="sm" inset="top bottom" :color="$tenant->accessStatus()->color()">{{ $tenant->accessStatus()->label() }}</flux:badge>
                     </flux:table.cell>
-                    <flux:table.cell>{{ $tenant->created_at?->toDayDateTimeString() }}</flux:table.cell>
+                    <flux:table.cell>{{ $tenant->created_at?->translatedFormat(__('D, M j, Y g:i A')) }}</flux:table.cell>
                     <flux:table.cell align="end">
-                        <flux:button size="sm" variant="ghost" icon-trailing="chevron-right" inset="top bottom" :href="route('platform.tenants.show', $tenant)">
+                        <flux:button size="sm" variant="ghost" icon-trailing="chevron-right" class="rtl:[&_svg]:rotate-180" inset="top bottom" :href="route('platform.tenants.show', $tenant)">
                             {{ __('Details') }}
                         </flux:button>
                     </flux:table.cell>

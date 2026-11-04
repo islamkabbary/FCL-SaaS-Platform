@@ -40,7 +40,7 @@
     @endif
 
     @if ($tenant->isSuspended())
-        <flux:callout variant="danger" icon="no-symbol" class="mt-6" :heading="__('Access suspended on :date', ['date' => $tenant->suspended_at?->toDayDateTimeString()])" data-test="suspension-callout">
+        <flux:callout variant="danger" icon="no-symbol" class="mt-6" :heading="__('Access suspended on :date', ['date' => $tenant->suspended_at?->translatedFormat(__('D, M j, Y g:i A'))])" data-test="suspension-callout">
             <flux:callout.text>{{ __('Reason') }}: {{ $tenant->suspension_reason }}</flux:callout.text>
             <flux:callout.text>{{ __('Users of this company cannot sign in or use the application. Their data, accounts and sessions are kept.') }}</flux:callout.text>
         </flux:callout>
@@ -53,14 +53,14 @@
             @endif
             <flux:callout.text>
                 {{ __('Fix the cause, then resume provisioning from the command line:') }}
-                <code class="font-mono text-sm">php artisan tenants:provision {{ $tenant->primaryDomain()?->domain ?? $tenant->id }}</code>
+                <code dir="ltr" class="font-mono text-sm">php artisan tenants:provision {{ $tenant->primaryDomain()?->domain ?? $tenant->id }}</code>
             </flux:callout.text>
         </flux:callout>
     @elseif ($tenant->isProvisioningStale())
         <flux:callout variant="warning" icon="exclamation-triangle" class="mt-6" :heading="__('Provisioning stopped without finishing')" data-test="provisioning-stale">
             <flux:callout.text>
                 {{ __('No progress has been recorded for over :minutes minutes. Check the application log, then resume provisioning from the command line:', ['minutes' => App\Actions\Tenancy\ProvisionTenant::StaleAfterMinutes]) }}
-                <code class="font-mono text-sm">php artisan tenants:provision {{ $tenant->primaryDomain()?->domain ?? $tenant->id }}</code>
+                <code dir="ltr" class="font-mono text-sm">php artisan tenants:provision {{ $tenant->primaryDomain()?->domain ?? $tenant->id }}</code>
             </flux:callout.text>
         </flux:callout>
     @elseif (! $tenant->isReady())
@@ -88,7 +88,7 @@
                 <dd class="sm:col-span-2">{{ $tenant->initial_admin_name ?? '—' }} @if ($tenant->initial_admin_email) &lt;{{ $tenant->initial_admin_email }}&gt; @endif</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Created') }}</dt>
-                <dd class="sm:col-span-2">{{ $tenant->created_at?->toDayDateTimeString() }}</dd>
+                <dd class="sm:col-span-2">{{ $tenant->created_at?->translatedFormat(__('D, M j, Y g:i A')) }}</dd>
             </dl>
         </flux:card>
 
@@ -97,16 +97,16 @@
 
             <dl class="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Tenant ID') }}</dt>
-                <dd class="font-mono break-all sm:col-span-2" data-test="tenant-id">{{ $tenant->id }}</dd>
+                <dd class="font-mono break-all sm:col-span-2" data-test="tenant-id"><bdi dir="ltr">{{ $tenant->id }}</bdi></dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Database') }}</dt>
-                <dd class="font-mono break-all sm:col-span-2" data-test="tenant-database">{{ $databaseName }}</dd>
+                <dd class="font-mono break-all sm:col-span-2" data-test="tenant-database"><bdi dir="ltr">{{ $databaseName }}</bdi></dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Provisioning') }}</dt>
                 <dd class="sm:col-span-2">{{ $tenant->status->label() }}</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Provisioned') }}</dt>
-                <dd class="sm:col-span-2">{{ $tenant->provisioned_at?->toDayDateTimeString() ?? '—' }}</dd>
+                <dd class="sm:col-span-2">{{ $tenant->provisioned_at?->translatedFormat(__('D, M j, Y g:i A')) ?? '—' }}</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Access') }}</dt>
                 <dd class="sm:col-span-2">
@@ -119,14 +119,14 @@
 
     <div class="mt-10 flex items-center justify-between">
         <flux:heading size="lg" level="2">{{ __('Support sessions') }}</flux:heading>
-        <flux:button size="sm" variant="ghost" icon-trailing="arrow-right" :href="route('platform.support-sessions.index', ['tenant' => $tenant->id])">{{ __('All support sessions') }}</flux:button>
+        <flux:button size="sm" variant="ghost" icon-trailing="arrow-right" class="rtl:[&_svg]:rotate-180" :href="route('platform.support-sessions.index', ['tenant' => $tenant->id])">{{ __('All support sessions') }}</flux:button>
     </div>
 
     @include('platform.support-sessions.partials.table', ['sessions' => $supportSessions])
 
     <div class="mt-10 flex items-center justify-between">
         <flux:heading size="lg" level="2">{{ __('Administration history') }}</flux:heading>
-        <flux:button size="sm" variant="ghost" icon-trailing="arrow-right" :href="route('platform.tenants.history', $tenant)" data-test="history-link">
+        <flux:button size="sm" variant="ghost" icon-trailing="arrow-right" class="rtl:[&_svg]:rotate-180" :href="route('platform.tenants.history', $tenant)" data-test="history-link">
             {{ __('Full history (:count)', ['count' => $activityCount]) }}
         </flux:button>
     </div>

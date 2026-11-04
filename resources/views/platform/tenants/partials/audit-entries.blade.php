@@ -15,7 +15,7 @@
     <flux:table.rows>
         @forelse ($entries as $entry)
             <flux:table.row :key="$entry->id">
-                <flux:table.cell class="whitespace-nowrap">{{ $entry->created_at?->toDayDateTimeString() }}</flux:table.cell>
+                <flux:table.cell class="whitespace-nowrap">{{ $entry->created_at?->translatedFormat(__('D, M j, Y g:i A')) }}</flux:table.cell>
                 @if ($showTenant)
                     <flux:table.cell>
                         @if ($entry->tenant_id)
@@ -40,9 +40,9 @@
                     @foreach (array_unique(array_merge(array_keys($entry->old_values ?? []), array_keys($entry->new_values ?? []))) as $field)
                         @continue($field === 'suspension_reason' || $field === 'suspended_at')
                         <div class="text-sm">
-                            <span class="text-zinc-500 dark:text-zinc-400">{{ Str::headline($field) }}:</span>
+                            <span class="text-zinc-500 dark:text-zinc-400">{{ __(Str::headline($field)) }}:</span>
                             @if (array_key_exists($field, $entry->old_values ?? []))
-                                {{ is_scalar($entry->old_values[$field] ?? null) ? $entry->old_values[$field] : '—' }} &rarr;
+                                {{ is_scalar($entry->old_values[$field] ?? null) ? $entry->old_values[$field] : '—' }} <span class="inline-block rtl:rotate-180">&rarr;</span>
                             @endif
                             {{ is_scalar($entry->new_values[$field] ?? null) ? $entry->new_values[$field] : '—' }}
                         </div>

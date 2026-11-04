@@ -22,7 +22,7 @@
 
             <flux:input name="admin_name" :label="__('Tenant Admin name')" :value="old('admin_name')" required />
 
-            <flux:input name="admin_email" type="email" :label="__('Tenant Admin email')" :value="old('admin_email')" required />
+            <flux:input name="admin_email" type="email" dir="ltr" :label="__('Tenant Admin email')" :value="old('admin_email')" required />
 
             <div class="flex items-center gap-4">
                 <flux:button variant="primary" type="submit" data-test="create-tenant-button">

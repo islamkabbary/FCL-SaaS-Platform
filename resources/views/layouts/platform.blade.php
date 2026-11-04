@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->isLocale('ar') ? 'rtl' : 'ltr' }}" class="dark">
     <head>
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:header container class="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
-            <flux:brand :href="route('platform.dashboard')" :name="config('app.name').' · '.__('Platform')" class="me-6" />
+        <flux:header container class="max-lg:[&>div]:flex-wrap border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+            <flux:brand :href="route('platform.dashboard')" :name="config('app.name')" class="me-6 shrink-0" />
 
-            <flux:navbar class="-mb-px">
+            <flux:navbar class="-mb-px min-w-0 overflow-x-auto [scrollbar-width:none] max-lg:order-last max-lg:w-full">
                 <flux:navbar.item icon="home" :href="route('platform.dashboard')" :current="request()->routeIs('platform.dashboard')">
                     {{ __('Dashboard') }}
                 </flux:navbar.item>
@@ -33,11 +33,15 @@
 
             <flux:spacer />
 
-            <flux:link class="me-4 hidden text-sm sm:block" :href="route('platform.account.security')" data-test="account-security-link">{{ auth('platform')->user()->email }}</flux:link>
+            <div class="me-2 shrink-0">
+                @include('partials.locale-switcher')
+            </div>
+
+            <flux:link class="me-4 text-sm max-2xl:hidden!" :href="route('platform.account.security')" data-test="account-security-link">{{ auth('platform')->user()->email }}</flux:link>
 
             <form method="POST" action="{{ route('platform.logout') }}">
                 @csrf
-                <flux:button type="submit" size="sm" variant="ghost" icon="arrow-right-start-on-rectangle" data-test="platform-logout-button">
+                <flux:button type="submit" size="sm" variant="ghost" icon="arrow-right-start-on-rectangle" class="rtl:[&_svg]:rotate-180" data-test="platform-logout-button">
                     {{ __('Log out') }}
                 </flux:button>
             </form>

@@ -20,7 +20,7 @@
                             #{{ $request->id }} · {{ $request->tenant->name }} · {{ $request->type->label() }}:
                             {{ $request->type === App\Enums\SeatRequestType::Increase ? '+'.$request->seats : __(':seats seats from the next renewal', ['seats' => $request->seats]) }}
                         </flux:heading>
-                        <flux:text class="mt-1">{{ __('Requested :date by :name (:email)', ['date' => $request->created_at?->toDayDateTimeString(), 'name' => $request->requested_by_name, 'email' => $request->requested_by_email]) }}</flux:text>
+                        <flux:text class="mt-1">{{ __('Requested :date by :name (:email)', ['date' => $request->created_at?->translatedFormat(__('D, M j, Y g:i A')), 'name' => $request->requested_by_name, 'email' => $request->requested_by_email]) }}</flux:text>
                         @if ($request->request_note)
                             <flux:text class="mt-1">{{ __('Note') }}: {{ $request->request_note }}</flux:text>
                         @endif
@@ -76,7 +76,7 @@
                     <flux:table.cell>{{ $request->tenant->name }}</flux:table.cell>
                     <flux:table.cell>{{ $request->type->label() }} · {{ $request->seats }}</flux:table.cell>
                     <flux:table.cell><flux:badge size="sm" inset="top bottom" :color="$request->status->color()">{{ $request->status->label() }}</flux:badge></flux:table.cell>
-                    <flux:table.cell>{{ $request->reviewed_at?->toDayDateTimeString() ?? '—' }} {{ $request->reviewer?->email }}</flux:table.cell>
+                    <flux:table.cell>{{ $request->reviewed_at?->translatedFormat(__('D, M j, Y g:i A')) ?? '—' }} {{ $request->reviewer?->email }}</flux:table.cell>
                     <flux:table.cell>
                         @if ($request->charge)
                             <flux:link :href="route('platform.charges.show', $request->charge)">{{ $request->charge->format($request->charge->amount) }}</flux:link>

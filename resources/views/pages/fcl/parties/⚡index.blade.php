@@ -218,7 +218,7 @@ new #[Title('Parties')] class extends Component {
                             <flux:text size="sm" class="max-w-xs truncate" :title="$party->notes">{{ $party->notes }}</flux:text>
                         @endif
                     </flux:table.cell>
-                    <flux:table.cell>{{ $party->tax_number ?? '—' }}</flux:table.cell>
+                    <flux:table.cell><bdi dir="ltr">{{ $party->tax_number ?? '—' }}</bdi></flux:table.cell>
                     <flux:table.cell>{{ $party->country_code ?? '—' }}</flux:table.cell>
                     <flux:table.cell>
                         @if ($party->is_active)

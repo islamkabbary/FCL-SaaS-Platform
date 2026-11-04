@@ -16,7 +16,7 @@
     <flux:table.rows>
         @forelse ($sessions as $session)
             <flux:table.row :key="$session->id">
-                <flux:table.cell class="whitespace-nowrap">{{ $session->started_at->toDayDateTimeString() }}</flux:table.cell>
+                <flux:table.cell class="whitespace-nowrap">{{ $session->started_at->translatedFormat(__('D, M j, Y g:i A')) }}</flux:table.cell>
                 @if ($showTenant)
                     <flux:table.cell>
                         <flux:link :href="route('platform.tenants.show', $session->tenant_id)">{{ $session->tenant?->name ?? $session->tenant_id }}</flux:link>

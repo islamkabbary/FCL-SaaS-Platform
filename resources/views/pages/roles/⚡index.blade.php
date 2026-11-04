@@ -137,7 +137,7 @@ new #[Title('Roles & Permissions')] class extends Component {
             @foreach ($this->roles as $role)
                 <flux:table.row :key="$role->id">
                     <flux:table.cell>
-                        <div class="font-medium text-zinc-800 dark:text-white">{{ $role->name }}</div>
+                        <div class="font-medium text-zinc-800 dark:text-white">{{ App\Enums\TenantRole::displayName($role->name) }}</div>
                         @if (App\Enums\TenantRole::isSystem($role->name))
                             <flux:text size="sm">{{ __('Built-in') }}</flux:text>
                         @endif
@@ -145,7 +145,7 @@ new #[Title('Roles & Permissions')] class extends Component {
                     <flux:table.cell>
                         <div class="flex flex-wrap gap-1">
                             @forelse ($role->permissions as $permission)
-                                <flux:badge size="sm" wire:key="role-{{ $role->id }}-permission-{{ $permission->id }}">{{ $permission->name }}</flux:badge>
+                                <flux:badge size="sm" wire:key="role-{{ $role->id }}-permission-{{ $permission->id }}">{{ App\Enums\TenantPermission::tryFrom($permission->name)?->label() ?? $permission->name }}</flux:badge>
                             @empty
                                 <flux:text size="sm">{{ __('No permissions') }}</flux:text>
                             @endforelse

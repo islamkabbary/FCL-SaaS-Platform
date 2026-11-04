@@ -81,7 +81,7 @@ new #[Title('Profile settings')] class extends Component {
             <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
             <div>
-                <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+                <flux:input wire:model="email" :label="__('Email')" type="email" dir="ltr" required autocomplete="email" />
 
             </div>
 

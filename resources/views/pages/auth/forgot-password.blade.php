@@ -12,7 +12,7 @@
             <flux:input
                 name="email"
                 :label="__('Email address')"
-                type="email"
+                type="email" dir="ltr"
                 required
                 autofocus
                 placeholder="email@example.com"

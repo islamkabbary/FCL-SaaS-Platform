@@ -305,7 +305,7 @@ new #[Title('Employees')] class extends Component {
         <flux:select wire:model.live="role" class="sm:max-w-48">
             <flux:select.option value="">{{ __('All roles') }}</flux:select.option>
             @foreach ($this->roles as $roleOption)
-                <flux:select.option :value="$roleOption->id" wire:key="role-filter-{{ $roleOption->id }}">{{ $roleOption->name }}</flux:select.option>
+                <flux:select.option :value="$roleOption->id" wire:key="role-filter-{{ $roleOption->id }}">{{ App\Enums\TenantRole::displayName($roleOption->name) }}</flux:select.option>
             @endforeach
         </flux:select>
     </div>
@@ -330,7 +330,7 @@ new #[Title('Employees')] class extends Component {
                     <flux:table.cell>
                         <div class="flex flex-wrap gap-1">
                             @foreach ($employee->roles as $employeeRole)
-                                <flux:badge size="sm" wire:key="employee-{{ $employee->id }}-role-{{ $employeeRole->id }}">{{ $employeeRole->name }}</flux:badge>
+                                <flux:badge size="sm" wire:key="employee-{{ $employee->id }}-role-{{ $employeeRole->id }}">{{ App\Enums\TenantRole::displayName($employeeRole->name) }}</flux:badge>
                             @endforeach
                         </div>
                     </flux:table.cell>
@@ -376,7 +376,7 @@ new #[Title('Employees')] class extends Component {
             <flux:heading size="lg">{{ $editingId ? __('Edit employee') : __('New employee') }}</flux:heading>
 
             <flux:input wire:model="name" :label="__('Name')" required />
-            <flux:input wire:model="email" type="email" :label="__('Email')" required />
+            <flux:input wire:model="email" type="email" dir="ltr" :label="__('Email')" required />
 
             @if ($editingId === null)
                 <flux:text>{{ __('The employee joins the Main Branch and receives a temporary password that must be changed at first login.') }}</flux:text>
@@ -385,7 +385,7 @@ new #[Title('Employees')] class extends Component {
             @can('roles.assign')
                 <flux:checkbox.group wire:model="selectedRoles" :label="__('Roles')" :description="$editingId === null ? __('Leave empty to assign the Employee role.') : null">
                     @foreach ($this->roles as $roleOption)
-                        <flux:checkbox :value="(string) $roleOption->id" :label="$roleOption->name" wire:key="role-option-{{ $roleOption->id }}" />
+                        <flux:checkbox :value="(string) $roleOption->id" :label="App\Enums\TenantRole::displayName($roleOption->name)" wire:key="role-option-{{ $roleOption->id }}" />
                     @endforeach
                 </flux:checkbox.group>
             @endcan
@@ -429,7 +429,7 @@ new #[Title('Employees')] class extends Component {
 
             @if ($temporaryPassword)
                 <flux:text>{{ $createdEmployeeEmail }}</flux:text>
-                <flux:input :label="__('Temporary password')" :value="$temporaryPassword" readonly copyable data-test="employee-temporary-password" />
+                <flux:input dir="ltr" :label="__('Temporary password')" :value="$temporaryPassword" readonly copyable data-test="employee-temporary-password" />
             @endif
 
             <div class="flex justify-end">

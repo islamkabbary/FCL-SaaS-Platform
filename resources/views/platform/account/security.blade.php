@@ -10,7 +10,7 @@
         <flux:heading size="lg" level="2" class="mt-8">{{ __('Two-factor authentication') }}</flux:heading>
 
         @if ($admin->hasTwoFactorEnabled())
-            <flux:callout variant="success" icon="shield-check" class="mt-4" :heading="__('Enabled since :date. Every login asks for a code from your authenticator app.', ['date' => $admin->two_factor_confirmed_at?->toDayDateTimeString()])" data-test="two-factor-enabled" />
+            <flux:callout variant="success" icon="shield-check" class="mt-4" :heading="__('Enabled since :date. Every login asks for a code from your authenticator app.', ['date' => $admin->two_factor_confirmed_at?->translatedFormat(__('D, M j, Y g:i A'))])" data-test="two-factor-enabled" />
             <flux:text class="mt-2">{{ __(':count unused recovery codes left.', ['count' => count($admin->two_factor_recovery_codes ?? [])]) }}</flux:text>
 
             <form method="POST" action="{{ route('platform.account.two-factor.recovery-codes') }}" class="mt-6 flex flex-col gap-4">
@@ -38,7 +38,7 @@
             <flux:text class="mt-4">{{ __('Scan this QR code with your authenticator app, or enter the setup key, then confirm with the code it shows.') }}</flux:text>
 
             <div class="mt-4 inline-block rounded-lg bg-white p-3" data-test="two-factor-qr">{!! $qrCode !!}</div>
-            <flux:input class="mt-4" :label="__('Setup key')" :value="$setupKey" readonly copyable />
+            <flux:input class="mt-4" dir="ltr" :label="__('Setup key')" :value="$setupKey" readonly copyable />
 
             <form method="POST" action="{{ route('platform.account.two-factor.confirm') }}" class="mt-6 flex flex-col gap-4">
                 @csrf

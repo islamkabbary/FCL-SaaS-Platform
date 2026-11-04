@@ -28,7 +28,7 @@
                     as="button"
                     type="submit"
                     icon="arrow-right-start-on-rectangle"
-                    class="w-full cursor-pointer"
+                    class="w-full cursor-pointer rtl:[&_svg]:rotate-180"
                     data-test="logout-button"
                 >
                     {{ __('Log out') }}

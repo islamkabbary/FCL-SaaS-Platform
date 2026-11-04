@@ -15,7 +15,7 @@
                 name="email"
                 value="{{ request('email') }}"
                 :label="__('Email')"
-                type="email"
+                type="email" dir="ltr"
                 required
                 autocomplete="email"
             />

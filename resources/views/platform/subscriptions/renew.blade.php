@@ -8,7 +8,7 @@
 
     <div class="mt-4 max-w-2xl">
         <flux:heading size="xl" level="1">{{ __('Annual renewal') }}</flux:heading>
-        <flux:subheading>{{ __('The current term ends on :date. Previous terms and charges are kept unchanged.', ['date' => $previous->lastDay()->toFormattedDateString()]) }}</flux:subheading>
+        <flux:subheading>{{ __('The current term ends on :date. Previous terms and charges are kept unchanged.', ['date' => $previous->lastDay()->translatedFormat(__('M j, Y'))]) }}</flux:subheading>
 
         @error('subscription')
             <flux:callout variant="danger" icon="x-circle" class="mt-6" :heading="$message" />

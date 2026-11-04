@@ -117,7 +117,7 @@ new #[Title('Access history')] class extends Component {
         <flux:table.rows>
             @forelse ($this->supportSessions as $session)
                 <flux:table.row :key="'support-'.$session->id">
-                    <flux:table.cell class="whitespace-nowrap">{{ $session->started_at->toDayDateTimeString() }}</flux:table.cell>
+                    <flux:table.cell class="whitespace-nowrap">{{ $session->started_at->translatedFormat(__('D, M j, Y g:i A')) }}</flux:table.cell>
                     <flux:table.cell>{{ $session->actor_name }} <div class="text-xs text-zinc-500">{{ $session->actor_email }}</div></flux:table.cell>
                     <flux:table.cell>{{ $session->target_email }}</flux:table.cell>
                     <flux:table.cell class="max-w-xs whitespace-normal">{{ $session->reason }}</flux:table.cell>
@@ -154,7 +154,7 @@ new #[Title('Access history')] class extends Component {
         <flux:table.rows>
             @forelse ($this->employeeSessions as $session)
                 <flux:table.row :key="'employee-'.$session->id">
-                    <flux:table.cell class="whitespace-nowrap">{{ $session->started_at->toDayDateTimeString() }}</flux:table.cell>
+                    <flux:table.cell class="whitespace-nowrap">{{ $session->started_at->translatedFormat(__('D, M j, Y g:i A')) }}</flux:table.cell>
                     <flux:table.cell>{{ $session->impersonator_email }}</flux:table.cell>
                     <flux:table.cell>{{ $session->target_email }}</flux:table.cell>
                     <flux:table.cell class="max-w-xs whitespace-normal">{{ $session->reason }}</flux:table.cell>

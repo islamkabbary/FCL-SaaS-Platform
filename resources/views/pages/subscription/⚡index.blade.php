@@ -224,10 +224,10 @@ new #[Title('Subscription & billing')] class extends Component {
                 <dd class="sm:col-span-3" data-test="plan-name">{{ $term->plan_name }}</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Term') }}</dt>
-                <dd class="sm:col-span-3">{{ __(':start to :end (inclusive)', ['start' => $term->starts_on->toFormattedDateString(), 'end' => $term->lastDay()->toFormattedDateString()]) }}</dd>
+                <dd class="sm:col-span-3">{{ __(':start to :end (inclusive)', ['start' => $term->starts_on->translatedFormat(__('M j, Y')), 'end' => $term->lastDay()->translatedFormat(__('M j, Y'))]) }}</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Renewal date') }}</dt>
-                <dd class="sm:col-span-3" data-test="renewal-date">{{ $term->ends_on->toFormattedDateString() }}</dd>
+                <dd class="sm:col-span-3" data-test="renewal-date">{{ $term->ends_on->translatedFormat(__('M j, Y')) }}</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Annual base fee') }}</dt>
                 <dd class="sm:col-span-3">{{ $term->format($term->annual_base_fee) }}</dd>
@@ -277,7 +277,7 @@ new #[Title('Subscription & billing')] class extends Component {
         <flux:table.rows>
             @forelse ($this->requests as $request)
                 <flux:table.row :key="'request-'.$request->id">
-                    <flux:table.cell>{{ $request->created_at?->toFormattedDateString() }} · {{ $request->requested_by_name }}</flux:table.cell>
+                    <flux:table.cell>{{ $request->created_at?->translatedFormat(__('M j, Y')) }} · {{ $request->requested_by_name }}</flux:table.cell>
                     <flux:table.cell>{{ $request->type->label() }}</flux:table.cell>
                     <flux:table.cell>{{ $request->type === App\Enums\SeatRequestType::Increase ? '+'.$request->seats : $request->seats }}</flux:table.cell>
                     <flux:table.cell>{{ $request->estimated_amount !== null ? $request->format($request->estimated_amount) : '—' }}</flux:table.cell>
@@ -315,14 +315,14 @@ new #[Title('Subscription & billing')] class extends Component {
         <flux:table.rows>
             @forelse ($this->charges as $charge)
                 <flux:table.row :key="'charge-'.$charge->id">
-                    <flux:table.cell>{{ $charge->issued_on->toFormattedDateString() }}</flux:table.cell>
+                    <flux:table.cell>{{ $charge->issued_on->translatedFormat(__('M j, Y')) }}</flux:table.cell>
                     <flux:table.cell class="whitespace-normal">
                         {{ $charge->description }}
                         @foreach ($charge->lines as $line)
                             <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $line->description }}: {{ $line->quantity }} × {{ $charge->format($line->unit_amount) }} → {{ $charge->format($line->amount) }}</div>
                         @endforeach
                         @foreach ($charge->payments as $payment)
-                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Payment :date: :amount', ['date' => $payment->paid_on->toFormattedDateString(), 'amount' => $charge->format($payment->amount)]) }}</div>
+                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Payment :date: :amount', ['date' => $payment->paid_on->translatedFormat(__('M j, Y')), 'amount' => $charge->format($payment->amount)]) }}</div>
                         @endforeach
                     </flux:table.cell>
                     <flux:table.cell align="end" class="tabular-nums">{{ $charge->format($charge->amount) }}</flux:table.cell>
@@ -350,7 +350,7 @@ new #[Title('Subscription & billing')] class extends Component {
             <flux:table.rows>
                 @foreach ($this->terms as $termRow)
                     <flux:table.row :key="'term-'.$termRow->id">
-                        <flux:table.cell>{{ $termRow->starts_on->toFormattedDateString() }} – {{ $termRow->lastDay()->toFormattedDateString() }}</flux:table.cell>
+                        <flux:table.cell>{{ $termRow->starts_on->translatedFormat(__('M j, Y')) }} – {{ $termRow->lastDay()->translatedFormat(__('M j, Y')) }}</flux:table.cell>
                         <flux:table.cell>{{ $termRow->plan_name }}</flux:table.cell>
                         <flux:table.cell>{{ $termRow->seats }}</flux:table.cell>
                         <flux:table.cell>{{ $termRow->format($termRow->annual_base_fee) }} / {{ $termRow->format($termRow->annual_seat_price) }}</flux:table.cell>
@@ -365,7 +365,7 @@ new #[Title('Subscription & billing')] class extends Component {
             <form wire:submit="requestIncrease" class="space-y-6">
                 <div>
                     <flux:heading size="lg">{{ __('Request additional seats') }}</flux:heading>
-                    <flux:text class="mt-2">{{ __('Additional seats share the current renewal date (:date) and are charged for the rest of the current term, after approval by the platform administrator. If your next term is already confirmed, they are added to it too and charged for that full term.', ['date' => $this->currentTerm->ends_on->toFormattedDateString()]) }}</flux:text>
+                    <flux:text class="mt-2">{{ __('Additional seats share the current renewal date (:date) and are charged for the rest of the current term, after approval by the platform administrator. If your next term is already confirmed, they are added to it too and charged for that full term.', ['date' => $this->currentTerm->ends_on->translatedFormat(__('M j, Y'))]) }}</flux:text>
                 </div>
 
                 <flux:input wire:model.live.debounce.300ms="increaseSeats" type="number" min="1" :label="__('Additional seats')" required />

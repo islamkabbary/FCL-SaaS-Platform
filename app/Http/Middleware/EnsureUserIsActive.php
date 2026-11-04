@@ -33,7 +33,7 @@ class EnsureUserIsActive
             $request->session()->regenerateToken();
             $request->session()->flash('status', __('Your account has been deactivated.'));
 
-            throw new AuthenticationException('Your account has been deactivated.', ['web']);
+            throw new AuthenticationException(__('Your account has been deactivated.'), ['web']);
         }
 
         return $next($request);
