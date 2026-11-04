@@ -22,6 +22,10 @@ paths:
 - Protect models against mass assignment.
 - If an API is added, use Sanctum or Passport (Q-X04). Never build custom API auth.
 
+## Two-factor authentication
+
+Platform Admin two-factor is switched off for now (`PLATFORM_TWO_FACTOR_ENABLED=false`, BD-SEC05). Read it through `PlatformTwoFactor::isEnabled()`. The code and its tests stay, and it must be switched back on before production.
+
 ## Multi-tenancy
 
 - Tenant data stays in the tenant database, central data in the central database (BD-T10, BD-T11).

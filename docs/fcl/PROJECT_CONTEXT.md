@@ -149,6 +149,7 @@ Central tables include:
 ### 4.5 Users and branches
 
 - Every user has one required `primary_branch_id`.
+- Every user has a unique `username`, generated from the name, and signs in with it or with the email. A tenant user can change it once from the profile page (`ChangeUsername`). Rules: `app/Rules/ValidUsername.php`.
 - `CreateEmployee` always assigns the `MAIN` branch, and `BranchPolicy::create()` always returns false. There is no branch UI, and `POST /branches` returns 404 by test.
 - **There is no branch-scoped visibility anywhere yet.** The future rules exist only as documentation (handover §2.1–2.2): own, selected or all branches; one primary branch per shipment; a transfer needs a permission, a reason and an audit.
 
