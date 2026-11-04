@@ -20,6 +20,9 @@ class CreateTenantsTable extends Migration
             $table->string('status')->index();
             $table->text('provisioning_error')->nullable();
             $table->timestamp('provisioned_at')->nullable();
+            // Access lifecycle, separate from the provisioning status: suspended while this is set.
+            $table->timestamp('suspended_at')->nullable()->index();
+            $table->text('suspension_reason')->nullable();
 
             $table->timestamps();
             $table->json('data')->nullable();

@@ -3,8 +3,6 @@
 use App\Actions\Users\GenerateUsername;
 use App\Models\PlatformAdmin;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 describe('tenant login', function () {
     beforeEach(function () {
@@ -113,19 +111,5 @@ describe('generated usernames', function () {
         expect(strlen($first))->toBe(30)
             ->and(strlen($second))->toBe(30)
             ->and($second)->not->toBe($first);
-    });
-
-    test('the migration gives existing users unique usernames', function () {
-        User::factory()->count(2)->create(['name' => 'Same Name']);
-        $migration = require database_path('migrations/tenant/2026_11_04_181611_add_username_to_users_table.php');
-
-        $migration->down();
-        expect(Schema::hasColumn('users', 'username'))->toBeFalse();
-        $migration->up();
-
-        $usernames = DB::table('users')->where('name', 'Same Name')->orderBy('id')->pluck('username')->all();
-
-        expect($usernames)->toBe(['same.name', 'same.name2'])
-            ->and(DB::table('users')->whereNull('username')->count())->toBe(0);
     });
 });

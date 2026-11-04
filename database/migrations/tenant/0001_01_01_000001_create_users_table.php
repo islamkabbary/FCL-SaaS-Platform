@@ -14,12 +14,19 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('username', 30)->unique();
+            // Records the user's one allowed username change.
+            $table->timestamp('username_changed_at')->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->foreignId('primary_branch_id')->constrained('branches')->restrictOnDelete();
             $table->boolean('is_tenant_admin')->default(false);
             $table->boolean('must_change_password')->default(false);
+            $table->boolean('is_active')->default(true)->index();
+            $table->timestamp('deactivated_at')->nullable();
+            // The interface language the account chose. Null until it chooses one.
+            $table->string('locale', 8)->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
