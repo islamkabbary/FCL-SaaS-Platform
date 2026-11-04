@@ -122,7 +122,7 @@ All **OPS + DEFER**. They come from R2 L1036–1055 and R1 L1179 and should be a
 |---|---|---|---|
 | **Q-X01** — **RESOLVED → BD-T13** | The code is a conventional Laravel layout grouped by technical type, not module folders ([PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) §4.1). Should FCL get its own base folder (e.g. `app/Fcl/...`) or follow the existing feature-subfolder convention? | **BLOCKS M1-A** | Follow the existing convention: `app/Actions/ImportJobs/`, `app/Models/`, `app/Enums/`, `app/Policies/`, `resources/views/pages/import-jobs/`. Prefix FCL-specific enums/classes clearly. No new base folder without approval (AGENTS.md) |
 | **Q-X02** | When a subscription expires, operational routes are fully blocked today (no read-only mode). Should tenants be able to read or export FCL data while expired? | DEFER (before production) | Keep FCL inside `subscription.active`, same as today |
-| **Q-X03** | Is an Arabic / RTL user interface required, and from which milestone? No translations exist today | DEFER · OPS | English UI with `__()` everywhere so translation stays possible; decide before customer pilots |
+| **Q-X03** — **RESOLVED → BD-S07** | Is an Arabic / RTL user interface required, and from which milestone? | DEFER · OPS | Arabic and English are enforced from 2026-11-04 |
 | **Q-X04** | REST API in the MVP, or Livewire only? (R1 proposes an API in M1) | DEFER (M6) | Livewire only until an integration needs it; all rules in actions so an API can reuse them (R1 L692–702) |
 
 ## 10. Documents (M2)

@@ -25,6 +25,7 @@
 | BD-S04 | Customs | The target company has an **in-house Customs Clearance team** | CONFIRMED | OWNER-P0 | Customs is an internal workflow (M3), not an outsourced-broker integration | 2026-10-22 |
 | BD-S05 | Exclusions | No Air Freight, Export, LCL operations, advanced accounting or unrelated logistics modules in the initial MVP | CONFIRMED | OWNER-P0 | Roadmap M1–M6 stays inside this boundary | 2026-10-22 |
 | BD-S06 | Extensibility | Consider future extensibility without adding MVP complexity | CONFIRMED | OWNER-P0 | Leave extension points (types, enums, link tables); do not build speculative features | 2026-10-22 |
+| BD-S07 | Languages | The whole interface is **bilingual: Arabic (RTL) and English (LTR)**, enforced from now on (resolves Q-X03) | CONFIRMED | Project decision, 2026-11-04 | Every string goes through `__()` with a key in `lang/ar.json`; see `.ai/rules/localization.md` and `docs/MILESTONE_06_ENGINEERING_RULES_AND_LOCALIZATION.md` | 2026-11-04 |
 
 ## 2. Pre-Alert and Import Job creation
 

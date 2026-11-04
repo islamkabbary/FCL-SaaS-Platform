@@ -204,7 +204,7 @@ Central tables include:
 
 - Tenant pages are Livewire 4 single-file components using Flux UI, `WithPagination`, `#[Url]` filters and `#[Computed]` queries.
 - The sidebar is `resources/views/layouts/app/sidebar.blade.php`, with `@can` groups.
-- **No `lang/` directory, no Arabic translations, no RTL.** Strings use `__()`. Arabic UI is an open question (Q-X03).
+- **Bilingual: Arabic (RTL) and English (LTR)** (BD-S07). Strings use `__()` with keys in `lang/ar.json`; `SetLocale` picks the language. Rules: `.ai/rules/localization.md`.
 
 ### 4.12 Tests
 

@@ -49,7 +49,6 @@ Colleagues with the right branch scope can then continue the same job. Every wri
 - carrier tracking;
 - branch transfer;
 - draft jobs or an intake staging area;
-- Arabic UI;
 - new SaaS features.
 
 ---
