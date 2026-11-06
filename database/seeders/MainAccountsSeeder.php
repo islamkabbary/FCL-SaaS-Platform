@@ -5,9 +5,9 @@ namespace Database\Seeders;
 use App\Actions\Billing\ActivateSubscription;
 use App\Actions\Tenancy\ProvisionTenant;
 use App\Enums\TenantRole;
+use App\Models\BillingSetting;
 use App\Models\Branch;
 use App\Models\PlatformAdmin;
-use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -94,14 +94,11 @@ class MainAccountsSeeder extends Seeder
             'admin_email' => $this->email($firstUsername),
         ])->tenant;
 
-        $plan = SubscriptionPlan::query()->firstOrCreate(['name' => 'Demo'], [
-            'currency' => 'USD',
-            'annual_base_fee' => 100000,
-            'annual_seat_price' => 12000,
-            'is_active' => true,
-        ]);
+        if (BillingSetting::current() === null) {
+            BillingSetting::query()->create(['currency' => 'USD', 'seat_price' => 1800, 'updated_by' => $admin->id]);
+        }
 
-        $this->activateSubscription->handle($admin, $tenant, $plan, self::DemoSeats, CarbonImmutable::today());
+        $this->activateSubscription->handle($admin, $tenant, self::DemoSeats, CarbonImmutable::today());
 
         return $tenant;
     }

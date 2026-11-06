@@ -54,7 +54,7 @@ class DashboardController extends Controller
     /**
      * Subscription and billing figures from central records only.
      *
-     * @return array{active: int, expired: int, renewal_due: int, pending_requests: int, outstanding: array<string, int>}
+     * @return array{active: int, expired: int, renewal_due: int, pending_requests: int, overdue: int, outstanding: array<string, int>}
      */
     protected function billingStats(): array
     {
@@ -78,6 +78,7 @@ class DashboardController extends Controller
             'expired' => TenantSubscription::query()->whereDoesntHave('terms', $covering)->count(),
             'renewal_due' => TenantSubscription::query()->whereHas('terms', $covering)->whereRaw("{$latestEnd} <= ?", [$renewalDue])->count(),
             'pending_requests' => SeatChangeRequest::query()->pending()->count(),
+            'overdue' => BillingCharge::query()->overdue()->count(),
             'outstanding' => $outstanding,
         ];
     }

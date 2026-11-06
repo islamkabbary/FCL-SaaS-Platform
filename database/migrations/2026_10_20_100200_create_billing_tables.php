@@ -10,7 +10,8 @@ return new class extends Migration
      * Run the migrations.
      *
      * Internal commercial billing records (not tax invoices). Amounts are integers in the
-     * currency's minor unit. Charges, lines and payments are append-only.
+     * currency's minor unit. Lines and payments are append-only; a charge only changes its
+     * percentage discount, and only while nothing has been paid on it.
      */
     public function up(): void
     {
@@ -22,13 +23,24 @@ return new class extends Migration
             $table->foreignId('subscription_term_id')->nullable()->constrained()->restrictOnDelete();
             $table->string('type');
             $table->char('currency', 3);
+            // Sum of the lines, the discount in basis points (1250 = 12.5%) and the amount due.
+            $table->unsignedBigInteger('subtotal');
+            $table->unsignedSmallInteger('discount_basis_points')->default(0);
+            $table->unsignedBigInteger('discount_amount')->default(0);
             $table->unsignedBigInteger('amount');
             $table->string('description');
+            // The billed month of a monthly charge: its index in the term and [starts_on, ends_on).
+            $table->unsignedTinyInteger('period_index')->nullable();
+            $table->date('period_starts_on')->nullable();
+            $table->date('period_ends_on')->nullable();
             // Identifies the business event that produced the charge, so it can never be charged twice.
             $table->string('idempotency_key')->unique();
             $table->date('issued_on');
+            // Null for a monthly charge issued by the scheduler.
             $table->foreignId('created_by')->nullable()->constrained('platform_admins')->nullOnDelete();
-            $table->timestamp('created_at')->nullable();
+            $table->timestamps();
+
+            $table->index(['issued_on', 'id']);
         });
 
         Schema::create('billing_charge_lines', function (Blueprint $table) {
@@ -38,7 +50,7 @@ return new class extends Migration
             $table->unsignedInteger('quantity');
             $table->unsignedBigInteger('unit_amount');
             $table->unsignedBigInteger('amount');
-            // Calculation inputs (e.g. remaining and total term days of a proration).
+            // Calculation inputs (e.g. the price, seats and months of a setup fee).
             $table->json('calculation')->nullable();
         });
 

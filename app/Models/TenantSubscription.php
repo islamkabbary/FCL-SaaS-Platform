@@ -10,19 +10,21 @@ use Illuminate\Support\Carbon;
 use Stancl\Tenancy\Database\Concerns\CentralConnection;
 
 /**
- * A tenant's annual subscription (at most one per tenant). The commercial terms live
- * in its SubscriptionTerm records; the currency is fixed for the subscription's life.
+ * A tenant's subscription (at most one per tenant). The commercial terms live in its
+ * annual SubscriptionTerm records; the currency is fixed for the subscription's life.
+ *
+ * "setup_paid_seats" is the most seats a setup fee was ever charged for. A seat pays its
+ * setup fee once: seats bought again after a reduction are not charged a second time.
  *
  * @property int $id
  * @property string $tenant_id
- * @property int $subscription_plan_id
  * @property string $currency
+ * @property int $setup_paid_seats
  * @property Carbon $activated_at
  * @property int|null $activated_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Tenant $tenant
- * @property-read SubscriptionPlan $plan
  */
 class TenantSubscription extends Model
 {
@@ -42,6 +44,7 @@ class TenantSubscription extends Model
     {
         return [
             'activated_at' => 'datetime',
+            'setup_paid_seats' => 'integer',
         ];
     }
 
@@ -51,16 +54,6 @@ class TenantSubscription extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class, 'tenant_id');
-    }
-
-    /**
-     * The plan used for the latest term (and proposed for the next renewal).
-     *
-     * @return BelongsTo<SubscriptionPlan, $this>
-     */
-    public function plan(): BelongsTo
-    {
-        return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
     }
 
     /**
@@ -77,6 +70,14 @@ class TenantSubscription extends Model
     public function charges(): HasMany
     {
         return $this->hasMany(BillingCharge::class);
+    }
+
+    /**
+     * Seats above those already charged a setup fee, if the subscription grew to the given count.
+     */
+    public function seatsNeedingSetup(int $seats): int
+    {
+        return max(0, $seats - $this->setup_paid_seats);
     }
 
     /**

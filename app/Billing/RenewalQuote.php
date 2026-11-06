@@ -3,12 +3,14 @@
 namespace App\Billing;
 
 use App\Models\SeatChangeRequest;
-use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
 use Carbon\CarbonImmutable;
 
 /**
  * Everything a Platform Admin needs to review before confirming a renewal.
+ *
+ * A renewal charges no setup fee for seats that already paid one; only the seats above
+ * the subscription's "setup_paid_seats" ($setupSeats) pay it, for a full year.
  */
 final readonly class RenewalQuote
 {
@@ -17,8 +19,9 @@ final readonly class RenewalQuote
      */
     public function __construct(
         public SubscriptionTerm $previousTerm,
-        public SubscriptionPlan $plan,
+        public int $seatPrice,
         public int $seats,
+        public int $setupSeats,
         public CarbonImmutable $startsOn,
         public CarbonImmutable $endsOn,
         public int $activeUsers,
@@ -26,31 +29,39 @@ final readonly class RenewalQuote
         public array $errors,
     ) {}
 
-    public function annualTotal(): int
+    public function monthlyFee(): int
     {
-        return $this->plan->annualTotal($this->seats);
+        return Pricing::monthlyFee($this->seatPrice, $this->seats);
+    }
+
+    public function setupFee(): int
+    {
+        return Pricing::setupFee($this->seatPrice, $this->setupSeats, Pricing::MonthsPerTerm);
     }
 
     /**
-     * The expiring term's total for the same seats, for comparison.
+     * The expiring term's monthly charge for the same seats, for comparison.
      */
-    public function previousPricesTotal(): int
+    public function previousMonthlyFee(): int
     {
-        return $this->previousTerm->annualTotal($this->seats);
+        return $this->previousTerm->monthlyFee($this->seats);
     }
 
     /**
-     * Whether the plan or its prices differ from the expiring term's snapshot.
+     * Whether the price per seat differs from the expiring term's snapshot.
      */
     public function pricingChanged(): bool
     {
-        return $this->plan->id !== $this->previousTerm->subscription_plan_id
-            || $this->plan->annual_base_fee !== $this->previousTerm->annual_base_fee
-            || $this->plan->annual_seat_price !== $this->previousTerm->annual_seat_price;
+        return $this->seatPrice !== $this->previousTerm->seat_price;
     }
 
     public function isConfirmable(): bool
     {
         return $this->errors === [];
+    }
+
+    public function format(int $minor): string
+    {
+        return $this->previousTerm->format($minor);
     }
 }

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Platform;
 
+use App\Actions\Billing\ApplyChargeDiscount;
 use App\Actions\Billing\RecordPayment;
 use App\Billing\Money;
+use App\Billing\Pricing;
 use App\Exceptions\InvalidSubscriptionChange;
 use App\Http\Controllers\Controller;
 use App\Models\BillingCharge;
@@ -20,17 +22,20 @@ class ChargeController extends Controller
     public function index(Request $request): View
     {
         $outstandingOnly = $request->boolean('outstanding');
+        $overdueOnly = $request->boolean('overdue');
 
         return view('platform.charges.index', [
             'charges' => BillingCharge::query()
                 ->with('tenant')
                 ->withPaidTotal()
                 ->when($outstandingOnly, fn ($query) => $query->outstanding())
+                ->when($overdueOnly, fn ($query) => $query->overdue())
                 ->latest('issued_on')
                 ->latest('id')
                 ->paginate(25)
                 ->withQueryString(),
             'outstandingOnly' => $outstandingOnly,
+            'overdueOnly' => $overdueOnly,
         ]);
     }
 
@@ -70,6 +75,30 @@ class ChargeController extends Controller
         }
 
         return redirect()->route('platform.charges.show', $charge)->with('status', __('Payment recorded.'));
+    }
+
+    /**
+     * Set or remove (0) the percentage discount of a charge with no payment yet.
+     */
+    public function storeDiscount(Request $request, BillingCharge $charge, ApplyChargeDiscount $applyChargeDiscount): RedirectResponse
+    {
+        $input = $request->validate([
+            'discount_percent' => ['required', ...array_slice(SubscriptionController::discountRules(), 1)],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $applyChargeDiscount->handle(
+                $this->admin($request),
+                $charge,
+                Pricing::percentToBasisPoints($input['discount_percent']),
+                $input['reason'] ?? null,
+            );
+        } catch (InvalidSubscriptionChange|InvalidArgumentException $exception) {
+            return back()->withInput()->withErrors(['discount_percent' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('platform.charges.show', $charge)->with('status', __('Discount saved.'));
     }
 
     protected function admin(Request $request): PlatformAdmin

@@ -8,10 +8,15 @@ use App\Models\TenantSubscription;
 use Carbon\CarbonImmutable;
 
 /**
- * The charge for additional seats approved on a given day: the rest of the current term,
- * prorated, plus every later term already confirmed by an early renewal, in full at that
- * term's snapshot price. The tenant's estimate and the approval use this same calculation,
- * so the tenant is never shown less than they would be charged.
+ * The setup fee for additional seats approved on a given day: seat price × the current
+ * term's remaining months (the month already started counts in full) × the new seats.
+ *
+ * A seat pays its setup fee once, so only the seats above the subscription's
+ * "setup_paid_seats" are charged; seats bought back after a reduction cost nothing now.
+ * From the next monthly period on, the seats are included in the monthly charge.
+ *
+ * The tenant's estimate and the approval use this same calculation, so the tenant is
+ * never shown less than they would be charged.
  */
 final class SeatIncreaseQuote
 {
@@ -26,47 +31,38 @@ final class SeatIncreaseQuote
         $term = $subscription->termOn($on)
             ?? throw new InvalidSubscriptionChange(__('The subscription has no active term today, so additional seats cannot be charged. Reject the request instead.'));
 
-        $proration = Pricing::prorate($seats, $term->annual_seat_price, $term->starts_on, $term->ends_on, $on);
+        $mostSeats = max([$term->seats, ...array_map(fn (SubscriptionTerm $future): int => $future->seats, self::futureTerms($subscription, $on))]);
+        $chargeable = min($seats, $subscription->seatsNeedingSetup($mostSeats + $seats));
 
-        $lines = [[
-            'description' => __(':seats additional seats, :from – :to (:remaining of :total days)', [
-                'seats' => $seats,
-                'from' => $on->toDateString(),
+        if ($chargeable === 0) {
+            return [];
+        }
+
+        $proration = Pricing::prorate($chargeable, $term->seat_price, $term->starts_on, $on);
+
+        return [[
+            'description' => __('Setup fee, :seats additional seats × :months of :total months (:from – :to)', [
+                'seats' => $chargeable,
+                'months' => $proration->remainingMonths,
+                'total' => $proration->totalMonths,
+                'from' => Pricing::periodBounds($term->starts_on, Pricing::periodIndex($term->starts_on, $on))[0]->toDateString(),
                 'to' => $term->lastDay()->toDateString(),
-                'remaining' => $proration->remainingDays,
-                'total' => $proration->totalDays,
             ]),
-            'quantity' => $seats,
-            'unit_amount' => $term->annual_seat_price,
+            'quantity' => $chargeable,
+            'unit_amount' => Pricing::setupFee($term->seat_price, 1, $proration->remainingMonths),
             'amount' => $proration->amount,
             'calculation' => [
                 'term_id' => $term->id,
-                'annual_seat_price' => $term->annual_seat_price,
-                'seats' => $seats,
+                'seat_price' => $term->seat_price,
+                'requested_seats' => $seats,
+                'seats' => $chargeable,
+                'setup_paid_seats' => $subscription->setup_paid_seats,
                 'calculated_on' => $on->toDateString(),
                 'term_starts_on' => $term->starts_on->toDateString(),
-                'term_ends_on' => $term->ends_on->toDateString(),
-                'remaining_days' => $proration->remainingDays,
-                'total_days' => $proration->totalDays,
-                'rounding' => 'half_up_to_minor_unit',
+                'remaining_months' => $proration->remainingMonths,
+                'total_months' => $proration->totalMonths,
             ],
         ]];
-
-        foreach (self::futureTerms($subscription, $on) as $future) {
-            $lines[] = [
-                'description' => __(':seats additional seats, renewed term :from – :to', [
-                    'seats' => $seats,
-                    'from' => $future->starts_on->toDateString(),
-                    'to' => $future->lastDay()->toDateString(),
-                ]),
-                'quantity' => $seats,
-                'unit_amount' => $future->annual_seat_price,
-                'amount' => $future->annual_seat_price * $seats,
-                'calculation' => ['term_id' => $future->id, 'annual_seat_price' => $future->annual_seat_price, 'seats' => $seats],
-            ];
-        }
-
-        return $lines;
     }
 
     /**

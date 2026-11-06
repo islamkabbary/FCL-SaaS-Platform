@@ -4,16 +4,16 @@ namespace App\Enums;
 
 enum ChargeType: string
 {
-    case Initial = 'initial';
-    case Renewal = 'renewal';
-    case SeatIncrease = 'seat_increase';
+    case Setup = 'setup';
+    case Monthly = 'monthly';
+    case SeatSetup = 'seat_setup';
 
     public function label(): string
     {
         return match ($this) {
-            self::Initial => __('Initial annual subscription'),
-            self::Renewal => __('Annual renewal'),
-            self::SeatIncrease => __('Additional seats (prorated)'),
+            self::Setup => __('Setup fee'),
+            self::Monthly => __('Monthly subscription'),
+            self::SeatSetup => __('Setup fee for additional seats'),
         };
     }
 }

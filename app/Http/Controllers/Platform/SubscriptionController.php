@@ -5,13 +5,14 @@ namespace App\Http\Controllers\Platform;
 use App\Actions\Billing\ActivateSubscription;
 use App\Actions\Billing\RenewSubscription;
 use App\Billing\ActiveUsers;
+use App\Billing\Pricing;
 use App\Enums\SubscriptionStatus;
 use App\Exceptions\InvalidSubscriptionChange;
 use App\Http\Controllers\Controller;
 use App\Models\BillingCharge;
+use App\Models\BillingSetting;
 use App\Models\PlatformAdmin;
 use App\Models\SeatChangeRequest;
-use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
 use App\Models\Tenant;
 use App\Models\TenantSubscription;
@@ -25,6 +26,9 @@ use Throwable;
 
 /**
  * Tenant subscriptions: listing, details, manual activation and annual renewal.
+ *
+ * Discounts are entered as a percentage with up to two decimals and passed on to the
+ * Actions in basis points (12.5% = 1250).
  */
 class SubscriptionController extends Controller
 {
@@ -68,8 +72,8 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Activation form; with plan, seats and start date in the query string it also
-     * shows the preview of the term and the annual charge.
+     * Activation form; with seats and start date in the query string it also shows the
+     * preview of the term, the setup fee and the monthly charge.
      */
     public function createActivation(Request $request, Tenant $tenant, ActivateSubscription $activateSubscription): View|RedirectResponse
     {
@@ -78,22 +82,22 @@ class SubscriptionController extends Controller
         }
 
         $input = $request->validate([
-            'plan_id' => ['nullable', 'integer'],
             'seats' => ['nullable', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
             'starts_on' => ['nullable', 'date_format:Y-m-d'],
+            'discount_percent' => self::discountRules(),
         ]);
 
-        $plan = isset($input['plan_id']) ? SubscriptionPlan::query()->active()->whereKey($input['plan_id'])->first() : null;
-        $quote = $plan !== null && isset($input['seats'], $input['starts_on'])
-            ? $activateSubscription->quote($tenant, $plan, (int) $input['seats'], CarbonImmutable::parse($input['starts_on']))
+        $discount = Pricing::percentToBasisPoints($input['discount_percent'] ?? null);
+        $quote = isset($input['seats'], $input['starts_on'])
+            ? $activateSubscription->quote($tenant, (int) $input['seats'], CarbonImmutable::parse($input['starts_on']), $discount)
             : null;
 
         return view('platform.subscriptions.activate', [
             'tenant' => $tenant->load('domains'),
-            'plans' => SubscriptionPlan::query()->active()->orderBy('name')->get(),
-            'plan' => $plan,
+            'setting' => BillingSetting::current(),
             'seats' => $input['seats'] ?? null,
             'startsOn' => $input['starts_on'] ?? CarbonImmutable::today()->toDateString(),
+            'discountPercent' => $input['discount_percent'] ?? null,
             'quote' => $quote,
         ]);
     }
@@ -101,45 +105,39 @@ class SubscriptionController extends Controller
     public function activate(Request $request, Tenant $tenant, ActivateSubscription $activateSubscription): RedirectResponse
     {
         $input = $request->validate([
-            'plan_id' => ['required', 'integer', 'exists:subscription_plans,id'],
             'seats' => ['required', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
             'starts_on' => ['required', 'date_format:Y-m-d'],
             'expected_total' => ['required', 'integer', 'min:0'],
+            'discount_percent' => self::discountRules(),
         ]);
 
         try {
             $activateSubscription->handle(
                 $this->admin($request),
                 $tenant,
-                SubscriptionPlan::query()->whereKey($input['plan_id'])->firstOrFail(),
                 (int) $input['seats'],
                 CarbonImmutable::parse($input['starts_on']),
                 (int) $input['expected_total'],
+                Pricing::percentToBasisPoints($input['discount_percent'] ?? null),
             );
         } catch (InvalidSubscriptionChange $exception) {
             return back()->withInput()->withErrors(['subscription' => $exception->getMessage()]);
         }
 
-        return redirect()->route('platform.subscriptions.show', $tenant)->with('status', __('Subscription activated and the initial annual charge created.'));
+        return redirect()->route('platform.subscriptions.show', $tenant)->with('status', __('Subscription activated: the setup fee and the first monthly charge were created.'));
     }
 
     /**
-     * Renewal preview; plan and seats can be adjusted through the query string.
+     * Renewal preview; the seats can be adjusted through the query string.
      */
     public function createRenewal(Request $request, Tenant $tenant, RenewSubscription $renewSubscription): View|RedirectResponse
     {
         $input = $request->validate([
-            // An unknown plan is an error, never a silent fallback to the current plan.
-            'plan_id' => ['nullable', 'integer', 'exists:subscription_plans,id'],
             'seats' => ['nullable', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
         ]);
 
         try {
-            $quote = $renewSubscription->quote(
-                $tenant,
-                isset($input['plan_id']) ? SubscriptionPlan::query()->whereKey($input['plan_id'])->first() : null,
-                isset($input['seats']) ? (int) $input['seats'] : null,
-            );
+            $quote = $renewSubscription->quote($tenant, isset($input['seats']) ? (int) $input['seats'] : null);
         } catch (InvalidSubscriptionChange $exception) {
             return redirect()->route('platform.subscriptions.show', $tenant)->with('error', $exception->getMessage());
         }
@@ -147,37 +145,36 @@ class SubscriptionController extends Controller
         return view('platform.subscriptions.renew', [
             'tenant' => $tenant->load('domains'),
             'quote' => $quote,
-            'plans' => SubscriptionPlan::query()->active()->where('currency', $quote->previousTerm->currency)->orderBy('name')->get(),
         ]);
     }
 
     public function renew(Request $request, Tenant $tenant, RenewSubscription $renewSubscription): RedirectResponse
     {
         $input = $request->validate([
-            'plan_id' => ['required', 'integer', 'exists:subscription_plans,id'],
             'seats' => ['required', 'integer', 'min:1', 'max:'.config('billing.max_seats')],
             'accept_pricing_change' => ['nullable', 'boolean'],
             'expected_total' => ['required', 'integer', 'min:0'],
             'expected_previous_seats' => ['required', 'integer', 'min:1'],
             'expected_reduction_id' => ['required', 'integer', 'min:0'],
+            'discount_percent' => self::discountRules(),
         ]);
 
         try {
             $renewSubscription->handle(
                 $this->admin($request),
                 $tenant,
-                SubscriptionPlan::query()->whereKey($input['plan_id'])->firstOrFail(),
                 (int) $input['seats'],
                 (bool) ($input['accept_pricing_change'] ?? false),
                 (int) $input['expected_total'],
                 (int) $input['expected_previous_seats'],
                 (int) $input['expected_reduction_id'],
+                Pricing::percentToBasisPoints($input['discount_percent'] ?? null),
             );
         } catch (InvalidSubscriptionChange $exception) {
             return back()->withInput()->withErrors(['subscription' => $exception->getMessage()]);
         }
 
-        return redirect()->route('platform.subscriptions.show', $tenant)->with('status', __('Subscription renewed and the annual renewal charge created.'));
+        return redirect()->route('platform.subscriptions.show', $tenant)->with('status', __('Subscription renewed. It is billed monthly from the start of the new term.'));
     }
 
     /**
@@ -197,6 +194,16 @@ class SubscriptionController extends Controller
 
             return null;
         }
+    }
+
+    /**
+     * Validation of an optional discount percentage (0 to 100, at most two decimals).
+     *
+     * @return list<string>
+     */
+    public static function discountRules(): array
+    {
+        return ['nullable', 'string', 'regex:'.Pricing::DiscountPattern, 'numeric', 'max:100'];
     }
 
     protected function admin(Request $request): PlatformAdmin

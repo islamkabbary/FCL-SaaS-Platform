@@ -8,10 +8,7 @@ enum PlatformAuditAction: string
     case TenantUpdated = 'tenant.updated';
     case TenantSuspended = 'tenant.suspended';
     case TenantReactivated = 'tenant.reactivated';
-    case PlanCreated = 'plan.created';
-    case PlanUpdated = 'plan.updated';
-    case PlanArchived = 'plan.archived';
-    case PlanActivated = 'plan.activated';
+    case BillingSettingsUpdated = 'billing.settings_updated';
     case SubscriptionActivated = 'subscription.activated';
     case SubscriptionRenewed = 'subscription.renewed';
     case SeatIncreaseRequested = 'seats.increase_requested';
@@ -20,6 +17,7 @@ enum PlatformAuditAction: string
     case SeatRequestApproved = 'seats.request_approved';
     case SeatRequestRejected = 'seats.request_rejected';
     case ChargeCreated = 'billing.charge_created';
+    case ChargeDiscountApplied = 'billing.charge_discount_applied';
     case PaymentRecorded = 'billing.payment_recorded';
     case SupportSessionStarted = 'support.session_started';
     case SupportSessionEnded = 'support.session_ended';
@@ -39,10 +37,7 @@ enum PlatformAuditAction: string
             self::TenantUpdated => __('Details updated'),
             self::TenantSuspended => __('Access suspended'),
             self::TenantReactivated => __('Access reactivated'),
-            self::PlanCreated => __('Plan created'),
-            self::PlanUpdated => __('Plan updated'),
-            self::PlanArchived => __('Plan archived'),
-            self::PlanActivated => __('Plan activated'),
+            self::BillingSettingsUpdated => __('Price per user updated'),
             self::SubscriptionActivated => __('Subscription activated'),
             self::SubscriptionRenewed => __('Subscription renewed'),
             self::SeatIncreaseRequested => __('Seat increase requested'),
@@ -51,6 +46,7 @@ enum PlatformAuditAction: string
             self::SeatRequestApproved => __('Seat request approved'),
             self::SeatRequestRejected => __('Seat request rejected'),
             self::ChargeCreated => __('Charge created'),
+            self::ChargeDiscountApplied => __('Charge discount changed'),
             self::PaymentRecorded => __('Payment recorded'),
             self::SupportSessionStarted => __('Support session started'),
             self::SupportSessionEnded => __('Support session ended'),
@@ -72,10 +68,10 @@ enum PlatformAuditAction: string
             self::TenantUpdated => 'zinc',
             self::TenantSuspended => 'red',
             self::TenantReactivated => 'green',
-            self::PlanCreated, self::PlanUpdated, self::PlanArchived, self::PlanActivated => 'zinc',
+            self::BillingSettingsUpdated => 'zinc',
             self::SubscriptionActivated, self::SubscriptionRenewed, self::SeatRequestApproved, self::PaymentRecorded => 'green',
             self::SeatIncreaseRequested, self::SeatReductionRequested, self::ChargeCreated => 'blue',
-            self::SeatRequestCancelled, self::SeatRequestRejected => 'amber',
+            self::SeatRequestCancelled, self::SeatRequestRejected, self::ChargeDiscountApplied => 'amber',
             self::SupportSessionStarted => 'violet',
             self::SupportSessionEnded, self::TwoFactorEnabled, self::TwoFactorRecoveryCodesRegenerated => 'zinc',
             self::SupportSessionRevoked, self::TwoFactorDisabled, self::TwoFactorReset => 'red',

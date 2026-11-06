@@ -5,16 +5,16 @@
 | SaaS Billing
 |--------------------------------------------------------------------------
 |
-| Technical defaults for the manually operated annual subscription billing.
-| Commercial values (plan prices, plan currencies) are never configured here:
-| Platform Admins set them on each plan.
+| Technical defaults for the manually operated seat-based subscription billing.
+| Commercial values (the price per user and its currency) are never configured
+| here: Platform Admins set them in the billing settings.
 |
 */
 
 return [
 
     /*
-     * Currencies a plan may be priced in, with the number of decimal places of the
+     * Currencies the price per user may be set in, with the number of decimal places of the
      * currency's minor unit (ISO 4217). Amounts are stored as integers in minor units,
      * so this precision is fixed per currency. This list is a technical allow-list,
      * not a business decision; add currencies here when needed.
@@ -45,6 +45,12 @@ return [
      * The platform dashboard also lists these subscriptions as "renewal due".
      */
     'renewal_window_days' => 30,
+
+    /*
+     * An unpaid charge is listed as overdue this many days after it was issued. Nothing
+     * happens automatically: a Platform Admin decides whether to suspend the tenant.
+     */
+    'overdue_after_days' => (int) env('BILLING_OVERDUE_AFTER_DAYS', 7),
 
     /*
      * Seconds an employee creation or reactivation waits for another seat-consuming

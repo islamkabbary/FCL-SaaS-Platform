@@ -4,11 +4,13 @@ namespace App\Models;
 
 use App\Billing\Money;
 use App\Billing\Pricing;
+use App\Enums\ChargeType;
 use App\Enums\SubscriptionTermKind;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use LogicException;
 use Stancl\Tenancy\Database\Concerns\CentralConnection;
@@ -17,20 +19,18 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  * One annual term of a subscription, covering the half-open range [starts_on, ends_on):
  * ends_on is the renewal date, the first day the term no longer covers.
  *
- * The plan name, currency and prices are a snapshot taken when the term was created
- * and can never change. Only "seats" (the purchased entitlement) grows when a seat
- * increase is approved; "initial_seats" keeps the quantity the term started with.
+ * The currency and the monthly seat price are a snapshot taken when the term was
+ * created and can never change. Only "seats" (the purchased entitlement) grows when a
+ * seat increase is approved; "initial_seats" keeps the quantity the term started with.
+ * The term is billed in twelve monthly periods (see Pricing::periodBounds()).
  *
  * @property int $id
  * @property int $tenant_subscription_id
  * @property string $tenant_id
  * @property int $sequence
  * @property SubscriptionTermKind $kind
- * @property int $subscription_plan_id
- * @property string $plan_name
  * @property string $currency
- * @property int $annual_base_fee
- * @property int $annual_seat_price
+ * @property int $seat_price
  * @property int $initial_seats
  * @property int $seats
  * @property CarbonImmutable $starts_on
@@ -50,8 +50,8 @@ class SubscriptionTerm extends Model
      * @var list<string>
      */
     public const Snapshot = [
-        'tenant_subscription_id', 'tenant_id', 'sequence', 'kind', 'subscription_plan_id', 'plan_name',
-        'currency', 'annual_base_fee', 'annual_seat_price', 'initial_seats', 'starts_on', 'ends_on', 'created_by',
+        'tenant_subscription_id', 'tenant_id', 'sequence', 'kind', 'currency', 'seat_price',
+        'initial_seats', 'starts_on', 'ends_on', 'created_by',
     ];
 
     /**
@@ -69,8 +69,7 @@ class SubscriptionTerm extends Model
         return [
             'kind' => SubscriptionTermKind::class,
             'sequence' => 'integer',
-            'annual_base_fee' => 'integer',
-            'annual_seat_price' => 'integer',
+            'seat_price' => 'integer',
             'initial_seats' => 'integer',
             'seats' => 'integer',
             'starts_on' => 'immutable_date',
@@ -110,11 +109,37 @@ class SubscriptionTerm extends Model
     }
 
     /**
-     * The term's annual total for its initial seats at its snapshot prices.
+     * @return HasMany<BillingCharge, $this>
      */
-    public function annualTotal(?int $seats = null): int
+    public function monthlyCharges(): HasMany
     {
-        return Pricing::annualTotal($this->annual_base_fee, $this->annual_seat_price, $seats ?? $this->initial_seats);
+        return $this->hasMany(BillingCharge::class)->where('type', ChargeType::Monthly);
+    }
+
+    /**
+     * The monthly charge for the given seats (the term's current seats by default).
+     */
+    public function monthlyFee(?int $seats = null): int
+    {
+        return Pricing::monthlyFee($this->seat_price, $seats ?? $this->seats);
+    }
+
+    /**
+     * The monthly periods that have started on or before the given day: 0 to 12.
+     */
+    public function startedPeriods(CarbonImmutable $day): int
+    {
+        $day = Pricing::day($day);
+
+        if ($day->lessThan(Pricing::day($this->starts_on))) {
+            return 0;
+        }
+
+        if (! $this->covers($day)) {
+            return Pricing::MonthsPerTerm;
+        }
+
+        return Pricing::periodIndex($this->starts_on, $day) + 1;
     }
 
     /**
@@ -123,11 +148,6 @@ class SubscriptionTerm extends Model
     public function lastDay(): CarbonImmutable
     {
         return $this->ends_on->subDay();
-    }
-
-    public function totalDays(): int
-    {
-        return Pricing::daysBetween($this->starts_on, $this->ends_on);
     }
 
     public function covers(CarbonImmutable $day): bool

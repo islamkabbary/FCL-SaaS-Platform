@@ -22,9 +22,10 @@ use Illuminate\Support\Facades\DB;
  * A Platform Admin approves or rejects a tenant's seat request.
  *
  * Approving an increase adds the seats to the current term (sharing its renewal date)
- * and charges them prorated for the rest of that term, computed on the approval day.
- * If the next term was already confirmed by an early renewal, the seats are added to it
- * too and charged for that full term at its snapshot price.
+ * and charges their setup fee for the term's remaining months, computed on the approval
+ * day (SeatIncreaseQuote). Seats that already paid a setup fee are not charged again. If
+ * the next term was already confirmed by an early renewal, the seats are added to it too.
+ * The monthly charges include the new seats from the next monthly period on.
  *
  * Approving a reduction changes nothing now; it is applied by the next renewal, unless an
  * increase is approved before then, which supersedes it.
@@ -56,8 +57,8 @@ class ReviewSeatChangeRequest
 
     /**
      * $expectedAmount is the total shown in the preview the admin approved (0 for a
-     * reduction). When the charge would differ, because the plan's prices changed or the
-     * proration day moved on, nothing is approved: the admin must review the new amount.
+     * reduction). When the charge would differ, because the approval moved into another
+     * month or the seats changed, nothing is approved: the admin must review the new amount.
      *
      * @throws InvalidSubscriptionChange
      */
@@ -98,12 +99,17 @@ class ReviewSeatChangeRequest
                     $future->forceFill(['seats' => $future->seats + $request->seats])->save();
                 }
 
-                $chargeId = $this->createCharge->handle(
-                    $admin, $request->tenant, $subscription, $term, ChargeType::SeatIncrease,
-                    "seat-request:{$request->id}",
-                    __(':seats additional seats (request #:id)', ['seats' => $request->seats, 'id' => $request->id]),
-                    $lines,
-                )->id;
+                if ($lines !== []) {
+                    $setupSeats = (int) array_sum(array_column($lines, 'quantity'));
+                    $subscription->forceFill(['setup_paid_seats' => $subscription->setup_paid_seats + $setupSeats])->save();
+
+                    $chargeId = $this->createCharge->handle(
+                        $admin, $request->tenant, $subscription, $term, ChargeType::SeatSetup,
+                        "seat-request:{$request->id}",
+                        __('Setup fee, :seats additional seats (request #:id)', ['seats' => $request->seats, 'id' => $request->id]),
+                        $lines,
+                    )->id;
+                }
 
                 // Buying more seats now cancels an earlier reduction approved for the next renewal;
                 // otherwise the renewal would propose fewer seats than were just paid for. The

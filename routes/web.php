@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\Platform\AuthenticatedSessionController;
+use App\Http\Controllers\Platform\BillingSettingsController;
 use App\Http\Controllers\Platform\ChargeController;
 use App\Http\Controllers\Platform\DashboardController;
-use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Platform\SeatRequestController;
 use App\Http\Controllers\Platform\SubscriptionController;
 use App\Http\Controllers\Platform\SupportSessionController;
@@ -93,13 +93,8 @@ Route::domain(config('tenancy.central_domains')[0])->group(function () {
 
             // Subscriptions & billing (Platform Admins only; tenant users have no route here).
             Route::middleware('can:manage-billing')->group(function () {
-                Route::get('plans', [PlanController::class, 'index'])->name('plans.index');
-                Route::get('plans/create', [PlanController::class, 'create'])->name('plans.create');
-                Route::post('plans', [PlanController::class, 'store'])->name('plans.store');
-                Route::get('plans/{plan}/edit', [PlanController::class, 'edit'])->name('plans.edit');
-                Route::put('plans/{plan}', [PlanController::class, 'update'])->name('plans.update');
-                Route::post('plans/{plan}/archive', [PlanController::class, 'archive'])->name('plans.archive');
-                Route::post('plans/{plan}/activate', [PlanController::class, 'activate'])->name('plans.activate');
+                Route::get('billing-settings', [BillingSettingsController::class, 'edit'])->name('billing-settings.edit');
+                Route::put('billing-settings', [BillingSettingsController::class, 'update'])->name('billing-settings.update');
 
                 Route::get('subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
                 Route::get('tenants/{tenant}/subscription', [SubscriptionController::class, 'show'])->middleware('can:view,tenant')->name('subscriptions.show');
@@ -118,6 +113,7 @@ Route::domain(config('tenancy.central_domains')[0])->group(function () {
                 Route::get('charges', [ChargeController::class, 'index'])->name('charges.index');
                 Route::get('charges/{charge}', [ChargeController::class, 'show'])->name('charges.show');
                 Route::post('charges/{charge}/payments', [ChargeController::class, 'storePayment'])->name('charges.payments.store');
+                Route::post('charges/{charge}/discount', [ChargeController::class, 'storeDiscount'])->name('charges.discount.store');
             });
         });
     });

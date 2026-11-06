@@ -35,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(Role::class, RolePolicy::class);
 
-        // Plans, subscriptions, seat requests and billing records on the central platform.
+        // Billing settings, subscriptions, seat requests and billing records on the central platform.
         // Any other identity is denied explicitly: Laravel calls a gate with an
         // authenticated user of another type, so a type hint alone would throw instead.
         Gate::define('manage-billing', fn (mixed $user): bool => $user instanceof PlatformAdmin);

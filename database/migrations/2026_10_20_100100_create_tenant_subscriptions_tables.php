@@ -28,17 +28,18 @@ return new class extends Migration
             $table->id();
             $table->string('tenant_id')->unique();
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnUpdate()->restrictOnDelete();
-            $table->foreignId('subscription_plan_id')->constrained()->restrictOnDelete();
             $table->char('currency', 3);
+            // The most seats a setup fee was ever charged for: a seat pays its setup fee once.
+            $table->unsignedInteger('setup_paid_seats')->default(0);
             $table->timestamp('activated_at');
             $table->foreignId('activated_by')->nullable()->constrained('platform_admins')->nullOnDelete();
             $table->timestamps();
         });
 
         /*
-         * Each annual term covers [starts_on, ends_on). Prices are snapshots taken when the
-         * term was created and never change; "seats" is the term's purchased entitlement
-         * (initial_seats plus approved increases).
+         * Each annual term covers [starts_on, ends_on). The monthly seat price is a snapshot
+         * taken when the term was created and never changes; "seats" is the term's purchased
+         * entitlement (initial_seats plus approved increases).
          */
         Schema::create('subscription_terms', function (Blueprint $table) {
             $table->id();
@@ -47,11 +48,8 @@ return new class extends Migration
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnUpdate()->restrictOnDelete();
             $table->unsignedInteger('sequence');
             $table->string('kind');
-            $table->foreignId('subscription_plan_id')->constrained()->restrictOnDelete();
-            $table->string('plan_name');
             $table->char('currency', 3);
-            $table->unsignedBigInteger('annual_base_fee');
-            $table->unsignedBigInteger('annual_seat_price');
+            $table->unsignedBigInteger('seat_price');
             $table->unsignedInteger('initial_seats');
             $table->unsignedInteger('seats');
             $table->date('starts_on');
