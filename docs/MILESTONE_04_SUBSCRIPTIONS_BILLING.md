@@ -74,6 +74,8 @@ This document describes what was **actually implemented and verified** in Milest
 ## 3. Business Rules
 
 ### 3.1 Confirmed business rules (from the milestone brief)
+
+> **Superseded on 2026-11-06 by [Milestone 08](MILESTONE_08_SEAT_BASED_BILLING.md):** plans are removed. A subscription now pays a setup fee once per user and a monthly charge per user.
 - One tenant is one company with its own database. There are fixed plans only, billed **annually only**, with no self-registration and manual management by Platform Admins. All features are included, with no shipment limits and no add-ons.
 - **Annual Subscription Total = Annual Base Fee + (Purchased Seats × Annual Price Per Seat)**. Both prices are configured per plan, never hard-coded.
 - The currency is explicitly configured per plan. Calculations across currencies are prevented.
@@ -149,6 +151,8 @@ Foreign keys to tenants, plans, terms and charges are `restrict`, so financial h
 ---
 
 ## 6. Plans and Pricing Configuration
+
+> **Superseded on 2026-11-06 by [Milestone 08](MILESTONE_08_SEAT_BASED_BILLING.md):** plans are removed. A subscription now pays a setup fee once per user and a monthly charge per user.
 
 - Prices are entered as decimals in the plan currency, for example `1250.50`. The input is validated against the currency's precision: `10.123` is rejected for USD, while `0.001` is accepted for KWD. Values are converted exactly to minor units with brick/math.
 - **A price change never affects existing terms or charges.** Every term stores its own snapshot (tested), and editing a plan only affects terms created afterwards.
