@@ -18,7 +18,7 @@ test('an admin without two-factor authentication is sent to enrollment from ever
     $this->actingAs($this->admin, 'platform')
         ->get(route($route))
         ->assertRedirect(route('platform.account.security'));
-})->with(['platform.dashboard', 'platform.tenants.index', 'platform.plans.index', 'platform.support-sessions.index', 'platform.charges.index']);
+})->with(['platform.dashboard', 'platform.tenants.index', 'platform.billing-settings.edit', 'platform.support-sessions.index', 'platform.charges.index']);
 
 test('a JSON request without two-factor authentication is refused', function () {
     $this->actingAs($this->admin, 'platform')

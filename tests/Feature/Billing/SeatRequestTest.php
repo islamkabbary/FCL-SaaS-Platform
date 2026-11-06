@@ -15,7 +15,6 @@ use App\Models\BillingCharge;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditLog;
 use App\Models\SeatChangeRequest;
-use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -24,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    // Term 2026-03-01 → 2027-03-01 (365 days); today is 2026-09-01: 181 days remain.
+    // Term 2026-03-01 → 2027-03-01 at 18.00 a user; today is 2026-09-01: 6 months remain.
     $this->travelTo(CarbonImmutable::parse('2026-09-01 10:00:00'));
     $this->platformAdmin = PlatformAdmin::factory()->create();
     $this->tenant = actingInTenant(subscribed: false);
@@ -42,12 +41,13 @@ test('a tenant admin sees the subscription and requests additional seats with an
 
     Livewire::actingAs($this->admin)
         ->test('pages::subscription.index')
-        ->assertSee($this->term->plan_name)
         ->assertSee('Mar 1, 2027')
-        ->assertSee('120.00 USD')
+        ->assertSee('18.00 USD × 2 = 36.00 USD')
+        ->assertSee('Oct 1, 2026')
         ->assertSeeInOrder(['Purchased seats', '2', 'Active users (seats in use)', '1', 'Available seats', '1'])
         ->set('increaseSeats', '3')
-        ->assertSee('Estimated charge if approved today: 178.52 USD') // 3 × 120.00 × 181/365
+        ->assertSee('Estimated setup fee if approved today: 324.00 USD') // 18.00 × 6 months × 3
+        ->assertSee('Then 54.00 USD more each month.')
         ->call('requestIncrease')
         ->assertHasNoErrors();
 
@@ -59,7 +59,7 @@ test('a tenant admin sees the subscription and requests additional seats with an
         ->and($request->status)->toBe(SeatRequestStatus::Pending)
         ->and($request->requested_by_user_id)->toBe($this->admin->id)
         ->and($request->requested_by_email)->toBe('admin@acme.test')
-        ->and($request->estimated_amount)->toBe(17852)
+        ->and($request->estimated_amount)->toBe(32400)
         ->and($this->term->refresh()->seats)->toBe(2);
 
     $entry = PlatformAuditLog::query()->sole();
@@ -69,19 +69,19 @@ test('a tenant admin sees the subscription and requests additional seats with an
         ->and($entry->platform_admin_id)->toBeNull();
 });
 
-test('approval adds the seats to the current term and charges them prorated', function () {
+test('approval adds the seats to the current term and charges their setup fee for the remaining months', function () {
     $request = requestSeats(SeatRequestType::Increase, 3);
 
-    $this->travelTo(CarbonImmutable::parse('2026-12-01 10:00:00')); // 90 days remain
+    $this->travelTo(CarbonImmutable::parse('2026-12-01 10:00:00')); // the tenth month: 3 months remain
 
     $this->actingAs($this->platformAdmin, 'platform')
         ->get(route('platform.seat-requests.index'))
         ->assertOk()
-        ->assertSee('Charge if approved today')
-        ->assertSee('88.77 USD'); // 3 × 12000 × 90 / 365 = 8876.71… → 8877
+        ->assertSee('Setup fee if approved today')
+        ->assertSee('162.00 USD'); // 18.00 × 3 months × 3
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.seat-requests.approve', $request), ['review_note' => 'Welcome aboard', 'expected_amount' => 8877])
+        ->post(route('platform.seat-requests.approve', $request), ['review_note' => 'Welcome aboard', 'expected_amount' => 16200])
         ->assertRedirect(route('platform.seat-requests.index'));
 
     $request->refresh();
@@ -95,48 +95,50 @@ test('approval adds the seats to the current term and charges them prorated', fu
         ->and($this->term->refresh()->seats)->toBe(5)
         ->and($this->term->initial_seats)->toBe(2)
         ->and($this->term->ends_on->toDateString())->toBe('2027-03-01')
-        ->and($charge->type)->toBe(ChargeType::SeatIncrease)
-        ->and($charge->amount)->toBe(8877)
+        ->and($charge->type)->toBe(ChargeType::SeatSetup)
+        ->and($charge->amount)->toBe(16200)
         ->and($line->quantity)->toBe(3)
-        ->and($line->unit_amount)->toBe(12000)
-        ->and($line->calculation)->toMatchArray(['remaining_days' => 90, 'total_days' => 365, 'calculated_on' => '2026-12-01', 'annual_seat_price' => 12000]);
+        ->and($line->unit_amount)->toBe(5400)
+        ->and($line->calculation)->toMatchArray(['remaining_months' => 3, 'total_months' => 12, 'calculated_on' => '2026-12-01', 'seat_price' => 1800])
+        ->and($this->tenant->subscription->setup_paid_seats)->toBe(5)
+        ->and($this->term->monthlyFee())->toBe(9000);
 
     // The tenant now has 4 available seats.
     expect(app(SeatGuard::class)->usage()->available())->toBe(4);
 });
 
-test('approval on the first day of the term charges the full annual seat price', function () {
-    $this->travelTo(CarbonImmutable::parse('2026-03-01 08:00:00'));
+test('approval in the first month of the term charges a setup fee for twelve months', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-03-20 08:00:00'));
     $request = requestSeats(SeatRequestType::Increase, 2);
 
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $request);
 
-    expect(BillingCharge::query()->sole()->amount)->toBe(24000);
+    expect(BillingCharge::query()->sole()->amount)->toBe(43200); // 18.00 × 12 × 2
 });
 
 test('an approval is refused when the charge changed since the preview', function () {
     $request = requestSeats(SeatRequestType::Increase, 3);
-    $this->travelTo(CarbonImmutable::parse('2026-12-01 10:00:00')); // 90 days remain
+    $this->travelTo(CarbonImmutable::parse('2026-12-31 10:00:00')); // 3 months remain
 
     $this->actingAs($this->platformAdmin, 'platform')
         ->get(route('platform.seat-requests.index'))
-        ->assertSee('name="expected_amount" value="8877"', false);
+        ->assertSee('name="expected_amount" value="16200"', false);
 
-    // Approved the next day, one day fewer is prorated: 3 × 12000 × 89 / 365 = 8778.08… → 8778.
-    $this->travelTo(CarbonImmutable::parse('2026-12-02 10:00:00'));
+    // Approved the next day, in the next month: 18.00 × 2 months × 3 = 108.00.
+    $this->travelTo(CarbonImmutable::parse('2027-01-01 10:00:00'));
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.seat-requests.approve', $request), ['expected_amount' => 8877])
-        ->assertSessionHas('error', 'The charge changed since it was previewed: approving today charges 87.78 USD. Review it and approve again.');
+        ->post(route('platform.seat-requests.approve', $request), ['expected_amount' => 16200])
+        ->assertSessionHas('error', 'The charge changed since it was previewed: approving today charges 108.00 USD. Review it and approve again.');
 
     expect($request->refresh()->status)->toBe(SeatRequestStatus::Pending)
         ->and(BillingCharge::query()->count())->toBe(0);
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->post(route('platform.seat-requests.approve', $request), ['expected_amount' => 8778])
+        ->post(route('platform.seat-requests.approve', $request), ['expected_amount' => 10800])
         ->assertSessionHas('status');
 
-    expect(BillingCharge::query()->sole()->amount)->toBe(8778);
+    expect(BillingCharge::query()->sole()->amount)->toBe(10800);
 });
 
 test('a request cannot be approved twice or charged twice', function () {
@@ -274,9 +276,7 @@ function renewEarly(int $seats): SubscriptionTerm
 {
     test()->travelTo(CarbonImmutable::parse('2027-02-15 10:00:00'));
 
-    return app(RenewSubscription::class)->handle(
-        test()->platformAdmin, test()->tenant, SubscriptionPlan::query()->findOrFail(test()->term->subscription_plan_id), $seats, false,
-    );
+    return app(RenewSubscription::class)->handle(test()->platformAdmin, test()->tenant, $seats, false);
 }
 
 test('a reduction cannot be requested once the next term is confirmed', function () {

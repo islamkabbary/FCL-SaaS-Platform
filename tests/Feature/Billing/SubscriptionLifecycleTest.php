@@ -7,6 +7,7 @@ use App\Enums\SubscriptionStatus;
 use App\Enums\TenantStatus;
 use App\Exceptions\InvalidSubscriptionChange;
 use App\Models\BillingCharge;
+use App\Models\BillingSetting;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditLog;
 use App\Models\SubscriptionTerm;
@@ -20,6 +21,7 @@ use Spatie\Permission\Models\Role;
 beforeEach(function () {
     $this->admin = PlatformAdmin::factory()->create();
     $this->travelTo(CarbonImmutable::parse('2026-10-20 09:00:00'));
+    testPrice(1800);
 });
 
 function employeeLogin(Tenant $tenant, string $email = 'employee@acme.test'): void
@@ -58,55 +60,64 @@ test('a new tenant requires a subscription: users can sign in but not use the ap
     $this->get($tenant->url('settings/profile'))->assertOk();
 });
 
-test('an activation is refused when the plan prices changed after the preview', function () {
+test('an activation is refused when the price per user changed after the preview', function () {
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
-    $plan = testPlan();
     $startsOn = CarbonImmutable::today()->toDateString();
 
     $this->actingAs($this->admin, 'platform')
-        ->get(route('platform.subscriptions.activate', [$tenant, 'plan_id' => $plan->id, 'seats' => 10, 'starts_on' => $startsOn]))
-        ->assertSee('name="expected_total" value="220000"', false);
+        ->get(route('platform.subscriptions.activate', [$tenant, 'seats' => 10, 'starts_on' => $startsOn]))
+        ->assertSee('name="expected_total" value="216000"', false);
 
-    // The plan's prices change before the previewed activation is confirmed.
-    $plan->update(['annual_base_fee' => 200000]);
+    // The price changes before the previewed activation is confirmed.
+    testPrice(2000);
 
     $this->actingAs($this->admin, 'platform')
-        ->post(route('platform.subscriptions.activate.store', $tenant), ['plan_id' => $plan->id, 'seats' => 10, 'starts_on' => $startsOn, 'expected_total' => 220000])
-        ->assertSessionHasErrors(['subscription' => 'The plan\'s prices changed after the preview: the annual total is now 3,200.00 USD. Review it and confirm again.']);
+        ->post(route('platform.subscriptions.activate.store', $tenant), ['seats' => 10, 'starts_on' => $startsOn, 'expected_total' => 216000])
+        ->assertSessionHasErrors(['subscription' => 'The price per user changed after the preview: the setup fee is now 2,400.00 USD. Review it and confirm again.']);
 
     expect(TenantSubscription::query()->count())->toBe(0)
         ->and(BillingCharge::query()->count())->toBe(0);
 });
 
-test('platform admins activate a subscription after previewing the annual charge', function () {
+test('platform admins activate a subscription after previewing the setup fee and the monthly charge', function () {
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
-    $plan = testPlan(['name' => 'Standard']);
 
     $this->actingAs($this->admin, 'platform')
-        ->get(route('platform.subscriptions.activate', [$tenant, 'plan_id' => $plan->id, 'seats' => 10, 'starts_on' => '2026-10-20']))
+        ->get(route('platform.subscriptions.activate', [$tenant, 'seats' => 10, 'starts_on' => '2026-10-20', 'discount_percent' => '10']))
         ->assertOk()
-        ->assertSee('1,000.00 USD + 10 × 120.00 USD = 2,200.00 USD')
+        ->assertSee('18.00 USD × 12 × 10 = 2,160.00 USD')
+        ->assertSee('10% = −216.00 USD → 1,944.00 USD')
+        ->assertSee('18.00 USD × 10 = 180.00 USD')
         ->assertSee('2026-10-20 to 2027-10-19 (inclusive), renews on 2027-10-20');
 
     $this->actingAs($this->admin, 'platform')
-        ->post(route('platform.subscriptions.activate.store', $tenant), ['plan_id' => $plan->id, 'seats' => 10, 'starts_on' => '2026-10-20', 'expected_total' => 220000])
+        ->post(route('platform.subscriptions.activate.store', $tenant), ['seats' => 10, 'starts_on' => '2026-10-20', 'expected_total' => 216000, 'discount_percent' => '10'])
         ->assertRedirect(route('platform.subscriptions.show', $tenant))
         ->assertSessionHasNoErrors();
 
     $term = SubscriptionTerm::query()->sole();
-    $charge = BillingCharge::query()->with('lines')->sole();
+    [$setup, $monthly] = BillingCharge::query()->with('lines')->orderBy('id')->get()->all();
 
     expect($tenant->subscriptionStatus())->toBe(SubscriptionStatus::Active)
         ->and($term->seats)->toBe(10)
         ->and($term->starts_on->toDateString())->toBe('2026-10-20')
         ->and($term->ends_on->toDateString())->toBe('2027-10-20')
-        ->and($term->annual_base_fee)->toBe(100000)
-        ->and($term->annual_seat_price)->toBe(12000)
-        ->and($charge->type)->toBe(ChargeType::Initial)
-        ->and($charge->amount)->toBe(220000)
-        ->and($charge->currency)->toBe('USD')
-        ->and($charge->lines->pluck('amount')->all())->toBe([100000, 120000])
-        ->and(PlatformAuditLog::query()->orderBy('id')->pluck('action')->map->value->all())->toBe(['subscription.activated', 'billing.charge_created'])
+        ->and($term->seat_price)->toBe(1800)
+        ->and(TenantSubscription::query()->sole()->setup_paid_seats)->toBe(10)
+        ->and($setup->type)->toBe(ChargeType::Setup)
+        ->and($setup->subtotal)->toBe(216000)
+        ->and($setup->discount_basis_points)->toBe(1000)
+        ->and($setup->amount)->toBe(194400)
+        ->and($setup->currency)->toBe('USD')
+        ->and($setup->lines->sole()->quantity)->toBe(10)
+        ->and($setup->lines->sole()->unit_amount)->toBe(21600)
+        ->and($monthly->type)->toBe(ChargeType::Monthly)
+        ->and($monthly->amount)->toBe(18000)
+        ->and($monthly->period_index)->toBe(0)
+        ->and($monthly->period_starts_on->toDateString())->toBe('2026-10-20')
+        ->and($monthly->period_ends_on->toDateString())->toBe('2026-11-20')
+        ->and($monthly->created_by)->toBeNull()
+        ->and(PlatformAuditLog::query()->orderBy('id')->pluck('action')->map->value->all())->toBe(['subscription.activated', 'billing.charge_created', 'billing.charge_created'])
         ->and(PlatformAuditLog::query()->first()->platform_admin_id)->toBe($this->admin->id);
 
     employeeLogin($tenant);
@@ -117,7 +128,7 @@ test('activating a legacy tenant transitions it to subscription licensing', func
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
     DB::table('tenants')->where('id', $tenant->id)->update(['subscription_required' => false]);
 
-    app(ActivateSubscription::class)->handle($this->admin, $tenant->refresh(), testPlan(), 5, CarbonImmutable::today());
+    app(ActivateSubscription::class)->handle($this->admin, $tenant->refresh(), 5, CarbonImmutable::today());
 
     expect($tenant->refresh()->subscription_required)->toBeTrue()
         ->and($tenant->seatLimit())->toBe(5);
@@ -128,25 +139,29 @@ test('invalid activations are rejected', function (Closure $scenario, string $me
 
     expect(fn () => $scenario($tenant, $this->admin))->toThrow(InvalidSubscriptionChange::class, $message);
     expect(TenantSubscription::query()->count())->toBeLessThanOrEqual(1)
-        ->and(BillingCharge::query()->count())->toBeLessThanOrEqual(1);
+        ->and(BillingCharge::query()->count())->toBeLessThanOrEqual(2); // The first activation: setup fee and first month.
 })->with([
-    'start date in the future' => [fn ($tenant, $admin) => app(ActivateSubscription::class)->handle($admin, $tenant, testPlan(), 5, CarbonImmutable::parse('2026-11-01')), 'cannot be in the future'],
-    'term already over' => [fn ($tenant, $admin) => app(ActivateSubscription::class)->handle($admin, $tenant, testPlan(), 5, CarbonImmutable::parse('2025-09-01')), 'would already have ended'],
+    'start date in the future' => [fn ($tenant, $admin) => app(ActivateSubscription::class)->handle($admin, $tenant, 5, CarbonImmutable::parse('2026-11-01')), 'cannot be in the future'],
+    'term already over' => [fn ($tenant, $admin) => app(ActivateSubscription::class)->handle($admin, $tenant, 5, CarbonImmutable::parse('2025-09-01')), 'would already have ended'],
     'fewer seats than active users' => [function ($tenant, $admin) {
         $tenant->run(fn () => User::factory()->count(3)->create());
-        app(ActivateSubscription::class)->handle($admin, $tenant, testPlan(), 2, CarbonImmutable::today());
+        app(ActivateSubscription::class)->handle($admin, $tenant, 2, CarbonImmutable::today());
     }, 'At least 4 seats are needed'],
-    'archived plan' => [fn ($tenant, $admin) => app(ActivateSubscription::class)->handle($admin, $tenant, testPlan(['is_active' => false]), 5, CarbonImmutable::today()), 'is archived'],
+    'no price per user set' => [function ($tenant, $admin) {
+        BillingSetting::query()->delete();
+        app(ActivateSubscription::class)->handle($admin, $tenant, 5, CarbonImmutable::today());
+    }, 'Set the price per user in the billing settings first'],
+    'discount above 100%' => [fn ($tenant, $admin) => app(ActivateSubscription::class)->handle($admin, $tenant, 5, CarbonImmutable::today(), discountBasisPoints: 10_001), 'between 0% and 100%'],
     'second activation' => [function ($tenant, $admin) {
-        app(ActivateSubscription::class)->handle($admin, $tenant, testPlan(), 5, CarbonImmutable::today());
-        app(ActivateSubscription::class)->handle($admin, $tenant, testPlan(), 5, CarbonImmutable::today());
+        app(ActivateSubscription::class)->handle($admin, $tenant, 5, CarbonImmutable::today());
+        app(ActivateSubscription::class)->handle($admin, $tenant, 5, CarbonImmutable::today());
     }, 'already has a subscription'],
 ]);
 
 test('an unprovisioned tenant cannot be subscribed', function () {
     $tenant = centralTenant('pending', TenantStatus::Pending);
 
-    expect(fn () => app(ActivateSubscription::class)->handle($this->admin, $tenant, testPlan(), 5, CarbonImmutable::today()))
+    expect(fn () => app(ActivateSubscription::class)->handle($this->admin, $tenant, 5, CarbonImmutable::today()))
         ->toThrow(InvalidSubscriptionChange::class, 'Only a ready');
 });
 
@@ -199,7 +214,7 @@ test('manual suspension stays independent of the subscription', function () {
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
     app(SuspendTenant::class)->handle($this->admin, $tenant, 'Contract under review');
 
-    app(ActivateSubscription::class)->handle($this->admin, $tenant->refresh(), testPlan(), 5, CarbonImmutable::today());
+    app(ActivateSubscription::class)->handle($this->admin, $tenant->refresh(), 5, CarbonImmutable::today());
     $tenant->refresh();
 
     expect($tenant->isSuspended())->toBeTrue()
@@ -213,20 +228,21 @@ test('suspension and provisioning fields are never changed by billing', function
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
     $before = $tenant->refresh()->only(['status', 'suspended_at', 'suspension_reason', 'provisioned_at']);
 
-    app(ActivateSubscription::class)->handle($this->admin, $tenant, testPlan(), 5, CarbonImmutable::today());
+    app(ActivateSubscription::class)->handle($this->admin, $tenant, 5, CarbonImmutable::today());
 
     expect($tenant->refresh()->only(['status', 'suspended_at', 'suspension_reason', 'provisioned_at']))->toEqual($before);
 });
 
 test('the platform subscription pages show status, seats and outstanding amounts', function () {
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
-    app(ActivateSubscription::class)->handle($this->admin, $tenant, testPlan(), 4, CarbonImmutable::today());
+    app(ActivateSubscription::class)->handle($this->admin, $tenant, 4, CarbonImmutable::today());
 
     $this->actingAs($this->admin, 'platform')
         ->get(route('platform.subscriptions.show', $tenant))
         ->assertOk()
         ->assertSee('Subscription: Active')
-        ->assertSeeInOrder(['Purchased seats', '4', 'Active users', '1', 'Outstanding', '1,480.00 USD'])
+        ->assertSeeInOrder(['Purchased seats', '4', 'Active users', '1', 'Outstanding', '936.00 USD'])
+        ->assertSee('72.00 USD')
         ->assertSee('Oct 20, 2027');
 
     $this->actingAs($this->admin, 'platform')
@@ -237,7 +253,7 @@ test('the platform subscription pages show status, seats and outstanding amounts
     $this->actingAs($this->admin, 'platform')
         ->get(route('platform.dashboard'))
         ->assertOk()
-        ->assertViewHas('billing', fn (array $billing) => $billing['active'] === 1 && $billing['outstanding'] === ['USD' => 148000]);
+        ->assertViewHas('billing', fn (array $billing) => $billing['active'] === 1 && $billing['outstanding'] === ['USD' => 93600]);
 });
 
 test('existing tenant admins receive the billing permissions from tenants:sync-authorization', function () {

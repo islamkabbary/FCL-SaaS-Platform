@@ -17,17 +17,17 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-01-15 09:00:00'));
     $this->platformAdmin = PlatformAdmin::factory()->create();
-    $this->plan = testPlan(['name' => 'Standard']);
+    testPrice(1800);
     $this->tenant = provisionTenant('acme', subscribed: false)->tenant;
 
-    // Term 1: 2026-01-15 → 2027-01-15, 5 seats at 120.00 a seat.
-    app(ActivateSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, 5, CarbonImmutable::today());
+    // Term 1: 2026-01-15 → 2027-01-15, 5 users at 18.00 a month.
+    app(ActivateSubscription::class)->handle($this->platformAdmin, $this->tenant, 5, CarbonImmutable::today());
 });
 
-test('with the next term confirmed, the estimate includes the full renewed term', function () {
-    // Renewed early: term 2 (2027-01-15 → 2028-01-15) is confirmed; 10 days of term 1 remain.
+test('with the next term confirmed, the estimate is the setup fee of the current term, as charged', function () {
+    // Renewed early: term 2 (2027-01-15 → 2028-01-15) is confirmed; the last month of term 1 has started.
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
-    app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, 5, false);
+    app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, 5, false);
 
     tenancy()->initialize($this->tenant);
     $admin = tenantAdminUser();
@@ -35,21 +35,19 @@ test('with the next term confirmed, the estimate includes the full renewed term'
     Livewire::actingAs($admin)
         ->test('pages::subscription.index')
         ->set('increaseSeats', '2')
-        // 2 × 120.00 × 10/365 = 6.58 for the current term, plus 2 × 120.00 for term 2.
-        ->assertSee('Estimated charge if approved today: 246.58 USD')
-        ->assertSee('2 additional seats, renewed term 2027-01-15 – 2028-01-14: 240.00 USD');
+        ->assertSee('Estimated setup fee if approved today: 36.00 USD'); // 18.00 × 1 month × 2
 
     $request = app(RequestSeatChange::class)->handle($admin, SeatRequestType::Increase, 2);
     tenancy()->end();
 
-    expect($request->estimated_amount)->toBe(24658);
+    expect($request->estimated_amount)->toBe(3600);
 
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $request);
 
-    expect(BillingCharge::query()->where('type', ChargeType::SeatIncrease)->sole()->amount)->toBe($request->estimated_amount);
+    expect(BillingCharge::query()->where('type', ChargeType::SeatSetup)->sole()->amount)->toBe($request->estimated_amount);
 });
 
-test('without a confirmed next term, the estimate is the prorated current term only', function () {
+test('without a confirmed next term, the estimate is the setup fee for the remaining months', function () {
     $this->travelTo(CarbonImmutable::parse('2026-07-15'));
 
     tenancy()->initialize($this->tenant);
@@ -58,6 +56,6 @@ test('without a confirmed next term, the estimate is the prorated current term o
     Livewire::actingAs($admin)
         ->test('pages::subscription.index')
         ->set('increaseSeats', '2')
-        ->assertSee('Estimated charge if approved today: 120.99 USD') // 2 × 120.00 × 184/365
-        ->assertDontSee('renewed term');
+        ->assertSee('Estimated setup fee if approved today: 216.00 USD') // 18.00 × 6 months × 2
+        ->assertSee('Then 36.00 USD more each month.');
 });

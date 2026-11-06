@@ -20,11 +20,11 @@ use Carbon\CarbonImmutable;
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-01-15 09:00:00'));
     $this->platformAdmin = PlatformAdmin::factory()->create();
-    $this->plan = testPlan(['name' => 'Standard']);
+    testPrice(1800);
     $this->tenant = provisionTenant('acme', subscribed: false)->tenant;
 
-    // Term 1: 2026-01-15 → 2027-01-15, 5 seats, 1,000.00 + 5 × 120.00.
-    app(ActivateSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, 5, CarbonImmutable::today());
+    // Term 1: 2026-01-15 → 2027-01-15, 5 users at 18.00 a month.
+    app(ActivateSubscription::class)->handle($this->platformAdmin, $this->tenant, 5, CarbonImmutable::today());
 });
 
 function renewalTestSeatRequest(SeatRequestType $type, int $seats): SeatChangeRequest
@@ -62,7 +62,7 @@ function renderedRenewalForm(): array
 test('the renewal form carries the previewed seats and reduction', function () {
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
 
-    expect(renderedRenewalForm())->toMatchArray(['seats' => '5', 'expected_total' => '160000', 'expected_previous_seats' => '5', 'expected_reduction_id' => '0']);
+    expect(renderedRenewalForm())->toMatchArray(['seats' => '5', 'expected_total' => '9000', 'expected_previous_seats' => '5', 'expected_reduction_id' => '0']);
 });
 
 test('a renewal confirmed from a form opened before seats were bought is refused', function () {
@@ -99,7 +99,7 @@ test('an approved reduction is applied when the renewal uses its seats', functio
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $reduction);
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
 
-    $term = app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, 3, false);
+    $term = app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, 3, false);
 
     expect($reduction->refresh()->status)->toBe(SeatRequestStatus::Applied)
         ->and($reduction->applied_to_term_id)->toBe($term->id)
@@ -111,7 +111,7 @@ test('an approved reduction is superseded, not applied, when the renewal uses ot
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $reduction);
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
 
-    $term = app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, 4, false);
+    $term = app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, 4, false);
 
     expect($term->seats)->toBe(4)
         ->and($reduction->refresh()->status)->toBe(SeatRequestStatus::Superseded)

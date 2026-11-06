@@ -66,9 +66,9 @@ test('employee creation is blocked when every purchased seat is used', function 
 test('users cannot be added beyond the seats of an already confirmed later term', function () {
     $this->travelTo(CarbonImmutable::parse('2026-01-15 09:00:00'));
     $platformAdmin = PlatformAdmin::factory()->create();
-    $plan = testPlan();
+    testPrice(1800);
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
-    app(ActivateSubscription::class)->handle($platformAdmin, $tenant, $plan, 5, CarbonImmutable::today());
+    app(ActivateSubscription::class)->handle($platformAdmin, $tenant, 5, CarbonImmutable::today());
 
     // Only the Tenant Admin is active. A reduction to 2 seats is approved, then renewed early.
     tenancy()->initialize($tenant);
@@ -77,7 +77,7 @@ test('users cannot be added beyond the seats of an already confirmed later term'
     tenancy()->end();
     app(ReviewSeatChangeRequest::class)->approve($platformAdmin, $reduction);
     $this->travelTo(CarbonImmutable::parse('2026-12-20'));
-    app(RenewSubscription::class)->handle($platformAdmin, $tenant, $plan, 2, false); // starts 2027-01-15
+    app(RenewSubscription::class)->handle($platformAdmin, $tenant, 2, false); // starts 2027-01-15
 
     tenancy()->initialize($tenant);
     newEmployee($admin, 'one@acme.test');

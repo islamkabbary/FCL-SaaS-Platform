@@ -10,10 +10,10 @@ use App\Enums\SubscriptionTermKind;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
 use App\Enums\TenantStatus;
+use App\Models\BillingSetting;
 use App\Models\Branch;
 use App\Models\Fcl\Party;
 use App\Models\PlatformAdmin;
-use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionTerm;
 use App\Models\SupportSession;
 use App\Models\Tenant;
@@ -105,35 +105,31 @@ function provisionTenant(string $subdomain = 'acme', array $attributes = [], boo
 }
 
 /**
- * A test plan priced in USD: 1,000.00 base fee and 120.00 per seat per year.
- *
- * @param  array<string, mixed>  $attributes
+ * Set the platform's price per user and month, by default 18.00 USD.
  */
-function testPlan(array $attributes = []): SubscriptionPlan
+function testPrice(int $seatPrice = 1800, string $currency = 'USD'): BillingSetting
 {
-    return SubscriptionPlan::query()->create([
-        'name' => 'Plan '.Str::random(6),
-        'currency' => 'USD',
-        'annual_base_fee' => 100000,
-        'annual_seat_price' => 12000,
-        'is_active' => true,
-        ...$attributes,
-    ]);
+    $setting = BillingSetting::current() ?? new BillingSetting;
+    $setting->forceFill(['currency' => $currency, 'seat_price' => $seatPrice])->save();
+
+    return $setting;
 }
 
 /**
  * Give a tenant an active term directly in the central database (no charge, no audit),
- * starting $daysAgo days ago. For tests of the billing workflows use the real actions.
+ * starting $daysAgo days ago, at the current price per user (18.00 USD when none is set).
+ * Every seat counts as having paid its setup fee. For tests of the billing workflows use
+ * the real actions.
  */
-function subscribeTenant(Tenant $tenant, int $seats = 50, int $daysAgo = 10, ?SubscriptionPlan $plan = null): SubscriptionTerm
+function subscribeTenant(Tenant $tenant, int $seats = 50, int $daysAgo = 10): SubscriptionTerm
 {
-    $plan ??= testPlan();
+    $setting = BillingSetting::current() ?? testPrice();
     $startsOn = CarbonImmutable::today()->subDays($daysAgo);
 
     $subscription = TenantSubscription::query()->create([
         'tenant_id' => $tenant->getTenantKey(),
-        'subscription_plan_id' => $plan->id,
-        'currency' => $plan->currency,
+        'currency' => $setting->currency,
+        'setup_paid_seats' => $seats,
         'activated_at' => now(),
     ]);
 
@@ -142,11 +138,8 @@ function subscribeTenant(Tenant $tenant, int $seats = 50, int $daysAgo = 10, ?Su
         'tenant_id' => $tenant->getTenantKey(),
         'sequence' => 1,
         'kind' => SubscriptionTermKind::Initial,
-        'subscription_plan_id' => $plan->id,
-        'plan_name' => $plan->name,
-        'currency' => $plan->currency,
-        'annual_base_fee' => $plan->annual_base_fee,
-        'annual_seat_price' => $plan->annual_seat_price,
+        'currency' => $setting->currency,
+        'seat_price' => $setting->seat_price,
         'initial_seats' => $seats,
         'seats' => $seats,
         'starts_on' => $startsOn,

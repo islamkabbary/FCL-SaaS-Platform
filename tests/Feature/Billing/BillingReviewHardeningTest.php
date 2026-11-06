@@ -5,6 +5,7 @@ use App\Actions\Billing\RecordPayment;
 use App\Actions\Billing\RenewSubscription;
 use App\Actions\Billing\RequestSeatChange;
 use App\Actions\Billing\ReviewSeatChangeRequest;
+use App\Enums\ChargeType;
 use App\Enums\SeatRequestStatus;
 use App\Enums\SeatRequestType;
 use App\Exceptions\InvalidSubscriptionChange;
@@ -21,12 +22,12 @@ use Illuminate\Support\Str;
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-01-15 09:00:00'));
     $this->platformAdmin = PlatformAdmin::factory()->create();
-    $this->plan = testPlan(['name' => 'Standard']);
+    testPrice(1800);
     $this->tenant = provisionTenant('acme', subscribed: false)->tenant;
 
-    // Term 1: 2026-01-15 → 2027-01-15, 5 seats; its charge is issued on 2026-01-15.
-    app(ActivateSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, 5, CarbonImmutable::today());
-    $this->charge = BillingCharge::query()->sole();
+    // Term 1: 2026-01-15 → 2027-01-15, 5 seats; its setup fee is issued on 2026-01-15.
+    app(ActivateSubscription::class)->handle($this->platformAdmin, $this->tenant, 5, CarbonImmutable::today());
+    $this->charge = BillingCharge::query()->where('type', ChargeType::Setup)->sole();
 });
 
 function pendingReduction(int $seats): SeatChangeRequest
@@ -43,7 +44,7 @@ test('a reduction requested in an earlier term cannot be approved in a later one
 
     // Renewed early while the reduction waited; once term 2 has started the request is stale.
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
-    app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, $this->plan, $renewedSeats, false);
+    app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, $renewedSeats, false);
     $this->travelTo(CarbonImmutable::parse('2027-01-20'));
 
     expect(fn () => app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $reduction))
@@ -79,7 +80,7 @@ test('a payment cannot be dated before its charge was issued', function () {
 test('one payment form submitted for two charges at the same moment gives the friendly message, not a server error', function () {
     $token = (string) Str::uuid();
     $other = BillingCharge::query()->create([
-        ...$this->charge->only(['tenant_id', 'tenant_subscription_id', 'subscription_term_id', 'type', 'currency', 'amount', 'description']),
+        ...$this->charge->only(['tenant_id', 'tenant_subscription_id', 'subscription_term_id', 'type', 'currency', 'subtotal', 'amount', 'description']),
         'idempotency_key' => 'other-charge',
         'issued_on' => '2026-01-15',
     ]);
@@ -102,10 +103,10 @@ test('one payment form submitted for two charges at the same moment gives the fr
         ->toThrow(InvalidSubscriptionChange::class, 'This payment form was already used for another charge.');
 });
 
-test('the renewal preview refuses an unknown plan instead of falling back to the current one', function () {
+test('the renewal preview refuses an invalid seat count instead of falling back to the current one', function () {
     $this->travelTo(CarbonImmutable::parse('2027-01-05'));
 
     $this->actingAs($this->platformAdmin, 'platform')
-        ->get(route('platform.subscriptions.renew', ['tenant' => $this->tenant, 'plan_id' => 999999]))
-        ->assertSessionHasErrors('plan_id');
+        ->get(route('platform.subscriptions.renew', ['tenant' => $this->tenant, 'seats' => 0]))
+        ->assertSessionHasErrors('seats');
 });
