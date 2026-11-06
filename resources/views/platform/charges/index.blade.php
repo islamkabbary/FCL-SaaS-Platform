@@ -3,8 +3,9 @@
     <flux:subheading>{{ __('Internal commercial billing records (not tax invoices). Payments are recorded manually.') }}</flux:subheading>
 
     <div class="mt-6 flex gap-2">
-        <flux:button size="sm" :variant="$outstandingOnly ? 'ghost' : 'filled'" :href="route('platform.charges.index')">{{ __('All charges') }}</flux:button>
+        <flux:button size="sm" :variant="$outstandingOnly || $overdueOnly ? 'ghost' : 'filled'" :href="route('platform.charges.index')">{{ __('All charges') }}</flux:button>
         <flux:button size="sm" :variant="$outstandingOnly ? 'filled' : 'ghost'" :href="route('platform.charges.index', ['outstanding' => 1])">{{ __('Outstanding only') }}</flux:button>
+        <flux:button size="sm" :variant="$overdueOnly ? 'filled' : 'ghost'" :href="route('platform.charges.index', ['overdue' => 1])" data-test="overdue-filter">{{ __('Overdue') }}</flux:button>
     </div>
 
     @include('platform.charges.partials.table', ['charges' => $charges, 'showTenant' => true])

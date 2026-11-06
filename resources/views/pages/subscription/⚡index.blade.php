@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Billing\RequestSeatChange;
+use App\Billing\Pricing;
 use App\Billing\SeatIncreaseQuote;
 use App\Billing\SeatGuard;
 use App\Billing\SeatUsage;
@@ -65,6 +66,24 @@ new #[Title('Subscription & billing')] class extends Component {
         return SubscriptionTerm::query()->where('tenant_id', tenant()->getTenantKey())->orderByDesc('sequence')->get();
     }
 
+    /**
+     * The day the next monthly charge is issued: the start of the next month of the term,
+     * or the renewal date during its last month.
+     */
+    #[Computed]
+    public function nextChargeDate(): ?CarbonImmutable
+    {
+        $term = $this->currentTerm;
+
+        if ($term === null) {
+            return null;
+        }
+
+        $index = Pricing::periodIndex($term->starts_on, CarbonImmutable::today());
+
+        return $index + 1 < Pricing::MonthsPerTerm ? Pricing::periodBounds($term->starts_on, $index + 1)[0] : $term->ends_on;
+    }
+
     #[Computed]
     public function seatUsage(): SeatUsage
     {
@@ -108,8 +127,8 @@ new #[Title('Subscription & billing')] class extends Component {
     }
 
     /**
-     * The charge lines an approval today would create for the entered number of additional
-     * seats, if valid: the rest of the current term, plus a renewed term already confirmed.
+     * The setup fee lines an approval today would create for the entered number of
+     * additional seats, if valid; empty when those seats already paid a setup fee.
      *
      * @return list<array{description: string, amount: int}>|null
      */
@@ -175,7 +194,7 @@ new #[Title('Subscription & billing')] class extends Component {
 
 <section class="w-full">
     <flux:heading size="xl" level="1">{{ __('Subscription & billing') }}</flux:heading>
-    <flux:subheading>{{ __('Your company\'s annual subscription, seats and billing history.') }}</flux:subheading>
+    <flux:subheading>{{ __('Your company\'s subscription, users and billing history.') }}</flux:subheading>
 
     @php($canManage = auth()->user()->can(App\Enums\TenantPermission::BillingManage->value))
 
@@ -220,23 +239,23 @@ new #[Title('Subscription & billing')] class extends Component {
         <flux:card class="mt-6">
             <flux:heading size="lg" level="2">{{ __('Current term') }}</flux:heading>
             <dl class="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Plan') }}</dt>
-                <dd class="sm:col-span-3" data-test="plan-name">{{ $term->plan_name }}</dd>
-
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Term') }}</dt>
                 <dd class="sm:col-span-3">{{ __(':start to :end (inclusive)', ['start' => $term->starts_on->translatedFormat(__('M j, Y')), 'end' => $term->lastDay()->translatedFormat(__('M j, Y'))]) }}</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Renewal date') }}</dt>
                 <dd class="sm:col-span-3" data-test="renewal-date">{{ $term->ends_on->translatedFormat(__('M j, Y')) }}</dd>
 
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Annual base fee') }}</dt>
-                <dd class="sm:col-span-3">{{ $term->format($term->annual_base_fee) }}</dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Price per user per month') }}</dt>
+                <dd class="sm:col-span-3" data-test="seat-price"><bdi dir="ltr">{{ $term->format($term->seat_price) }}</bdi></dd>
 
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Annual price per seat') }}</dt>
-                <dd class="sm:col-span-3" data-test="seat-price">{{ $term->format($term->annual_seat_price) }}</dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Monthly charge') }}</dt>
+                <dd class="sm:col-span-3" data-test="monthly-fee"><bdi dir="ltr">{{ $term->format($term->seat_price) }} × {{ $term->seats }} = {{ $term->format($term->monthlyFee()) }}</bdi></dd>
 
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Seats at term start') }}</dt>
-                <dd class="sm:col-span-3">{{ $term->initial_seats }} · {{ __('annual total :total', ['total' => $term->format($term->annualTotal())]) }}</dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Next monthly charge') }}</dt>
+                <dd class="sm:col-span-3" data-test="next-charge-date">{{ $this->nextChargeDate?->translatedFormat(__('M j, Y')) }}</dd>
+
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Users at term start') }}</dt>
+                <dd class="sm:col-span-3">{{ $term->initial_seats }}</dd>
             </dl>
 
             @if ($this->scheduledReduction)
@@ -319,8 +338,11 @@ new #[Title('Subscription & billing')] class extends Component {
                     <flux:table.cell class="whitespace-normal">
                         {{ $charge->description }}
                         @foreach ($charge->lines as $line)
-                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $line->description }}: {{ $line->quantity }} × {{ $charge->format($line->unit_amount) }} → {{ $charge->format($line->amount) }}</div>
+                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $line->description }}: <bdi dir="ltr">{{ $line->quantity }} × {{ $charge->format($line->unit_amount) }} → {{ $charge->format($line->amount) }}</bdi></div>
                         @endforeach
+                        @if ($charge->hasDiscount())
+                            <div class="text-xs text-zinc-500 dark:text-zinc-400" data-test="charge-discount">{{ __('Discount (:percent%)', ['percent' => $charge->discountPercent()]) }}: <bdi dir="ltr">−{{ $charge->format($charge->discount_amount) }}</bdi></div>
+                        @endif
                         @foreach ($charge->payments as $payment)
                             <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Payment :date: :amount', ['date' => $payment->paid_on->translatedFormat(__('M j, Y')), 'amount' => $charge->format($payment->amount)]) }}</div>
                         @endforeach
@@ -343,17 +365,15 @@ new #[Title('Subscription & billing')] class extends Component {
         <flux:table class="mt-4">
             <flux:table.columns>
                 <flux:table.column>{{ __('Term') }}</flux:table.column>
-                <flux:table.column>{{ __('Plan') }}</flux:table.column>
-                <flux:table.column>{{ __('Seats') }}</flux:table.column>
-                <flux:table.column>{{ __('Base fee / seat price') }}</flux:table.column>
+                <flux:table.column>{{ __('Users') }}</flux:table.column>
+                <flux:table.column>{{ __('Price per user per month') }}</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
                 @foreach ($this->terms as $termRow)
                     <flux:table.row :key="'term-'.$termRow->id">
                         <flux:table.cell>{{ $termRow->starts_on->translatedFormat(__('M j, Y')) }} – {{ $termRow->lastDay()->translatedFormat(__('M j, Y')) }}</flux:table.cell>
-                        <flux:table.cell>{{ $termRow->plan_name }}</flux:table.cell>
                         <flux:table.cell>{{ $termRow->seats }}</flux:table.cell>
-                        <flux:table.cell>{{ $termRow->format($termRow->annual_base_fee) }} / {{ $termRow->format($termRow->annual_seat_price) }}</flux:table.cell>
+                        <flux:table.cell><bdi dir="ltr">{{ $termRow->format($termRow->seat_price) }}</bdi></flux:table.cell>
                     </flux:table.row>
                 @endforeach
             </flux:table.rows>
@@ -365,19 +385,19 @@ new #[Title('Subscription & billing')] class extends Component {
             <form wire:submit="requestIncrease" class="space-y-6">
                 <div>
                     <flux:heading size="lg">{{ __('Request additional seats') }}</flux:heading>
-                    <flux:text class="mt-2">{{ __('Additional seats share the current renewal date (:date) and are charged for the rest of the current term, after approval by the platform administrator. If your next term is already confirmed, they are added to it too and charged for that full term.', ['date' => $this->currentTerm->ends_on->translatedFormat(__('M j, Y'))]) }}</flux:text>
+                    <flux:text class="mt-2">{{ __('Additional users share the current renewal date (:date). After approval by the platform administrator, a setup fee is charged for the months left in the term (the month already started counts in full), and the users are included in the monthly charge from the next month.', ['date' => $this->currentTerm->ends_on->translatedFormat(__('M j, Y'))]) }}</flux:text>
                 </div>
 
                 <flux:input wire:model.live.debounce.300ms="increaseSeats" type="number" min="1" :label="__('Additional seats')" required />
 
                 @if ($this->increaseEstimate !== null)
-                    <flux:callout icon="calculator" :heading="__('Estimated charge if approved today: :amount', ['amount' => $this->currentTerm->format(array_sum(array_column($this->increaseEstimate, 'amount')))])" data-test="increase-estimate">
-                        @if (count($this->increaseEstimate) > 1)
-                            @foreach ($this->increaseEstimate as $line)
-                                <flux:callout.text>{{ $line['description'] }}: {{ $this->currentTerm->format($line['amount']) }}</flux:callout.text>
-                            @endforeach
-                        @endif
-                        <flux:callout.text>{{ __('The final amount is calculated on the day of approval.') }}</flux:callout.text>
+                    <flux:callout icon="calculator" :heading="__('Estimated setup fee if approved today: :amount', ['amount' => $this->currentTerm->format(array_sum(array_column($this->increaseEstimate, 'amount')))])" data-test="increase-estimate">
+                        @forelse ($this->increaseEstimate as $line)
+                            <flux:callout.text>{{ $line['description'] }}</flux:callout.text>
+                        @empty
+                            <flux:callout.text>{{ __('No setup fee: these users already paid one before.') }}</flux:callout.text>
+                        @endforelse
+                        <flux:callout.text>{{ __('Then :amount more each month. The final amount is calculated on the day of approval.', ['amount' => $this->currentTerm->format($this->currentTerm->monthlyFee((int) $this->increaseSeats))]) }}</flux:callout.text>
                     </flux:callout>
                 @endif
 

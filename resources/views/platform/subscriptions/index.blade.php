@@ -20,7 +20,7 @@
         <flux:table.columns>
             <flux:table.column>{{ __('Company') }}</flux:table.column>
             <flux:table.column>{{ __('Subscription') }}</flux:table.column>
-            <flux:table.column>{{ __('Plan') }}</flux:table.column>
+            <flux:table.column>{{ __('Price per user') }}</flux:table.column>
             <flux:table.column>{{ __('Seats') }}</flux:table.column>
             <flux:table.column>{{ __('Renewal date') }}</flux:table.column>
             <flux:table.column></flux:table.column>
@@ -42,7 +42,7 @@
                         <div class="text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ $tenant->primaryDomain()?->domain }} · {{ $tenant->status->label() }}@if ($tenant->isSuspended()) · {{ __('Suspended') }}@endif</div>
                     </flux:table.cell>
                     <flux:table.cell><flux:badge size="sm" inset="top bottom" :color="$status->color()">{{ $status->label() }}</flux:badge></flux:table.cell>
-                    <flux:table.cell>{{ ($current ?? $latest)?->plan_name ?? '—' }}</flux:table.cell>
+                    <flux:table.cell class="tabular-nums">@if ($current ?? $latest)<bdi dir="ltr">{{ ($current ?? $latest)->format(($current ?? $latest)->seat_price) }}</bdi>@else — @endif</flux:table.cell>
                     <flux:table.cell>{{ $current?->seats ?? '—' }}</flux:table.cell>
                     <flux:table.cell>{{ $latest?->ends_on->translatedFormat(__('M j, Y')) ?? '—' }}</flux:table.cell>
                     <flux:table.cell align="end">

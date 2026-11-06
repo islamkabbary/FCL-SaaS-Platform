@@ -1,6 +1,6 @@
 <x-layouts::platform :title="__('Seat requests')">
     <flux:heading size="xl" level="1">{{ __('Seat requests') }}</flux:heading>
-    <flux:subheading>{{ __('Additional seats are charged prorated until the current renewal date, calculated on the day of approval. Reductions apply at the next renewal.') }}</flux:subheading>
+    <flux:subheading>{{ __('Additional users pay a setup fee for the months left in the current term (the month already started counts in full), calculated on the day of approval, and join the monthly charge from the next month. Reductions apply at the next renewal.') }}</flux:subheading>
 
     @if (session('status'))
         <flux:callout variant="success" icon="check-circle" class="mt-6" :heading="session('status')" />
@@ -29,12 +29,14 @@
                             <flux:callout variant="warning" icon="exclamation-triangle" class="mt-3" :heading="$previews[$request->id]['error']" />
                         @elseif ($previews[$request->id]['lines'] !== [])
                             <div class="mt-3 text-sm" data-test="approval-preview">
-                                <div class="font-medium">{{ __('Charge if approved today') }}:</div>
+                                <div class="font-medium">{{ __('Setup fee if approved today') }}:</div>
                                 @foreach ($previews[$request->id]['lines'] as $line)
                                     <div>{{ $line['description'] }}: {{ App\Billing\Money::format($line['amount'], $request->currency) }}</div>
                                 @endforeach
                                 <div class="font-medium">{{ __('Total') }}: {{ App\Billing\Money::format(array_sum(array_column($previews[$request->id]['lines'], 'amount')), $request->currency) }}</div>
                             </div>
+                        @elseif ($request->type === App\Enums\SeatRequestType::Increase)
+                            <flux:text class="mt-3" data-test="no-setup-fee">{{ __('No setup fee: these users already paid one. They join the monthly charge from the next month.') }}</flux:text>
                         @else
                             <flux:text class="mt-3">{{ __('No charge: the current term is unchanged. The renewal will use :seats seats.', ['seats' => $request->seats]) }}</flux:text>
                         @endif

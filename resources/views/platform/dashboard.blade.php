@@ -36,10 +36,11 @@
             ['key' => 'renewal_due', 'label' => __('Renewals due (:days days)', ['days' => config('billing.renewal_window_days')]), 'href' => route('platform.subscriptions.index', ['status' => 'renewal_due'])],
             ['key' => 'expired', 'label' => __('Expired subscriptions'), 'href' => route('platform.subscriptions.index', ['status' => 'expired'])],
             ['key' => 'pending_requests', 'label' => __('Pending seat requests'), 'href' => route('platform.seat-requests.index')],
+            ['key' => 'overdue', 'label' => __('Overdue charges (:days days)', ['days' => config('billing.overdue_after_days')]), 'href' => route('platform.charges.index', ['overdue' => 1])],
         ];
     @endphp
 
-    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         @foreach ($billingCards as $card)
             <a href="{{ $card['href'] }}" class="block" data-test="billing-stat-{{ $card['key'] }}">
                 <flux:card class="h-full transition hover:border-zinc-300 dark:hover:border-zinc-500">

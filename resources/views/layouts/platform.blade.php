@@ -23,8 +23,8 @@
                 <flux:navbar.item icon="banknotes" :href="route('platform.charges.index')" :current="request()->routeIs('platform.charges.*')">
                     {{ __('Billing') }}
                 </flux:navbar.item>
-                <flux:navbar.item icon="rectangle-stack" :href="route('platform.plans.index')" :current="request()->routeIs('platform.plans.*')">
-                    {{ __('Plans') }}
+                <flux:navbar.item icon="tag" :href="route('platform.billing-settings.edit')" :current="request()->routeIs('platform.billing-settings.*')">
+                    {{ __('Price per user') }}
                 </flux:navbar.item>
                 <flux:navbar.item icon="lifebuoy" :href="route('platform.support-sessions.index')" :current="request()->routeIs('platform.support-sessions.*')">
                     {{ __('Support') }}

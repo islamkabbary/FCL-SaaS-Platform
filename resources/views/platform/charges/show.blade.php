@@ -9,7 +9,12 @@
         <flux:heading size="xl" level="1">{{ $charge->description }}</flux:heading>
         <flux:badge :color="$charge->status()->color()" data-test="charge-status">{{ $charge->status()->label() }}</flux:badge>
     </div>
-    <flux:subheading>{{ $charge->type->label() }} · {{ __('issued :date', ['date' => $charge->issued_on->toDateString()]) }} · {{ $charge->currency }}</flux:subheading>
+    <flux:subheading>
+        {{ $charge->type->label() }} · {{ __('issued :date', ['date' => $charge->issued_on->toDateString()]) }} · {{ $charge->currency }}
+        @if ($charge->period_starts_on)
+            · <span data-test="charge-period">{{ __('month :number of 12, :from – :to', ['number' => $charge->period_index + 1, 'from' => $charge->period_starts_on->toDateString(), 'to' => $charge->period_ends_on->subDay()->toDateString()]) }}</span>
+        @endif
+    </flux:subheading>
 
     @if (session('status'))
         <flux:callout variant="success" icon="check-circle" class="mt-6" :heading="session('status')" />
@@ -27,9 +32,10 @@
                 <flux:table.row :key="$line->id">
                     <flux:table.cell class="whitespace-normal">
                         {{ $line->description }}
-                        @if (isset($line->calculation['remaining_days']))
+                        @if (isset($line->calculation['remaining_months']))
                             <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                                {{ __(':seats × :price × :remaining / :total days, rounded half up', ['seats' => $line->calculation['seats'], 'price' => $charge->format($line->calculation['annual_seat_price']), 'remaining' => $line->calculation['remaining_days'], 'total' => $line->calculation['total_days']]) }}
+                                <bdi dir="ltr">{{ $charge->format($line->calculation['seat_price']) }} × {{ $line->calculation['remaining_months'] }} × {{ $line->calculation['seats'] }}</bdi>
+                                · {{ __('the month already started counts in full') }}
                             </div>
                         @endif
                     </flux:table.cell>
@@ -38,6 +44,20 @@
                     <flux:table.cell align="end" class="tabular-nums">{{ $charge->format($line->amount) }}</flux:table.cell>
                 </flux:table.row>
             @endforeach
+            @if ($charge->hasDiscount())
+                <flux:table.row>
+                    <flux:table.cell>{{ __('Subtotal') }}</flux:table.cell>
+                    <flux:table.cell></flux:table.cell>
+                    <flux:table.cell></flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums" data-test="charge-subtotal">{{ $charge->format($charge->subtotal) }}</flux:table.cell>
+                </flux:table.row>
+                <flux:table.row>
+                    <flux:table.cell>{{ __('Discount (:percent%)', ['percent' => $charge->discountPercent()]) }}</flux:table.cell>
+                    <flux:table.cell></flux:table.cell>
+                    <flux:table.cell></flux:table.cell>
+                    <flux:table.cell align="end" class="tabular-nums" data-test="charge-discount"><bdi dir="ltr">−{{ $charge->format($charge->discount_amount) }}</bdi></flux:table.cell>
+                </flux:table.row>
+            @endif
             <flux:table.row>
                 <flux:table.cell variant="strong">{{ __('Total') }}</flux:table.cell>
                 <flux:table.cell></flux:table.cell>
@@ -76,6 +96,20 @@
             </flux:table.row>
         </flux:table.rows>
     </flux:table>
+
+    @if ($charge->paidAmount() === 0)
+        <flux:card class="mt-8 max-w-xl" data-test="discount-form">
+            <flux:heading size="lg">{{ __('Discount') }}</flux:heading>
+            <flux:text class="mt-1">{{ __('A percentage of the subtotal. It can be changed until a payment is recorded; enter 0 to remove it.') }}</flux:text>
+
+            <form method="POST" action="{{ route('platform.charges.discount.store', $charge) }}" class="mt-6 flex flex-col gap-6">
+                @csrf
+                <flux:input name="discount_percent" inputmode="decimal" dir="ltr" :label="__('Discount (%)')" :value="old('discount_percent', $charge->discountPercent())" required />
+                <flux:input name="reason" :label="__('Reason (optional)')" :value="old('reason')" />
+                <div><flux:button type="submit" data-test="save-discount-button">{{ __('Save discount') }}</flux:button></div>
+            </form>
+        </flux:card>
+    @endif
 
     @if ($charge->balance() > 0)
         <flux:card class="mt-8 max-w-xl">

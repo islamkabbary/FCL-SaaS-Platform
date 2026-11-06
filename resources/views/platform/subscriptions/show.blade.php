@@ -63,16 +63,20 @@
         <flux:card class="mt-6">
             <flux:heading size="lg" level="2">{{ __('Current term') }}</flux:heading>
             <dl class="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Plan') }}</dt>
-                <dd class="sm:col-span-3">{{ $currentTerm->plan_name }} ({{ $currentTerm->currency }})</dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Currency') }}</dt>
+                <dd class="sm:col-span-3">{{ $currentTerm->currency }}</dd>
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Effective') }}</dt>
                 <dd class="sm:col-span-3">{{ __(':start to :end (inclusive)', ['start' => $currentTerm->starts_on->translatedFormat(__('M j, Y')), 'end' => $currentTerm->lastDay()->translatedFormat(__('M j, Y'))]) }}</dd>
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Next renewal') }}</dt>
                 <dd class="sm:col-span-3" data-test="renewal-date">{{ $currentTerm->ends_on->translatedFormat(__('M j, Y')) }}</dd>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Prices (snapshot)') }}</dt>
-                <dd class="sm:col-span-3">{{ $currentTerm->format($currentTerm->annual_base_fee) }} + {{ __('seat') }} × {{ $currentTerm->format($currentTerm->annual_seat_price) }}</dd>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Seats') }}</dt>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Price per user per month') }}</dt>
+                <dd class="sm:col-span-3" data-test="term-seat-price"><bdi dir="ltr">{{ $currentTerm->format($currentTerm->seat_price) }}</bdi></dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Users') }}</dt>
                 <dd class="sm:col-span-3">{{ __(':seats (started with :initial)', ['seats' => $currentTerm->seats, 'initial' => $currentTerm->initial_seats]) }}</dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Monthly charge') }}</dt>
+                <dd class="sm:col-span-3" data-test="term-monthly-fee"><bdi dir="ltr">{{ $currentTerm->format($currentTerm->monthlyFee()) }}</bdi></dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Users with a paid setup fee') }}</dt>
+                <dd class="sm:col-span-3" data-test="setup-paid-seats">{{ $subscription->setup_paid_seats }}</dd>
             </dl>
             @if ($scheduledReduction)
                 <flux:callout icon="calendar" class="mt-4" :heading="__('Approved reduction to :seats seats at the next renewal (request #:id).', ['seats' => $scheduledReduction->seats, 'id' => $scheduledReduction->id])" />
@@ -87,10 +91,8 @@
                 <flux:table.column>#</flux:table.column>
                 <flux:table.column>{{ __('Period') }}</flux:table.column>
                 <flux:table.column>{{ __('Kind') }}</flux:table.column>
-                <flux:table.column>{{ __('Plan') }}</flux:table.column>
-                <flux:table.column>{{ __('Seats') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('Base fee') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('Seat price') }}</flux:table.column>
+                <flux:table.column>{{ __('Users') }}</flux:table.column>
+                <flux:table.column align="end">{{ __('Price per user per month') }}</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
                 @foreach ($terms as $term)
@@ -98,10 +100,8 @@
                         <flux:table.cell>{{ $term->sequence }}</flux:table.cell>
                         <flux:table.cell>{{ $term->starts_on->toDateString() }} – {{ $term->lastDay()->toDateString() }}</flux:table.cell>
                         <flux:table.cell>{{ $term->kind->label() }}</flux:table.cell>
-                        <flux:table.cell>{{ $term->plan_name }}</flux:table.cell>
                         <flux:table.cell>{{ $term->seats }} ({{ $term->initial_seats }})</flux:table.cell>
-                        <flux:table.cell align="end" class="tabular-nums">{{ $term->format($term->annual_base_fee) }}</flux:table.cell>
-                        <flux:table.cell align="end" class="tabular-nums">{{ $term->format($term->annual_seat_price) }}</flux:table.cell>
+                        <flux:table.cell align="end" class="tabular-nums"><bdi dir="ltr">{{ $term->format($term->seat_price) }}</bdi></flux:table.cell>
                     </flux:table.row>
                 @endforeach
             </flux:table.rows>

@@ -15,14 +15,7 @@
         @enderror
 
         <form method="GET" action="{{ route('platform.subscriptions.renew', $tenant) }}" class="mt-6 flex flex-col gap-6">
-            <flux:select name="plan_id" :label="__('Plan for the new term')">
-                @foreach ($plans as $option)
-                    <flux:select.option :value="$option->id" :selected="$quote->plan->id === $option->id">
-                        {{ $option->name }} — {{ $option->format($option->annual_base_fee) }} + {{ __('seat') }} × {{ $option->format($option->annual_seat_price) }}
-                    </flux:select.option>
-                @endforeach
-            </flux:select>
-            <flux:input name="seats" type="number" min="1" :label="__('Seats for the new term')" :value="$quote->seats" required />
+            <flux:input name="seats" type="number" min="1" :label="__('Users for the new term')" :value="$quote->seats" required />
             <div><flux:button type="submit" icon="calculator">{{ __('Update preview') }}</flux:button></div>
         </form>
 
@@ -31,32 +24,37 @@
             <dl class="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('New term') }}</dt>
                 <dd class="sm:col-span-2">{{ __(':start to :end (inclusive)', ['start' => $quote->startsOn->toDateString(), 'end' => $quote->endsOn->subDay()->toDateString()]) }}</dd>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Seats') }}</dt>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Users') }}</dt>
                 <dd class="sm:col-span-2">
                     {{ __(':seats (current term: :current, active users: :users)', ['seats' => $quote->seats, 'current' => $previous->seats, 'users' => $quote->activeUsers]) }}
                     @if ($quote->scheduledReduction)
                         <div class="text-xs">{{ __('Includes the approved reduction to :seats seats (request #:id).', ['seats' => $quote->scheduledReduction->seats, 'id' => $quote->scheduledReduction->id]) }}</div>
                     @endif
                 </dd>
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Annual charge') }}</dt>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Monthly charge') }}</dt>
                 <dd class="sm:col-span-2 font-medium" data-test="renewal-total">
-                    {{ $quote->plan->format($quote->plan->annual_base_fee) }} + {{ $quote->seats }} × {{ $quote->plan->format($quote->plan->annual_seat_price) }} = {{ $quote->plan->format($quote->annualTotal()) }}
+                    <bdi dir="ltr">{{ $quote->format($quote->seatPrice) }} × {{ $quote->seats }} = {{ $quote->format($quote->monthlyFee()) }}</bdi>
+                </dd>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Setup fee') }}</dt>
+                <dd class="sm:col-span-2" data-test="renewal-setup-fee">
+                    @if ($quote->setupSeats > 0)
+                        <bdi dir="ltr">{{ $quote->format($quote->seatPrice) }} × 12 × {{ $quote->setupSeats }} = {{ $quote->format($quote->setupFee()) }}</bdi>
+                        <div class="text-xs">{{ __('Only the :seats users above the :paid that already paid a setup fee.', ['seats' => $quote->setupSeats, 'paid' => $quote->seats - $quote->setupSeats]) }}</div>
+                    @else
+                        {{ __('None: every user already paid a setup fee.') }}
+                    @endif
                 </dd>
             </dl>
 
             @if ($quote->pricingChanged())
                 <flux:callout variant="warning" icon="exclamation-triangle" class="mt-4" data-test="pricing-changed"
-                    :heading="__('The plan or prices differ from the current term.')">
+                    :heading="__('The price per user differs from the current term.')">
                     <flux:callout.text>
-                        {{ __('Current term: :plan, :base + seat × :seat. New term: :newPlan, :newBase + seat × :newSeat. At the current term\'s prices the same seats would cost :old; the new total is :new.', [
-                            'plan' => $previous->plan_name,
-                            'base' => $previous->format($previous->annual_base_fee),
-                            'seat' => $previous->format($previous->annual_seat_price),
-                            'newPlan' => $quote->plan->name,
-                            'newBase' => $quote->plan->format($quote->plan->annual_base_fee),
-                            'newSeat' => $quote->plan->format($quote->plan->annual_seat_price),
-                            'old' => $previous->format($quote->previousPricesTotal()),
-                            'new' => $quote->plan->format($quote->annualTotal()),
+                        {{ __('Current term: :old per user. New term: :new per user. The monthly charge for the same users goes from :oldTotal to :newTotal.', [
+                            'old' => $previous->format($previous->seat_price),
+                            'new' => $quote->format($quote->seatPrice),
+                            'oldTotal' => $quote->format($quote->previousMonthlyFee()),
+                            'newTotal' => $quote->format($quote->monthlyFee()),
                         ]) }}
                     </flux:callout.text>
                 </flux:callout>
@@ -69,15 +67,17 @@
             @else
                 <form method="POST" action="{{ route('platform.subscriptions.renew.store', $tenant) }}" class="mt-6 flex flex-col gap-4">
                     @csrf
-                    <input type="hidden" name="plan_id" value="{{ $quote->plan->id }}">
                     <input type="hidden" name="seats" value="{{ $quote->seats }}">
-                    <input type="hidden" name="expected_total" value="{{ $quote->annualTotal() }}">
+                    <input type="hidden" name="expected_total" value="{{ $quote->monthlyFee() }}">
                     <input type="hidden" name="expected_previous_seats" value="{{ $previous->seats }}">
                     <input type="hidden" name="expected_reduction_id" value="{{ $quote->scheduledReduction->id ?? 0 }}">
-                    @if ($quote->pricingChanged())
-                        <flux:checkbox name="accept_pricing_change" value="1" :label="__('I confirm the new plan and prices for this renewal.')" required />
+                    @if ($quote->setupSeats > 0)
+                        <flux:input name="discount_percent" inputmode="decimal" dir="ltr" :label="__('Discount on the setup fee (%)')" :value="old('discount_percent')" :description="__('Optional, from 0 to 100 with up to two decimals.')" />
                     @endif
-                    <div><flux:button variant="primary" type="submit" data-test="confirm-renewal-button">{{ __('Confirm renewal and create the charge') }}</flux:button></div>
+                    @if ($quote->pricingChanged())
+                        <flux:checkbox name="accept_pricing_change" value="1" :label="__('I confirm the new price per user for this renewal.')" required />
+                    @endif
+                    <div><flux:button variant="primary" type="submit" data-test="confirm-renewal-button">{{ __('Confirm renewal') }}</flux:button></div>
                 </form>
             @endif
         </flux:card>
