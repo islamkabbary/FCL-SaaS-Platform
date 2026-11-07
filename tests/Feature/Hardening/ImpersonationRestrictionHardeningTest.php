@@ -99,11 +99,11 @@ test('no tenant component is lazy-loaded until lazy loading is reviewed for impe
     expect($lazy)->toBe([]);
 });
 
-test('a failed notice to the tenant admins neither fails support access nor leaves tenant context', function () {
+test('a failed notice to the super admins neither fails support access nor leaves tenant context', function () {
     enableSupportAccess();
     Exceptions::fake();
     $tenant = provisionTenant('acme')->tenant;
-    $targetId = $tenant->run(fn (): int => User::role(TenantRole::TenantAdmin->value)->firstOrFail()->id);
+    $targetId = $tenant->run(fn (): int => User::role(TenantRole::SuperAdmin->value)->firstOrFail()->id);
     Notification::shouldReceive('send')->once()->andThrow(new RuntimeException('notifications table missing'));
 
     [$session, $token] = app(StartSupportSession::class)->handle(PlatformAdmin::factory()->create(), $tenant, $targetId, 'Ticket 4711: dashboard does not load');

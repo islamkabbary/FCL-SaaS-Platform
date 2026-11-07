@@ -30,7 +30,7 @@ test('with the next term confirmed, the estimate is the setup fee of the current
     app(RenewSubscription::class)->handle($this->platformAdmin, $this->tenant, 5, false);
 
     tenancy()->initialize($this->tenant);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     Livewire::actingAs($admin)
         ->test('pages::subscription.index')
@@ -51,7 +51,7 @@ test('without a confirmed next term, the estimate is the setup fee for the remai
     $this->travelTo(CarbonImmutable::parse('2026-07-15'));
 
     tenancy()->initialize($this->tenant);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     Livewire::actingAs($admin)
         ->test('pages::subscription.index')

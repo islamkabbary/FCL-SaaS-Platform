@@ -4,7 +4,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 
-test('the tenant admin can log in with the temporary password on the tenant subdomain', function () {
+test('the super admin can log in with the temporary password on the tenant subdomain', function () {
     $result = provisionTenant('acme');
 
     $this->post($result->tenant->url('login'), [

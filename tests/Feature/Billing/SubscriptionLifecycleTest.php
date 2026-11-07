@@ -170,7 +170,7 @@ test('an expired subscription restricts the application, including existing sess
     subscribeTenant($tenant, seats: 10, daysAgo: 360);
 
     $this->post($tenant->url('login'), ['login' => 'admin@acme.test', 'password' => 'password'])->assertSessionHasErrors();
-    $tenant->run(fn () => tenantAdminUser()->forceFill(['password' => 'password'])->save());
+    $tenant->run(fn () => superAdminUser()->forceFill(['password' => 'password'])->save());
     $this->post($tenant->url('login'), ['login' => 'admin@acme.test', 'password' => 'password'])->assertSessionHasNoErrors();
 
     $html = $this->get($tenant->url('employees'))->assertOk()->getContent();
@@ -256,15 +256,11 @@ test('the platform subscription pages show status, seats and outstanding amounts
         ->assertViewHas('billing', fn (array $billing) => $billing['active'] === 1 && $billing['outstanding'] === ['USD' => 93600]);
 });
 
-test('existing tenant admins receive the billing permissions from tenants:sync-authorization', function () {
+test('super admins hold the billing permissions without any permission row', function () {
     $tenant = provisionTenant('acme')->tenant;
-    $tenant->run(function () {
-        Role::findByName('Tenant Admin', 'web')->revokePermissionTo(['billing.view', 'billing.manage']);
-        expect(tenantAdminUser()->can('billing.view'))->toBeFalse();
-    });
 
-    $this->artisan('tenants:sync-authorization')->assertSuccessful();
-
-    $tenant->run(fn () => expect(tenantAdminUser()->fresh()->can('billing.view'))->toBeTrue()
-        ->and(tenantAdminUser()->fresh()->can('billing.manage'))->toBeTrue());
+    $tenant->run(fn () => expect(Role::findByName('Super Admin', 'web')->permissions)->toHaveCount(0)
+        ->and(superAdminUser()->can('billing.show'))->toBeTrue()
+        ->and(superAdminUser()->can('billing.seat-requests.create'))->toBeTrue()
+        ->and(superAdminUser()->can('billing.seat-requests.delete'))->toBeTrue());
 });

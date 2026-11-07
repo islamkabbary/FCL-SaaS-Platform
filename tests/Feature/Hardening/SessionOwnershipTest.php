@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\DB;
 beforeEach(function () {
     useDatabaseSessions();
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
-    $this->employee = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'clerk@acme.test']);
+    $this->admin = superAdminUser();
+    $this->employee = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'clerk@acme.test']);
 });
 
 /**
@@ -38,17 +38,17 @@ function startViewInBrowser(): void
     test()->get(test()->tenant->url('dashboard'))->assertOk()->assertSee('Impersonation active');
 }
 
-test('the browser of an employee view stays attributed to the tenant admin', function () {
+test('the browser of an employee view stays attributed to the super admin', function () {
     startViewInBrowser();
 
     expect(sessionRowOwners())->toBe([$this->admin->id]);
 });
 
-test('deactivating the viewed employee keeps the tenant admin\'s browser, which is then restored', function () {
+test('deactivating the viewed employee keeps the super admin\'s browser, which is then restored', function () {
     startViewInBrowser();
     $rows = DB::table('sessions')->count();
 
-    $otherAdmin = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    $otherAdmin = User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
     app(SetEmployeeActivation::class)->handle($otherAdmin, $this->employee, false);
 
     // None of the rows belongs to the employee, so none of the admin's browser rows is deleted.
@@ -70,7 +70,7 @@ test('the employee signing out their other sessions does not end the admin\'s vi
     expect(DB::table('sessions')->count())->toBe($rows);
 });
 
-test('signing the tenant admin out everywhere also ends their impersonating browser', function () {
+test('signing the super admin out everywhere also ends their impersonating browser', function () {
     startViewInBrowser();
 
     app(EndOtherSessions::class)->handle($this->admin->fresh());
@@ -78,7 +78,7 @@ test('signing the tenant admin out everywhere also ends their impersonating brow
     expect(sessionRowOwners())->toBe([]);
 });
 
-test('a support browser is not attributed to the tenant admin it acts as', function () {
+test('a support browser is not attributed to the super admin it acts as', function () {
     enableSupportAccess();
     tenancy()->end();
     $platformAdmin = PlatformAdmin::factory()->create();
@@ -86,6 +86,6 @@ test('a support browser is not attributed to the tenant admin it acts as', funct
     postHandoff($this->tenant, $token)->assertRedirect();
     $this->get($this->tenant->url('dashboard'))->assertOk();
 
-    $tenantAdminId = $this->admin->id;
-    expect($this->tenant->run(fn (): bool => DB::table('sessions')->where('user_id', $tenantAdminId)->exists()))->toBeFalse();
+    $superAdminId = $this->admin->id;
+    expect($this->tenant->run(fn (): bool => DB::table('sessions')->where('user_id', $superAdminId)->exists()))->toBeFalse();
 });

@@ -84,7 +84,7 @@ test('saving an unchanged price records nothing', function () {
 test('the price cannot be reached or changed from a tenant subdomain', function () {
     $tenant = actingInTenant();
 
-    $this->actingAs(tenantAdminUser(), 'web');
+    $this->actingAs(superAdminUser(), 'web');
     $this->get($tenant->url('admin/billing-settings'))->assertNotFound();
     $this->put($tenant->url('admin/billing-settings'), ['currency' => 'USD', 'seat_price' => '0'])->assertNotFound();
 

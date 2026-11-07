@@ -56,7 +56,7 @@ test('a percentage discount on the setup fee lowers the amount due and is audite
         ->assertSee('18,900.00 USD');
 
     tenancy()->initialize($this->tenant);
-    Livewire::actingAs(tenantAdminUser())
+    Livewire::actingAs(superAdminUser())
         ->test('pages::subscription.index')
         ->assertSee('Discount (12.5%)')
         ->assertSee('18,900.00 USD');
@@ -114,7 +114,7 @@ test('the action refuses an out-of-range discount whatever the caller', function
 
 test('a tenant user cannot discount a charge', function () {
     tenancy()->initialize($this->tenant);
-    $this->actingAs(tenantAdminUser(), 'web')
+    $this->actingAs(superAdminUser(), 'web')
         ->post($this->tenant->url("admin/charges/{$this->setup->id}/discount"), ['discount_percent' => '100'])
         ->assertNotFound();
     tenancy()->end();

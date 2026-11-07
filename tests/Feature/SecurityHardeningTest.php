@@ -47,30 +47,30 @@ test('HSTS is sent only over HTTPS', function () {
     $this->get('https://localhost/admin/login')->assertHeader('Strict-Transport-Security', 'max-age=31536000');
 });
 
-test('the last active tenant admin cannot delete their own account', function () {
+test('the last active super admin cannot delete their own account', function () {
     actingInTenant();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $admin->forceFill(['password' => 'password'])->save();
 
     Livewire::actingAs($admin)
         ->test('pages::settings.delete-user-modal')
         ->set('password', 'password')
         ->call('deleteUser')
-        ->assertHasErrors(['password' => 'The last active Tenant Admin cannot delete their account.']);
+        ->assertHasErrors(['password' => 'The last active Super Admin cannot delete their account.']);
 
     expect($admin->fresh())->not->toBeNull();
 
-    // With a second active Tenant Admin the account can be deleted.
-    User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    // With a second active Super Admin the account can be deleted.
+    User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
     Livewire::actingAs($admin)->test('pages::settings.delete-user-modal')->set('password', 'password')->call('deleteUser')->assertHasNoErrors();
     expect($admin->fresh())->toBeNull();
 });
 
-test('deleting their own account locks the active tenant admins before the last-admin check', function () {
+test('deleting their own account locks the active super admins before the last-admin check', function () {
     actingInTenant();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $admin->forceFill(['password' => 'password'])->save();
-    User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
 
     $first = firstQueriesOfTransactions(fn () => Livewire::actingAs($admin)
         ->test('pages::settings.delete-user-modal')
@@ -85,18 +85,18 @@ test('deleting their own account locks the active tenant admins before the last-
 test('platform and tenant abilities deny the other kind of identity instead of failing', function () {
     $platformAdmin = PlatformAdmin::factory()->create();
     $tenant = actingInTenant();
-    $tenantAdmin = tenantAdminUser();
+    $superAdmin = superAdminUser();
 
     foreach (['manage-billing', 'start-support-session', 'view-support-sessions', 'revoke-support-session'] as $ability) {
-        expect(Gate::forUser($tenantAdmin)->allows($ability))->toBeFalse();
+        expect(Gate::forUser($superAdmin)->allows($ability))->toBeFalse();
     }
 
-    expect(Gate::forUser($tenantAdmin)->allows('view', $tenant))->toBeFalse()
-        ->and(Gate::forUser($tenantAdmin)->allows('suspend', $tenant))->toBeFalse()
+    expect(Gate::forUser($superAdmin)->allows('view', $tenant))->toBeFalse()
+        ->and(Gate::forUser($superAdmin)->allows('suspend', $tenant))->toBeFalse()
         ->and(Gate::forUser($platformAdmin)->allows('view-access-history'))->toBeFalse()
-        ->and(Gate::forUser($platformAdmin)->allows('impersonate', $tenantAdmin))->toBeFalse()
+        ->and(Gate::forUser($platformAdmin)->allows('impersonate', $superAdmin))->toBeFalse()
         ->and(Gate::forUser($platformAdmin)->allows('viewAny', User::class))->toBeFalse()
         ->and(Gate::forUser($platformAdmin)->allows('update', Role::query()->firstOrFail()))->toBeFalse()
-        ->and(Gate::forUser($tenantAdmin)->allows('viewAny', User::class))->toBeTrue()
+        ->and(Gate::forUser($superAdmin)->allows('viewAny', User::class))->toBeTrue()
         ->and(Gate::forUser($platformAdmin)->allows('view', Tenant::query()->firstOrFail()))->toBeTrue();
 });

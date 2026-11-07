@@ -14,12 +14,12 @@ use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
+    $this->admin = superAdminUser();
 });
 
 function writeAuditRecord(array $newValues = [], array $metadata = []): TenantAuditLog
 {
-    return DB::transaction(fn () => TenantAuditLog::record(TenantPermission::AuditView, test()->admin, null, null, $newValues, null, $metadata));
+    return DB::transaction(fn () => TenantAuditLog::record(TenantPermission::AuditShow, test()->admin, null, null, $newValues, null, $metadata));
 }
 
 test('the tenant audit cannot be emptied or updated in place through Eloquent', function (Closure $operation) {

@@ -45,7 +45,7 @@ test('a support session needs only the password, without a code field', function
 
     $admin = PlatformAdmin::factory()->create();
     $tenant = provisionTenant('acme')->tenant;
-    $targetId = $tenant->run(fn (): int => tenantAdminUser()->id);
+    $targetId = $tenant->run(fn (): int => superAdminUser()->id);
 
     $this->actingAs($admin, 'platform')
         ->get(route('platform.support-sessions.create', $tenant))

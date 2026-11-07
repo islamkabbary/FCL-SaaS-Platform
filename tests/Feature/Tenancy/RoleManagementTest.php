@@ -13,30 +13,30 @@ use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
+    $this->admin = superAdminUser();
 });
 
-test('a tenant admin can create, edit and delete a custom role', function () {
+test('a super admin can create, edit and delete a custom role', function () {
     $component = Livewire::actingAs($this->admin)->test('pages::roles.index')
         ->call('create')
         ->set('name', 'HR Viewer')
-        ->set('selectedPermissions', [TenantPermission::EmployeesView->value])
+        ->set('selectedPermissions', [TenantPermission::EmployeesShow->value])
         ->call('save')
         ->assertHasNoErrors();
 
     $role = Role::findByName('HR Viewer', 'web');
-    expect($role->permissions->pluck('name')->all())->toBe([TenantPermission::EmployeesView->value]);
+    expect($role->permissions->pluck('name')->all())->toBe([TenantPermission::EmployeesShow->value]);
 
     $component->call('edit', $role->id)
         ->set('name', 'HR Team')
-        ->set('selectedPermissions', [TenantPermission::EmployeesView->value, TenantPermission::EmployeesCreate->value])
+        ->set('selectedPermissions', [TenantPermission::EmployeesShow->value, TenantPermission::EmployeesCreate->value])
         ->call('save')
         ->assertHasNoErrors();
 
     $role->refresh();
     expect($role->name)->toBe('HR Team')
         ->and($role->permissions->pluck('name')->sort()->values()->all())
-        ->toBe([TenantPermission::EmployeesCreate->value, TenantPermission::EmployeesView->value]);
+        ->toBe([TenantPermission::EmployeesCreate->value, TenantPermission::EmployeesShow->value]);
 
     $component->call('delete', $role->id);
 
@@ -57,23 +57,23 @@ test('a role grants its permissions to the employees holding it', function () {
 
     $this->actingAs($employee)->get(route('employees.index'))->assertForbidden();
 
-    $role = app(SaveRole::class)->handle($this->admin, null, 'Viewer', [TenantPermission::EmployeesView->value]);
+    $role = app(SaveRole::class)->handle($this->admin, null, 'Viewer', [TenantPermission::EmployeesShow->value]);
     app(SyncEmployeeRoles::class)->handle($this->admin, $employee, [$role->id]);
 
     $this->actingAs($employee->refresh())->get(route('employees.index'))->assertOk();
 });
 
-test('the built-in tenant admin role cannot be modified or deleted', function () {
-    $tenantAdminRole = Role::findByName(TenantRole::TenantAdmin->value, 'web');
+test('the built-in super admin role cannot be modified or deleted', function () {
+    $superAdminRole = Role::findByName(TenantRole::SuperAdmin->value, 'web');
 
-    expect($this->admin->can('update', $tenantAdminRole))->toBeFalse()
-        ->and($this->admin->can('delete', $tenantAdminRole))->toBeFalse()
-        ->and(fn () => app(SaveRole::class)->handle($this->admin, $tenantAdminRole, TenantRole::TenantAdmin->value, []))
+    expect($this->admin->can('update', $superAdminRole))->toBeFalse()
+        ->and($this->admin->can('delete', $superAdminRole))->toBeFalse()
+        ->and(fn () => app(SaveRole::class)->handle($this->admin, $superAdminRole, TenantRole::SuperAdmin->value, []))
         ->toThrow(AuthorizationException::class)
-        ->and(fn () => app(DeleteRole::class)->handle($this->admin, $tenantAdminRole))
+        ->and(fn () => app(DeleteRole::class)->handle($this->admin, $superAdminRole))
         ->toThrow(AuthorizationException::class);
 
-    expect($tenantAdminRole->refresh()->permissions)->toHaveCount(count(TenantPermission::cases()));
+    expect($superAdminRole->refresh()->permissions)->toHaveCount(0);
 });
 
 test('the built-in employee role keeps its name and cannot be deleted, but its permissions can change', function () {
@@ -84,9 +84,9 @@ test('the built-in employee role keeps its name and cannot be deleted, but its p
         ->and(fn () => app(DeleteRole::class)->handle($this->admin, $employeeRole))
         ->toThrow(AuthorizationException::class);
 
-    app(SaveRole::class)->handle($this->admin, $employeeRole, TenantRole::Employee->value, [TenantPermission::EmployeesView->value]);
+    app(SaveRole::class)->handle($this->admin, $employeeRole, TenantRole::Employee->value, [TenantPermission::EmployeesShow->value]);
 
-    expect($employeeRole->refresh()->permissions->pluck('name')->all())->toBe([TenantPermission::EmployeesView->value]);
+    expect($employeeRole->refresh()->permissions->pluck('name')->all())->toBe([TenantPermission::EmployeesShow->value]);
 });
 
 test('employees without role permissions cannot view or manage roles', function () {
@@ -99,7 +99,7 @@ test('employees without role permissions cannot view or manage roles', function 
 });
 
 test('a role manager cannot grant permissions they do not hold', function () {
-    $roleManager = userWithPermissions([TenantPermission::RolesView, TenantPermission::RolesManage]);
+    $roleManager = userWithPermissions([TenantPermission::RolesShow, TenantPermission::RolesCreate, TenantPermission::RolesEdit, TenantPermission::RolesDelete]);
     $powerful = Role::create(['name' => 'Powerful', 'guard_name' => 'web'])
         ->syncPermissions([TenantPermission::EmployeesCreate->value]);
 
@@ -111,25 +111,25 @@ test('a role manager cannot grant permissions they do not hold', function () {
     // Their own role cannot be widened either.
     $ownRole = $roleManager->roles->first();
     expect(fn () => app(SaveRole::class)->handle($roleManager, $ownRole, $ownRole->name, [
-        TenantPermission::RolesView->value, TenantPermission::RolesManage->value, TenantPermission::RolesAssign->value,
+        TenantPermission::RolesShow->value, TenantPermission::RolesCreate->value, TenantPermission::RolesEdit->value, TenantPermission::RolesDelete->value, TenantPermission::RolesAssign->value,
     ]))->toThrow(AuthorizationException::class);
 
     expect($roleManager->refresh()->hasPermissionTo(TenantPermission::RolesAssign->value))->toBeFalse();
 });
 
 test('employees cannot grant themselves or others higher privileges through role assignment', function () {
-    $assigner = userWithPermissions([TenantPermission::RolesAssign, TenantPermission::EmployeesView, TenantPermission::EmployeesUpdate]);
+    $assigner = userWithPermissions([TenantPermission::RolesAssign, TenantPermission::EmployeesShow, TenantPermission::EmployeesEdit]);
     $colleague = User::factory()->create()->assignRole(TenantRole::Employee->value);
-    $tenantAdminRole = Role::findByName(TenantRole::TenantAdmin->value, 'web');
+    $superAdminRole = Role::findByName(TenantRole::SuperAdmin->value, 'web');
     $managerRole = Role::create(['name' => 'Manager', 'guard_name' => 'web'])
-        ->syncPermissions([TenantPermission::RolesManage->value]);
+        ->syncPermissions([TenantPermission::RolesEdit->value]);
 
     // Own roles.
-    expect(fn () => app(SyncEmployeeRoles::class)->handle($assigner, $assigner, [$tenantAdminRole->id]))
+    expect(fn () => app(SyncEmployeeRoles::class)->handle($assigner, $assigner, [$superAdminRole->id]))
         ->toThrow(AuthorizationException::class);
 
-    // The Tenant Admin role, or a role with permissions the assigner lacks.
-    expect(fn () => app(SyncEmployeeRoles::class)->handle($assigner, $colleague, [$tenantAdminRole->id]))
+    // The Super Admin role, or a role with permissions the assigner lacks.
+    expect(fn () => app(SyncEmployeeRoles::class)->handle($assigner, $colleague, [$superAdminRole->id]))
         ->toThrow(AuthorizationException::class)
         ->and(fn () => app(SyncEmployeeRoles::class)->handle($assigner, $colleague, [$managerRole->id]))
         ->toThrow(AuthorizationException::class);
@@ -137,15 +137,15 @@ test('employees cannot grant themselves or others higher privileges through role
     // Through the Livewire page as well.
     Livewire::actingAs($assigner)->test('pages::employees.index')
         ->call('edit', $colleague->id)
-        ->set('selectedRoles', [(string) $tenantAdminRole->id])
+        ->set('selectedRoles', [(string) $superAdminRole->id])
         ->call('save');
 
-    expect($assigner->refresh()->isTenantAdmin())->toBeFalse()
+    expect($assigner->refresh()->isSuperAdmin())->toBeFalse()
         ->and($colleague->refresh()->getRoleNames()->all())->toBe([TenantRole::Employee->value]);
 });
 
-test('lower-privileged users cannot edit, demote or take over a tenant admin', function () {
-    $hrManager = userWithPermissions([TenantPermission::EmployeesView, TenantPermission::EmployeesUpdate, TenantPermission::RolesAssign]);
+test('lower-privileged users cannot edit, demote or take over a super admin', function () {
+    $hrManager = userWithPermissions([TenantPermission::EmployeesShow, TenantPermission::EmployeesEdit, TenantPermission::RolesAssign]);
 
     expect($hrManager->can('update', $this->admin))->toBeFalse()
         ->and(fn () => app(UpdateEmployee::class)->handle($hrManager, $this->admin, ['name' => 'x', 'email' => 'attacker@evil.test']))
@@ -154,15 +154,15 @@ test('lower-privileged users cannot edit, demote or take over a tenant admin', f
         ->toThrow(AuthorizationException::class);
 
     expect($this->admin->refresh()->email)->not->toBe('attacker@evil.test')
-        ->and($this->admin->isTenantAdmin())->toBeTrue();
+        ->and($this->admin->isSuperAdmin())->toBeTrue();
 });
 
-test('a tenant admin can grant the tenant admin role to another employee', function () {
+test('a super admin can grant the super admin role to another employee', function () {
     $employee = User::factory()->create()->assignRole(TenantRole::Employee->value);
-    $tenantAdminRole = Role::findByName(TenantRole::TenantAdmin->value, 'web');
+    $superAdminRole = Role::findByName(TenantRole::SuperAdmin->value, 'web');
 
-    app(SyncEmployeeRoles::class)->handle($this->admin, $employee, [$tenantAdminRole->id]);
+    app(SyncEmployeeRoles::class)->handle($this->admin, $employee, [$superAdminRole->id]);
 
-    expect($employee->refresh()->isTenantAdmin())->toBeTrue()
-        ->and($employee->hasPermissionTo(TenantPermission::RolesManage->value))->toBeTrue();
+    expect($employee->refresh()->isSuperAdmin())->toBeTrue()
+        ->and($employee->hasPermissionTo(TenantPermission::RolesEdit->value))->toBeTrue();
 });

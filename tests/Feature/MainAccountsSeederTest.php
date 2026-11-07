@@ -23,7 +23,7 @@ test('it creates the three Platform Admins and the demo company with an active s
 
     $tenant->run(function (): void {
         expect(User::query()->orderBy('id')->pluck('username')->all())->toBe(['islam', 'zyad', 'ibrahim'])
-            ->and(User::role(TenantRole::TenantAdmin->value)->count())->toBe(3)
+            ->and(User::role(TenantRole::SuperAdmin->value)->count())->toBe(3)
             ->and(User::query()->where('must_change_password', true)->count())->toBe(0)
             ->and(Hash::check('seed-test-password', User::query()->where('username', 'zyad')->sole()->password))->toBeTrue();
     });

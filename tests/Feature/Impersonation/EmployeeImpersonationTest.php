@@ -18,11 +18,11 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
-    $this->employee = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'clerk@acme.test', 'name' => 'Clara Clerk']);
+    $this->admin = superAdminUser();
+    $this->employee = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'clerk@acme.test', 'name' => 'Clara Clerk']);
 });
 
-test('a tenant admin can view the application as a lower-privileged employee', function () {
+test('a super admin can view the application as a lower-privileged employee', function () {
     loginToTenant($this->tenant, $this->admin);
 
     startEmployeeView($this->tenant, $this->employee->id)->assertOk();
@@ -30,7 +30,7 @@ test('a tenant admin can view the application as a lower-privileged employee', f
     $this->get($this->tenant->url('dashboard'))
         ->assertOk()
         ->assertSee('Impersonation active')
-        ->assertSee('Tenant Admin: Admin of acme')
+        ->assertSee('Super Admin: Admin of acme')
         ->assertSee('Viewing as Clara Clerk')
         ->assertSee('End impersonation');
 
@@ -56,7 +56,7 @@ test('the employee view uses the employee\'s permissions and changes nothing in 
     expect($this->employee->fresh()->only(['password', 'remember_token', 'updated_at']))->toEqual($before);
 });
 
-test('the tenant admin\'s own password is required', function () {
+test('the super admin\'s own password is required', function () {
     loginToTenant($this->tenant, $this->admin);
 
     startEmployeeView($this->tenant, $this->employee->id, password: 'wrong')
@@ -93,7 +93,7 @@ test('a reason is required', function () {
     expect(ImpersonationSession::query()->count())->toBe(0);
 });
 
-test('only active tenant admins can start an employee view', function () {
+test('only active super admins can start an employee view', function () {
     $manager = userWithPermissions(TenantPermission::cases(), ['email' => 'manager@acme.test']);
 
     expect(Gate::forUser($manager)->allows('impersonate', $this->employee))->toBeFalse()
@@ -101,10 +101,10 @@ test('only active tenant admins can start an employee view', function () {
         ->and(Gate::forUser($this->admin)->allows('impersonate', $this->employee))->toBeTrue();
 });
 
-test('tenant admins and users with equal or higher privileges cannot be targeted', function () {
-    $otherAdmin = User::factory()->create(['email' => 'other-admin@acme.test'])->assignRole(TenantRole::TenantAdmin->value);
+test('super admins and users with equal or higher privileges cannot be targeted', function () {
+    $otherAdmin = User::factory()->create(['email' => 'other-admin@acme.test'])->assignRole(TenantRole::SuperAdmin->value);
     $equal = userWithPermissions(TenantPermission::cases(), ['email' => 'equal@acme.test']);
-    $inactive = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'gone@acme.test', 'is_active' => false]);
+    $inactive = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'gone@acme.test', 'is_active' => false]);
 
     foreach ([$otherAdmin, $equal, $inactive, $this->admin] as $target) {
         expect(Gate::forUser($this->admin)->allows('impersonate', $target))->toBeFalse();
@@ -113,7 +113,7 @@ test('tenant admins and users with equal or higher privileges cannot be targeted
     loginToTenant($this->tenant, $this->admin);
 
     // Even when the target id is tampered with in the Livewire payload, the action refuses.
-    startEmployeeView($this->tenant, $otherAdmin->id)->assertOk()->assertSee('You cannot view the application as another Tenant Admin.');
+    startEmployeeView($this->tenant, $otherAdmin->id)->assertOk()->assertSee('You cannot view the application as another Super Admin.');
     startEmployeeView($this->tenant, $equal->id)->assertOk()->assertSee('privileges equal to or higher than yours');
     startEmployeeView($this->tenant, $inactive->id)->assertOk()->assertSee('Only active employees can be selected.');
 
@@ -137,7 +137,7 @@ test('users of another tenant cannot be targeted', function () {
         ->toThrow(ImpersonationRefused::class, 'does not exist');
 });
 
-test('ending the view restores the tenant admin with a new session id', function () {
+test('ending the view restores the super admin with a new session id', function () {
     loginToTenant($this->tenant, $this->admin);
     startEmployeeView($this->tenant, $this->employee->id);
     $impersonatedSessionId = session()->getId();
@@ -172,7 +172,7 @@ test('logging out during the view signs out without touching either account', fu
         ->and($this->admin->fresh()->remember_token)->toBe('admin-token');
 });
 
-test('the view ends at its time limit and returns to the tenant admin', function () {
+test('the view ends at its time limit and returns to the super admin', function () {
     loginToTenant($this->tenant, $this->admin);
     startEmployeeView($this->tenant, $this->employee->id);
 
@@ -199,11 +199,11 @@ test('livewire requests after the time limit are refused rather than run as anyo
     expect($this->employee->fresh()->is_active)->toBeTrue();
 });
 
-test('deactivating the employee ends the view and returns to the tenant admin', function () {
+test('deactivating the employee ends the view and returns to the super admin', function () {
     loginToTenant($this->tenant, $this->admin);
     startEmployeeView($this->tenant, $this->employee->id);
 
-    $otherAdmin = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    $otherAdmin = User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
     app(SetEmployeeActivation::class)->handle($otherAdmin, $this->employee, false);
 
     expect(ImpersonationSession::query()->sole()->end_reason)->toBe(ImpersonationEndReason::TargetDeactivated);
@@ -213,11 +213,11 @@ test('deactivating the employee ends the view and returns to the tenant admin', 
     expect(auth('web')->id())->toBe($this->admin->id);
 });
 
-test('an initiator who is no longer a tenant admin is logged out instead of restored', function () {
+test('an initiator who is no longer a super admin is logged out instead of restored', function () {
     loginToTenant($this->tenant, $this->admin);
     startEmployeeView($this->tenant, $this->employee->id);
 
-    User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
     $this->admin->syncRoles([TenantRole::Employee->value]);
 
     auth()->forgetGuards();
@@ -227,12 +227,12 @@ test('an initiator who is no longer a tenant admin is logged out instead of rest
         ->and(auth('web')->check())->toBeFalse();
 });
 
-test('another tenant admin can end an employee view from the access history', function () {
+test('another super admin can end an employee view from the access history', function () {
     loginToTenant($this->tenant, $this->admin);
     startEmployeeView($this->tenant, $this->employee->id);
     $session = ImpersonationSession::query()->sole();
 
-    $otherAdmin = User::factory()->create(['email' => 'owner@acme.test'])->assignRole(TenantRole::TenantAdmin->value);
+    $otherAdmin = User::factory()->create(['email' => 'owner@acme.test'])->assignRole(TenantRole::SuperAdmin->value);
     Livewire::actingAs($otherAdmin)
         ->test('pages::access-history.index')
         ->assertSee('clerk@acme.test')
@@ -247,7 +247,7 @@ test('another tenant admin can end an employee view from the access history', fu
 });
 
 test('nested impersonation is refused', function () {
-    $second = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'second@acme.test']);
+    $second = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'second@acme.test']);
     loginToTenant($this->tenant, $this->admin);
     startEmployeeView($this->tenant, $this->employee->id);
 

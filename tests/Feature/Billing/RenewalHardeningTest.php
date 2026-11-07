@@ -30,7 +30,7 @@ beforeEach(function () {
 function renewalTestSeatRequest(SeatRequestType $type, int $seats): SeatChangeRequest
 {
     tenancy()->initialize(test()->tenant);
-    $request = app(RequestSeatChange::class)->handle(tenantAdminUser(), $type, $seats);
+    $request = app(RequestSeatChange::class)->handle(superAdminUser(), $type, $seats);
     tenancy()->end();
 
     return $request;

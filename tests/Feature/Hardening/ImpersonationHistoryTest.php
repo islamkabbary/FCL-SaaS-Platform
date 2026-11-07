@@ -40,8 +40,8 @@ test('a page refused by authorization is recorded as denied, not as viewed', fun
 
 test('an employee view records pages viewed with any headers', function () {
     $tenant = actingInTenant('globex');
-    $admin = tenantAdminUser();
-    $employee = userWithPermissions([TenantPermission::EmployeesView]);
+    $admin = superAdminUser();
+    $employee = userWithPermissions([TenantPermission::EmployeesShow]);
     loginToTenant($tenant, $admin);
     startEmployeeView($tenant, $employee->id)->assertOk();
 
@@ -51,8 +51,8 @@ test('an employee view records pages viewed with any headers', function () {
 });
 
 test('a Livewire update refused by the page authorization is recorded as denied', function () {
-    // A page the Tenant Admin opened before the support session started.
-    loginToTenant($this->tenant, $this->tenant->run(fn () => tenantAdminUser()));
+    // A page the Super Admin opened before the support session started.
+    loginToTenant($this->tenant, $this->tenant->run(fn () => superAdminUser()));
     $html = (string) $this->get($this->tenant->url('access-history'))->assertOk()->getContent();
     preg_match('/wire:snapshot="([^"]+)"/', $html, $match);
 

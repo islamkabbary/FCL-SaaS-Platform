@@ -39,7 +39,7 @@ function renew(int $seats, bool $accept = false, int $discountBasisPoints = 0): 
 function approveIncrease(int $seats): SeatChangeRequest
 {
     tenancy()->initialize(test()->tenant);
-    $request = app(RequestSeatChange::class)->handle(tenantAdminUser(), SeatRequestType::Increase, $seats);
+    $request = app(RequestSeatChange::class)->handle(superAdminUser(), SeatRequestType::Increase, $seats);
     tenancy()->end();
 
     return app(ReviewSeatChangeRequest::class)->approve(test()->platformAdmin, $request);
@@ -165,7 +165,7 @@ test('users above those that already paid a setup fee pay it for twelve months a
 
 test('an approved reduction applies only at renewal', function () {
     tenancy()->initialize($this->tenant);
-    $request = app(RequestSeatChange::class)->handle(tenantAdminUser(), SeatRequestType::Reduction, 2);
+    $request = app(RequestSeatChange::class)->handle(superAdminUser(), SeatRequestType::Reduction, 2);
     tenancy()->end();
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $request);
 

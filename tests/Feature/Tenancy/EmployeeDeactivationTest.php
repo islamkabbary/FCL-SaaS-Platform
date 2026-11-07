@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
+    $this->admin = superAdminUser();
     $this->employee = User::factory()->create(['email' => 'emp@acme.test'])->assignRole(TenantRole::Employee->value);
 });
 

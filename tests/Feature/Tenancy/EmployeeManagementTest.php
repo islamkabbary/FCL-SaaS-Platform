@@ -18,10 +18,10 @@ use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
+    $this->admin = superAdminUser();
 });
 
-test('a tenant admin can create an employee in the default branch with a one-time temporary password', function () {
+test('a super admin can create an employee in the default branch with a one-time temporary password', function () {
     $loggedMessages = [];
     Event::listen(MessageLogged::class, function (MessageLogged $event) use (&$loggedMessages) {
         $loggedMessages[] = $event->message.json_encode($event->context);
@@ -50,7 +50,7 @@ test('a tenant admin can create an employee in the default branch with a one-tim
     $component->call('forgetTemporaryPassword')->assertSet('temporaryPassword', null);
 });
 
-test('a tenant admin can create an employee with selected roles', function () {
+test('a super admin can create an employee with selected roles', function () {
     $viewer = Role::create(['name' => 'Viewer', 'guard_name' => 'web']);
 
     Livewire::actingAs($this->admin)
@@ -73,7 +73,7 @@ test('employee details are validated', function () {
         ->assertHasErrors(['name' => 'required', 'email' => 'unique']);
 });
 
-test('a tenant admin can edit an employee and change their roles', function () {
+test('a super admin can edit an employee and change their roles', function () {
     $employee = User::factory()->create(['name' => 'Old Name'])->assignRole(TenantRole::Employee->value);
     $viewer = Role::create(['name' => 'Viewer', 'guard_name' => 'web']);
 
@@ -93,7 +93,7 @@ test('a tenant admin can edit an employee and change their roles', function () {
         ->and($employee->getRoleNames()->all())->toBe(['Viewer']);
 });
 
-test('a tenant admin can deactivate and reactivate an employee', function () {
+test('a super admin can deactivate and reactivate an employee', function () {
     $employee = User::factory()->create()->assignRole(TenantRole::Employee->value);
 
     $component = Livewire::actingAs($this->admin)->test('pages::employees.index')
@@ -132,7 +132,7 @@ test('the employee list shows each primary branch and account status', function 
 });
 
 test('an administrator cannot deactivate their own account or change their own roles', function () {
-    User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
 
     Livewire::actingAs($this->admin)->test('pages::employees.index')
         ->call('deactivate', $this->admin->id);
@@ -142,14 +142,14 @@ test('an administrator cannot deactivate their own account or change their own r
         ->and(fn () => app(SyncEmployeeRoles::class)->handle($this->admin, $this->admin, []))
         ->toThrow(AuthorizationException::class, 'You cannot change your own roles.');
 
-    expect($this->admin->refresh()->isTenantAdmin())->toBeTrue();
+    expect($this->admin->refresh()->isSuperAdmin())->toBeTrue();
 });
 
-test('the last active tenant admin cannot be deactivated or demoted', function () {
-    // Holds every permission through a custom role, but not the Tenant Admin role.
+test('the last active super admin cannot be deactivated or demoted', function () {
+    // Holds every permission through a custom role, but not the Super Admin role.
     $allPermissions = userWithPermissions(TenantPermission::cases());
 
-    expect($this->admin->isLastActiveTenantAdmin())->toBeTrue()
+    expect($this->admin->isLastActiveSuperAdmin())->toBeTrue()
         ->and($allPermissions->can('deactivate', $this->admin))->toBeFalse()
         ->and(fn () => app(SetEmployeeActivation::class)->handle($allPermissions, $this->admin, false))
         ->toThrow(AuthorizationException::class)
@@ -157,25 +157,25 @@ test('the last active tenant admin cannot be deactivated or demoted', function (
         ->toThrow(AuthorizationException::class);
 
     expect($this->admin->refresh()->is_active)->toBeTrue()
-        ->and($this->admin->isTenantAdmin())->toBeTrue();
+        ->and($this->admin->isSuperAdmin())->toBeTrue();
 });
 
-test('changing roles locks the active tenant admins before anything else is read', function () {
-    $secondAdmin = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+test('changing roles locks the active super admins before anything else is read', function () {
+    $secondAdmin = User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
     $employeeRole = Role::findByName(TenantRole::Employee->value, 'web');
 
     $first = firstQueriesOfTransactions(fn () => app(UpdateEmployee::class)->handle(
         $this->admin, $secondAdmin, ['name' => $secondAdmin->name, 'email' => $secondAdmin->email], [$employeeRole->id],
     ));
 
-    // Otherwise the "last Tenant Admin" count would use a snapshot taken before the lock was
+    // Otherwise the "last Super Admin" count would use a snapshot taken before the lock was
     // granted and miss a concurrent demotion of the other admin.
     expect($first[0] ?? '')->toContain('for update')->toContain('`users`')
-        ->and($secondAdmin->refresh()->isTenantAdmin())->toBeFalse();
+        ->and($secondAdmin->refresh()->isSuperAdmin())->toBeFalse();
 });
 
-test('the tenant admin count inside a transaction sees a demotion committed after its snapshot', function () {
-    $secondAdmin = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+test('the super admin count inside a transaction sees a demotion committed after its snapshot', function () {
+    $secondAdmin = User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
 
     // A second database session plays the other admin's concurrent request.
     config(['database.connections.concurrent' => config('database.connections.tenant')]);
@@ -187,22 +187,22 @@ test('the tenant admin count inside a transaction sees a demotion committed afte
             DB::connection('concurrent')->table('model_has_roles')->where('model_id', $secondAdmin->id)->delete();
 
             // A plain read still sees both admins; the locking count sees the committed demotion.
-            expect(User::query()->active()->role(TenantRole::TenantAdmin->value)->count())->toBe(2)
-                ->and(User::activeTenantAdminCount())->toBe(1)
-                ->and($this->admin->isLastActiveTenantAdmin())->toBeTrue();
+            expect(User::query()->active()->role(TenantRole::SuperAdmin->value)->count())->toBe(2)
+                ->and(User::activeSuperAdminCount())->toBe(1)
+                ->and($this->admin->isLastActiveSuperAdmin())->toBeTrue();
         });
     } finally {
         DB::purge('concurrent');
     }
 });
 
-test('with two active tenant admins one can deactivate the other, leaving a protected last admin', function () {
-    $secondAdmin = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+test('with two active super admins one can deactivate the other, leaving a protected last admin', function () {
+    $secondAdmin = User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
 
     app(SetEmployeeActivation::class)->handle($secondAdmin, $this->admin, false);
 
     expect($this->admin->refresh()->is_active)->toBeFalse()
-        ->and($secondAdmin->refresh()->isLastActiveTenantAdmin())->toBeTrue();
+        ->and($secondAdmin->refresh()->isLastActiveSuperAdmin())->toBeTrue();
 });
 
 test('employees without permission cannot open or use employee management', function () {

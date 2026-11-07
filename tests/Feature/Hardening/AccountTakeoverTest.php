@@ -14,14 +14,14 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
+    $this->admin = superAdminUser();
     Notification::fake();
 });
 
 test('an employee whose email is changed by a colleague is unverified, signed out everywhere and told at the old address', function () {
     config(['session.driver' => 'database']);
-    $hr = userWithPermissions([TenantPermission::EmployeesView, TenantPermission::EmployeesUpdate]);
-    $victim = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'victim@acme.test']);
+    $hr = userWithPermissions([TenantPermission::EmployeesShow, TenantPermission::EmployeesEdit]);
+    $victim = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'victim@acme.test']);
     $rememberToken = $victim->remember_token;
     storeSessionRow('victim-laptop', $victim->id);
     storeSessionRow('hr-browser', $hr->id);
@@ -44,7 +44,7 @@ test('an employee whose email is changed by a colleague is unverified, signed ou
 
 test('editing only the name of an employee keeps their verification and sessions and sends nothing', function () {
     config(['session.driver' => 'database']);
-    $victim = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'victim@acme.test']);
+    $victim = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'victim@acme.test']);
     storeSessionRow('victim-laptop', $victim->id);
 
     $changed = app(UpdateEmployee::class)->handle($this->admin, $victim, ['name' => 'Renamed', 'email' => 'VICTIM@acme.test']);
@@ -57,7 +57,7 @@ test('editing only the name of an employee keeps their verification and sessions
 });
 
 test('the employees page tells the admin that a changed email signed the employee out', function () {
-    $victim = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'victim@acme.test']);
+    $victim = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'victim@acme.test']);
 
     Livewire::actingAs($this->admin)
         ->test('pages::employees.index')

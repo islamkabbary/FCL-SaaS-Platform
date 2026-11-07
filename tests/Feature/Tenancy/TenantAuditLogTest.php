@@ -36,7 +36,7 @@ function recordAudit(?User $actor, array $attributes = []): TenantAuditLog
 
 test('a record holds the action, actor, subject, values and reason', function () {
     actingInTenant();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $employee = User::factory()->create(['name' => 'Nadia', 'email' => 'nadia@acme.test']);
 
     $record = recordAudit($admin, [
@@ -78,7 +78,7 @@ test('an action of the application itself is recorded as the system', function (
 test('secrets are never stored, at any depth', function () {
     actingInTenant();
 
-    $record = recordAudit(tenantAdminUser(), [
+    $record = recordAudit(superAdminUser(), [
         'old' => ['password' => 'old-secret', 'name' => 'A'],
         'new' => ['Password' => 'new-secret', 'two_factor_secret' => 'x', 'carrier' => ['api_key' => 'k', 'apiKey' => 'k2', 'access_token' => 't', 'login' => 'ops']],
         'metadata' => ['remember_token' => 'r', 'session_id' => 's', 'cookie' => 'c', 'impersonation_session_id' => 7],
@@ -92,7 +92,7 @@ test('secrets are never stored, at any depth', function () {
 
 test('a record must be written in the transaction of the change it describes', function () {
     actingInTenant();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     expect(fn () => TenantAuditLog::record(AuditProbeAction::Changed, $admin))
         ->toThrow(LogicException::class, 'inside the transaction')
@@ -101,7 +101,7 @@ test('a record must be written in the transaction of the change it describes', f
 
 test('a change that is rolled back takes its record with it', function () {
     actingInTenant();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     expect(fn () => DB::transaction(function () use ($admin): void {
         $admin->forceFill(['name' => 'Changed'])->save();
@@ -131,7 +131,7 @@ test('records can only be written in tenant context, about tenant records, with 
 
 test('records cannot be changed or deleted through the application', function (Closure $operation) {
     actingInTenant();
-    $record = recordAudit(tenantAdminUser(), ['reason' => 'Original']);
+    $record = recordAudit(superAdminUser(), ['reason' => 'Original']);
 
     expect(fn () => $operation($record))->toThrow(LogicException::class)
         ->and(TenantAuditLog::query()->sole()->only(['id', 'reason', 'action']))->toBe(['id' => $record->id, 'reason' => 'Original', 'action' => 'probe.changed']);
@@ -172,9 +172,9 @@ test('during a support session the Platform Admin is recorded as the original ac
     expect(recordAudit(User::factory()->create())->fresh()->impersonation_kind)->toBeNull();
 });
 
-test('during an employee view the Tenant Admin is recorded as the original actor', function () {
+test('during an employee view the Super Admin is recorded as the original actor', function () {
     actingInTenant();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $employee = User::factory()->create(['email' => 'clerk@acme.test'])->assignRole(TenantRole::Employee->value);
     $session = ImpersonationSession::query()->create([
         'impersonator_user_id' => $admin->id,
@@ -235,8 +235,8 @@ test('one company never sees the records of another, even with the same ids', fu
     $acme = provisionTenant('acme')->tenant;
     $globex = provisionTenant('globex')->tenant;
 
-    $acmeRecord = $acme->run(fn () => recordAudit(tenantAdminUser(), ['reason' => 'acme only']));
-    $globexRecord = $globex->run(fn () => recordAudit(tenantAdminUser(), ['reason' => 'globex only']));
+    $acmeRecord = $acme->run(fn () => recordAudit(superAdminUser(), ['reason' => 'acme only']));
+    $globexRecord = $globex->run(fn () => recordAudit(superAdminUser(), ['reason' => 'globex only']));
 
     expect($acmeRecord->id)->toBe($globexRecord->id)
         ->and($acme->run(fn () => TenantAuditLog::query()->pluck('reason')->all()))->toBe(['acme only'])
@@ -247,11 +247,11 @@ test('one company never sees the records of another, even with the same ids', fu
 test('reading the audit log requires the audit permission', function () {
     actingInTenant();
     $record = recordAudit(null);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $employee = User::factory()->create()->assignRole(TenantRole::Employee->value);
-    $auditor = userWithPermissions([TenantPermission::AuditView]);
-    $fclUser = userWithPermissions([TenantPermission::FclJobsView, TenantPermission::FclJobsCreate]);
-    $deactivated = userWithPermissions([TenantPermission::AuditView], ['is_active' => false]);
+    $auditor = userWithPermissions([TenantPermission::AuditShow]);
+    $fclUser = userWithPermissions([TenantPermission::FclJobsShow, TenantPermission::FclJobsCreate]);
+    $deactivated = userWithPermissions([TenantPermission::AuditShow], ['is_active' => false]);
 
     expect(Gate::forUser($admin)->allows('viewAny', TenantAuditLog::class))->toBeTrue()
         ->and(Gate::forUser($auditor)->allows('view', $record))->toBeTrue()
@@ -266,7 +266,7 @@ test('reading the audit log requires the audit permission', function () {
 
 test('the audit policy itself refuses an impersonated user', function () {
     actingInTenant();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $employee = User::factory()->create()->assignRole(TenantRole::Employee->value);
     $session = ImpersonationSession::query()->create([
         'impersonator_user_id' => $admin->id,
@@ -279,7 +279,7 @@ test('the audit policy itself refuses an impersonated user', function () {
         'started_at' => now(),
         'expires_at' => now()->addMinutes(15),
     ]);
-    $employee->givePermissionTo(TenantPermission::AuditView->value);
+    $employee->givePermissionTo(TenantPermission::AuditShow->value);
     $policy = new TenantAuditLogPolicy;
 
     expect($policy->viewAny($employee))->toBeTrue();

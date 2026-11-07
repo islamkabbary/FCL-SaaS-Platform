@@ -124,7 +124,7 @@ test('platform admin credentials are rejected by tenant login', function () {
     $this->assertGuest('web');
 });
 
-test('tenant admin credentials are rejected by platform login', function () {
+test('super admin credentials are rejected by platform login', function () {
     $result = provisionTenant('acme');
 
     $this->post(route('platform.login.store'), [

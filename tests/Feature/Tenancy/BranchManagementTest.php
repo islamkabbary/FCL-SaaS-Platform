@@ -7,12 +7,12 @@ beforeEach(function () {
     $this->tenant = actingInTenant();
 });
 
-test('tenant users can not create branches', function (bool $isTenantAdmin) {
-    $user = User::factory()->create(['is_tenant_admin' => $isTenantAdmin]);
+test('tenant users can not create branches', function (bool $isSuperAdmin) {
+    $user = User::factory()->create(['is_tenant_admin' => $isSuperAdmin]);
 
     expect($user->can('create', Branch::class))->toBeFalse();
 })->with([
-    'tenant admin' => true,
+    'super admin' => true,
     'employee' => false,
 ]);
 

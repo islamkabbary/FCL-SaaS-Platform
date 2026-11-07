@@ -12,12 +12,12 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
-// Milestone 5.2: a permission retired from the catalog never locks Tenant Admins out,
+// Milestone 5.2: a permission retired from the catalog never locks Super Admins out,
 // and no custom role can take a built-in role's name.
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
+    $this->admin = superAdminUser();
 });
 
 /**
@@ -28,13 +28,13 @@ function roleWithRetiredPermission(string $retired = 'fcl.legacy.retired'): Role
 {
     Permission::findOrCreate($retired, 'web');
     $role = Role::create(['name' => 'Customs', 'guard_name' => 'web']);
-    $role->givePermissionTo([TenantPermission::EmployeesView->value, $retired]);
+    $role->givePermissionTo([TenantPermission::EmployeesShow->value, $retired]);
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     return $role;
 }
 
-test('a tenant admin can still manage a role and its holders when the role holds a retired permission', function () {
+test('a super admin can still manage a role and its holders when the role holds a retired permission', function () {
     $role = roleWithRetiredPermission();
     $holder = User::factory()->create()->assignRole($role);
 
@@ -43,7 +43,7 @@ test('a tenant admin can still manage a role and its holders when the role holds
         ->and($this->admin->can('update', $holder))->toBeTrue()
         ->and($this->admin->can('deactivate', $holder))->toBeTrue();
 
-    $saved = app(SaveRole::class)->handle($this->admin, $role, 'Customs team', [TenantPermission::EmployeesView->value]);
+    $saved = app(SaveRole::class)->handle($this->admin, $role, 'Customs team', [TenantPermission::EmployeesShow->value]);
     expect($saved->name)->toBe('Customs team');
 });
 
@@ -63,7 +63,7 @@ test('the sync deletes permissions retired from the catalog and keeps every cata
     app(SyncTenantAuthorization::class)->handle();
 
     expect(Permission::query()->where('name', 'fcl.legacy.retired')->exists())->toBeFalse()
-        ->and($role->fresh()->permissions->pluck('name')->all())->toBe([TenantPermission::EmployeesView->value])
+        ->and($role->fresh()->permissions->pluck('name')->all())->toBe([TenantPermission::EmployeesShow->value])
         ->and(Permission::query()->pluck('name')->sort()->values()->all())->toBe(collect(TenantPermission::values())->sort()->values()->all());
 });
 
@@ -76,15 +76,15 @@ test('a renamed permission keeps its role and direct grants', function () {
     {
         protected function renamedPermissions(): array
         {
-            return ['fcl.aci.fix' => TenantPermission::FclAciCorrect->value];
+            return ['fcl.aci.fix' => [TenantPermission::FclAciEdit->value]];
         }
     };
     $sync->handle();
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     expect(Permission::query()->where('name', 'fcl.aci.fix')->exists())->toBeFalse()
-        ->and($role->fresh()->hasPermissionTo(TenantPermission::FclAciCorrect->value))->toBeTrue()
-        ->and($direct->fresh()->hasDirectPermission(TenantPermission::FclAciCorrect->value))->toBeTrue();
+        ->and($role->fresh()->hasPermissionTo(TenantPermission::FclAciEdit->value))->toBeTrue()
+        ->and($direct->fresh()->hasDirectPermission(TenantPermission::FclAciEdit->value))->toBeTrue();
 });
 
 test('no custom role can be created with or renamed to a built-in name or a look-alike', function (string $name) {
@@ -94,7 +94,7 @@ test('no custom role can be created with or renamed to a built-in name or a look
         ->and(fn () => app(SaveRole::class)->handle($this->admin, $custom, $name, []))->toThrow(AuthorizationException::class, 'This role name is reserved.');
 
     expect($custom->fresh()->name)->toBe('Support desk');
-})->with(['Tenant Admin', 'tenant admin', ' Tenant  Admin ', "Tenant\tAdmin", 'EMPLOYEE', 'Employee ']);
+})->with(['Super Admin', 'super admin', ' Tenant  Admin ', "Tenant\tAdmin", 'EMPLOYEE', 'Employee ']);
 
 test('role names are stored with their whitespace normalised, also through the roles page', function () {
     Livewire::actingAs($this->admin)

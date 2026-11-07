@@ -144,10 +144,10 @@ test('the same charge event can never be created twice', function () {
     ]))->toThrow(UniqueConstraintViolationException::class);
 });
 
-test('tenant admins see their read-only billing history and cannot record payments', function () {
+test('super admins see their read-only billing history and cannot record payments', function () {
     app(RecordPayment::class)->handle($this->platformAdmin, $this->charge, 60000, CarbonImmutable::parse('2026-05-10'), 'TRX', null, (string) Str::uuid());
     tenancy()->initialize($this->tenant);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     Livewire::actingAs($admin)
         ->test('pages::subscription.index')
@@ -173,7 +173,7 @@ test('company A cannot see company B subscription or charges', function () {
 
     tenancy()->initialize($this->tenant);
 
-    Livewire::actingAs(tenantAdminUser())
+    Livewire::actingAs(superAdminUser())
         ->test('pages::subscription.index')
         ->assertSee('1,080.00 USD')
         ->assertDontSee('1,866.48 USD')

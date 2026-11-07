@@ -20,14 +20,14 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 /**
- * A tenant whose subscription has exactly $seats purchased seats; the Tenant Admin uses one.
+ * A tenant whose subscription has exactly $seats purchased seats; the Super Admin uses one.
  */
 function tenantWithSeats(int $seats, string $subdomain = 'acme'): array
 {
     $tenant = actingInTenant($subdomain, subscribed: false);
     subscribeTenant($tenant, seats: $seats);
 
-    return [$tenant, tenantAdminUser()];
+    return [$tenant, superAdminUser()];
 }
 
 function newEmployee(User $admin, string $email): User
@@ -35,7 +35,7 @@ function newEmployee(User $admin, string $email): User
     return app(CreateEmployee::class)->handle($admin, ['name' => 'Employee', 'email' => $email])->employee;
 }
 
-test('the active tenant admin consumes one seat', function () {
+test('the active super admin consumes one seat', function () {
     [, $admin] = tenantWithSeats(3);
 
     $usage = app(SeatGuard::class)->usage();
@@ -70,9 +70,9 @@ test('users cannot be added beyond the seats of an already confirmed later term'
     $tenant = provisionTenant('acme', subscribed: false)->tenant;
     app(ActivateSubscription::class)->handle($platformAdmin, $tenant, 5, CarbonImmutable::today());
 
-    // Only the Tenant Admin is active. A reduction to 2 seats is approved, then renewed early.
+    // Only the Super Admin is active. A reduction to 2 seats is approved, then renewed early.
     tenancy()->initialize($tenant);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $reduction = app(RequestSeatChange::class)->handle($admin, SeatRequestType::Reduction, 2);
     tenancy()->end();
     app(ReviewSeatChangeRequest::class)->approve($platformAdmin, $reduction);
@@ -158,7 +158,7 @@ test('a reactivated employee can take a seat freed by a deactivation', function 
 
 test('a tenant without a subscription cannot add users', function () {
     actingInTenant(subscribed: false);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     expect(fn () => newEmployee($admin, 'bob@acme.test'))
         ->toThrow(NoSeatAvailable::class, 'Your company has no active subscription');
@@ -175,7 +175,7 @@ test('an expired subscription cannot add users', function () {
 test('legacy tenants keep unlimited seats until a subscription is activated', function () {
     $tenant = actingInTenant(subscribed: false);
     $tenant->forceFill(['subscription_required' => false])->save();
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     foreach (range(1, 3) as $number) {
         newEmployee($admin, "user{$number}@acme.test");
@@ -237,7 +237,7 @@ test('seat limits of one tenant do not affect another', function () {
     [$acme, $admin] = tenantWithSeats(1, 'acme');
 
     $globex->run(function () {
-        $globexAdmin = tenantAdminUser();
+        $globexAdmin = superAdminUser();
         expect(newEmployee($globexAdmin, 'g1@globex.test')->is_active)->toBeTrue()
             ->and(app(SeatGuard::class)->usage()->limit)->toBe(3);
     });

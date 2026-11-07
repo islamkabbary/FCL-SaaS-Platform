@@ -30,14 +30,14 @@ beforeEach(function () {
     $this->tenant = provisionTenant('acme')->tenant;
 
     $ids = $this->tenant->run(function (): array {
-        $admin = User::role(TenantRole::TenantAdmin->value)->firstOrFail();
+        $admin = User::role(TenantRole::SuperAdmin->value)->firstOrFail();
         $employee = User::factory()->create(['email' => 'clerk@acme.test'])->assignRole(TenantRole::Employee->value);
 
         return [$admin->id, $employee->id, $admin->password];
     });
-    [$this->tenantAdminId, $this->employeeId, $this->adminPasswordHash] = $ids;
+    [$this->superAdminId, $this->employeeId, $this->adminPasswordHash] = $ids;
 
-    // A support session acting as the Tenant Admin, who holds every permission.
+    // A support session acting as the Super Admin, who holds every permission.
     [$this->supportSession, $token] = startSupportSession($this->platformAdmin, $this->tenant);
     postHandoff($this->tenant, $token)->assertRedirect();
 });
@@ -112,13 +112,13 @@ test('backend actions refuse the impersonated user even when called directly', f
     request()->attributes->set(ActiveImpersonation::RequestAttribute, new ActiveImpersonation($session));
     tenancy()->initialize($this->tenant);
 
-    $admin = User::query()->findOrFail($this->tenantAdminId);
+    $admin = User::query()->findOrFail($this->superAdminId);
     $employee = User::query()->findOrFail($this->employeeId);
 
-    expect(Gate::forUser($admin)->allows(TenantPermission::EmployeesView->value))->toBeTrue()
+    expect(Gate::forUser($admin)->allows(TenantPermission::EmployeesShow->value))->toBeTrue()
         ->and(Gate::forUser($admin)->allows('viewAny', User::class))->toBeTrue()
         ->and(Gate::forUser($admin)->allows(TenantPermission::EmployeesCreate->value))->toBeFalse()
-        ->and(Gate::forUser($admin)->allows(TenantPermission::BillingManage->value))->toBeFalse()
+        ->and(Gate::forUser($admin)->allows(TenantPermission::BillingSeatRequestsCreate->value))->toBeFalse()
         ->and(Gate::forUser($admin)->allows('deactivate', $employee))->toBeFalse()
         ->and(Gate::forUser($admin)->allows('impersonate', $employee))->toBeFalse()
         ->and(fn () => app(CreateEmployee::class)->handle($admin, ['name' => 'Mallory', 'email' => 'mallory@acme.test']))->toThrow(AuthorizationException::class)
@@ -129,7 +129,7 @@ test('backend actions refuse the impersonated user even when called directly', f
         ->and(fn () => PlatformAuditLog::recordForTenantUser($admin, $this->tenant, PlatformAuditAction::SeatIncreaseRequested))->toThrow(LogicException::class);
 
     // Other users are not affected by someone else's impersonation.
-    expect(Gate::forUser($employee)->allows(TenantPermission::EmployeesView->value))->toBeFalse()
+    expect(Gate::forUser($employee)->allows(TenantPermission::EmployeesShow->value))->toBeFalse()
         ->and($employee->is_active)->toBeTrue();
 });
 
@@ -150,10 +150,10 @@ test('components not reviewed for impersonation refuse property updates and meth
 test('impersonation state does not leak into later requests of the same process', function () {
     $this->get($this->tenant->url('employees'))->assertOk()->assertSee('Impersonation active');
 
-    // A different browser: an ordinary Tenant Admin session in the same PHP process.
+    // A different browser: an ordinary Super Admin session in the same PHP process.
     $this->flushSession();
     auth()->forgetGuards();
-    $owner = $this->tenant->run(fn () => User::factory()->create(['email' => 'owner@acme.test'])->assignRole(TenantRole::TenantAdmin->value));
+    $owner = $this->tenant->run(fn () => User::factory()->create(['email' => 'owner@acme.test'])->assignRole(TenantRole::SuperAdmin->value));
     loginToTenant($this->tenant, $owner);
 
     $this->get($this->tenant->url('employees'))->assertOk()->assertDontSee('Impersonation active');
@@ -168,7 +168,7 @@ test('an impersonation in one tenant does not restrict another tenant', function
 
     $this->flushSession();
     auth()->forgetGuards();
-    $globexAdmin = $globex->run(fn () => tenantAdminUser());
+    $globexAdmin = $globex->run(fn () => superAdminUser());
     $globexEmployee = $globex->run(fn () => User::factory()->create()->assignRole(TenantRole::Employee->value));
     loginToTenant($globex, $globexAdmin);
 
@@ -182,14 +182,14 @@ test('a reused session immediately reflects changed permissions', function () {
     $this->flushSession();
     auth()->forgetGuards();
 
-    $role = $this->tenant->run(fn () => Role::findByName(TenantRole::Employee->value, 'web')->givePermissionTo(TenantPermission::EmployeesView->value));
-    $owner = $this->tenant->run(fn () => User::query()->findOrFail($this->tenantAdminId));
+    $role = $this->tenant->run(fn () => Role::findByName(TenantRole::Employee->value, 'web')->givePermissionTo(TenantPermission::EmployeesShow->value));
+    $owner = $this->tenant->run(fn () => User::query()->findOrFail($this->superAdminId));
     loginToTenant($this->tenant, $owner);
     startEmployeeView($this->tenant, $this->employeeId)->assertOk();
 
     $this->get($this->tenant->url('employees'))->assertOk();
 
-    $this->tenant->run(fn () => $role->revokePermissionTo(TenantPermission::EmployeesView->value));
+    $this->tenant->run(fn () => $role->revokePermissionTo(TenantPermission::EmployeesShow->value));
 
     $this->get($this->tenant->url('employees'))->assertForbidden();
 });

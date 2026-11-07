@@ -78,5 +78,5 @@ test('a running support session ends when its admin no longer has two-factor aut
     expect($session->refresh()->end_reason)->toBe(ImpersonationEndReason::ActorUnauthorized)
         ->and(auth('web')->check())->toBeFalse();
 
-    expect($tenant->run(fn () => User::role(TenantRole::TenantAdmin->value)->count()))->toBe(1);
+    expect($tenant->run(fn () => User::role(TenantRole::SuperAdmin->value)->count()))->toBe(1);
 });

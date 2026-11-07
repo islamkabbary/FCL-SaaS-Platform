@@ -35,7 +35,7 @@ function validTenantPayload(array $overrides = []): array
     ];
 }
 
-test('a platform admin can provision a tenant with its own database, default branch and tenant admin', function () {
+test('a platform admin can provision a tenant with its own database, default branch and super admin', function () {
     $response = $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
         ->post(route('platform.tenants.store'), validTenantPayload());
 

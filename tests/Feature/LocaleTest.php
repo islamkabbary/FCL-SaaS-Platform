@@ -46,7 +46,7 @@ describe('on a tenant', function () {
     });
 
     test('a user keeps their chosen language in a new session', function () {
-        $user = tenantAdminUser();
+        $user = superAdminUser();
 
         $this->actingAs($user)->post(route('locale.switch'), ['locale' => 'ar']);
 
@@ -60,7 +60,7 @@ describe('on a tenant', function () {
     });
 
     test('a user preference comes before the session', function () {
-        $user = tenantAdminUser();
+        $user = superAdminUser();
         $user->forceFill(['locale' => 'en'])->save();
 
         $this->actingAs($user)
@@ -70,7 +70,7 @@ describe('on a tenant', function () {
     });
 
     test('a language that is no longer supported falls back to the default', function () {
-        $user = tenantAdminUser();
+        $user = superAdminUser();
         $user->forceFill(['locale' => 'fr'])->save();
 
         $this->actingAs($user)->get(route('dashboard'))
@@ -79,7 +79,7 @@ describe('on a tenant', function () {
     });
 
     test('a Livewire update keeps the language of the user', function () {
-        $user = tenantAdminUser();
+        $user = superAdminUser();
         $user->forceFill(['locale' => 'ar'])->save();
         tenancy()->end();
 
@@ -92,13 +92,13 @@ describe('on a tenant', function () {
 
     test('built-in role names are translated and custom role names stay as entered', function () {
         Role::create(['name' => 'Customs Clerk', 'guard_name' => 'web']);
-        $user = tenantAdminUser();
+        $user = superAdminUser();
         $user->forceFill(['locale' => 'ar'])->save();
 
         $this->actingAs($user)->get(route('roles.index'))
             ->assertOk()
-            ->assertSee(TenantRole::displayName(TenantRole::TenantAdmin->value))
-            ->assertSee('مسؤول الشركة')
+            ->assertSee(TenantRole::displayName(TenantRole::SuperAdmin->value))
+            ->assertSee('المدير العام')
             ->assertSee('Customs Clerk');
     });
 
@@ -116,7 +116,7 @@ describe('during impersonation', function () {
         enableSupportAccess();
         $this->tenant = provisionTenant('acme')->tenant;
         $this->targetId = $this->tenant->run(function (): int {
-            $admin = tenantAdminUser();
+            $admin = superAdminUser();
             $admin->forceFill(['locale' => 'en'])->save();
 
             return $admin->id;

@@ -181,11 +181,11 @@ function actingInTenant(string $subdomain = 'acme', bool $subscribed = true): Te
 }
 
 /**
- * The provisioned Tenant Admin of the current tenant, past the forced password change.
+ * The provisioned Super Admin of the current tenant, past the forced password change.
  */
-function tenantAdminUser(): User
+function superAdminUser(): User
 {
-    $admin = User::role(TenantRole::TenantAdmin->value)->firstOrFail();
+    $admin = User::role(TenantRole::SuperAdmin->value)->firstOrFail();
     $admin->forceFill(['must_change_password' => false])->save();
 
     return $admin;
@@ -224,7 +224,7 @@ function enableSupportAccess(bool $requireTwoFactor = false): void
  */
 function startSupportSession(PlatformAdmin $admin, Tenant $tenant, ?int $targetUserId = null, string $reason = 'Ticket 4711: dashboard does not load'): array
 {
-    $targetUserId ??= $tenant->run(fn (): int => User::role(TenantRole::TenantAdmin->value)->firstOrFail()->id);
+    $targetUserId ??= $tenant->run(fn (): int => User::role(TenantRole::SuperAdmin->value)->firstOrFail()->id);
 
     return app(StartSupportSession::class)->handle($admin, $tenant, $targetUserId, $reason);
 }
@@ -399,7 +399,7 @@ function userInBranch(Branch $branch, array $permissions, array $attributes = []
 function createParty(array $attributes = [], ?User $actor = null, array $confirmedSimilarIds = []): Party
 {
     return app(CreateParty::class)->handle(
-        $actor ?? tenantAdminUser(),
+        $actor ?? superAdminUser(),
         [...Arr::only(Party::factory()->raw(), Party::EditableAttributes), ...$attributes],
         $confirmedSimilarIds,
     );

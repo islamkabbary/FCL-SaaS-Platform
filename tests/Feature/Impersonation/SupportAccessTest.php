@@ -25,15 +25,15 @@ beforeEach(function () {
     enableSupportAccess();
     $this->admin = PlatformAdmin::factory()->create(['email' => 'ops@platform.test']);
     $this->tenant = provisionTenant('acme')->tenant;
-    $this->tenantAdminId = $this->tenant->run(fn (): int => User::role(TenantRole::TenantAdmin->value)->firstOrFail()->id);
+    $this->superAdminId = $this->tenant->run(fn (): int => User::role(TenantRole::SuperAdmin->value)->firstOrFail()->id);
 });
 
 /**
- * A second, active Tenant Admin in the tenant.
+ * A second, active Super Admin in the tenant.
  */
-function secondTenantAdmin(Tenant $tenant, string $email = 'second@acme.test', bool $active = true): User
+function secondSuperAdmin(Tenant $tenant, string $email = 'second@acme.test', bool $active = true): User
 {
-    return $tenant->run(fn (): User => User::factory()->create(['email' => $email, 'is_active' => $active])->assignRole(TenantRole::TenantAdmin->value));
+    return $tenant->run(fn (): User => User::factory()->create(['email' => $email, 'is_active' => $active])->assignRole(TenantRole::SuperAdmin->value));
 }
 
 /**
@@ -72,16 +72,16 @@ test('support access is disabled by default', function () {
 
 test('guests and tenant users cannot start support access', function () {
     $this->get(route('platform.support-sessions.create', $this->tenant))->assertRedirect(route('platform.login'));
-    $this->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->tenantAdminId])->assertRedirect(route('platform.login'));
+    $this->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->superAdminId])->assertRedirect(route('platform.login'));
 
-    $allowed = $this->tenant->run(fn () => Gate::forUser(User::query()->findOrFail($this->tenantAdminId))->allows('start-support-session'));
+    $allowed = $this->tenant->run(fn () => Gate::forUser(User::query()->findOrFail($this->superAdminId))->allows('start-support-session'));
     expect($allowed)->toBeFalse()
         ->and(SupportSession::query()->count())->toBe(0);
 });
 
-test('the start page shows the company and only its active tenant admins', function () {
-    secondTenantAdmin($this->tenant);
-    secondTenantAdmin($this->tenant, 'former@acme.test', active: false);
+test('the start page shows the company and only its active super admins', function () {
+    secondSuperAdmin($this->tenant);
+    secondSuperAdmin($this->tenant, 'former@acme.test', active: false);
     $this->tenant->run(fn () => User::factory()->create(['email' => 'clerk@acme.test']));
 
     $this->actingAs($this->admin, 'platform')->get(route('platform.tenants.show', $this->tenant))->assertSee('Start support session');
@@ -98,7 +98,7 @@ test('the start page shows the company and only its active tenant admins', funct
 test('starting requires the platform admin to re-enter their password', function () {
     $this->actingAs($this->admin, 'platform')
         ->post(route('platform.support-sessions.store', $this->tenant), [
-            'target_user_id' => $this->tenantAdminId,
+            'target_user_id' => $this->superAdminId,
             'reason' => 'Ticket 4711: dashboard does not load',
             'password' => 'wrong-password',
         ])
@@ -113,12 +113,12 @@ test('repeated wrong passwords are rate limited', function () {
 
     foreach (range(1, 5) as $attempt) {
         $this->actingAs($this->admin, 'platform')->post(route('platform.support-sessions.store', $this->tenant), [
-            'target_user_id' => $this->tenantAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'wrong',
+            'target_user_id' => $this->superAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'wrong',
         ]);
     }
 
     $this->actingAs($this->admin, 'platform')->post(route('platform.support-sessions.store', $this->tenant), [
-        'target_user_id' => $this->tenantAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'password',
+        'target_user_id' => $this->superAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'password',
     ])->assertSessionHasErrors(['password' => 'Too many attempts. Please try again in 300 seconds.']);
 
     expect(SupportSession::query()->count())->toBe(0);
@@ -126,7 +126,7 @@ test('repeated wrong passwords are rate limited', function () {
 
 test('a reason is required', function (string $reason) {
     $this->actingAs($this->admin, 'platform')
-        ->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->tenantAdminId, 'reason' => $reason, 'password' => 'password'])
+        ->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->superAdminId, 'reason' => $reason, 'password' => 'password'])
         ->assertSessionHasErrors('reason');
 
     expect(SupportSession::query()->count())->toBe(0);
@@ -142,17 +142,17 @@ test('a fresh authenticator code is required when two-factor is enforced', funct
     $this->actingAs($this->admin, 'platform')->get(route('platform.support-sessions.create', $this->tenant))
         ->assertSee('Two-factor authentication required');
     $this->actingAs($this->admin, 'platform')
-        ->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->tenantAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'password', 'code' => '123456'])
+        ->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->superAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'password', 'code' => '123456'])
         ->assertSessionHasErrors(['code' => 'Set up two-factor authentication for your account before starting support sessions.']);
 
     $secret = enableTwoFactorFor($this->admin);
     $code = app(Google2FA::class)->getCurrentOtp($secret);
 
-    startSupportOverHttp($this->admin, $this->tenant, $this->tenantAdminId, ['code' => $code]);
+    startSupportOverHttp($this->admin, $this->tenant, $this->superAdminId, ['code' => $code]);
 
     // The same code cannot be replayed for a second session.
     $this->actingAs($this->admin, 'platform')
-        ->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->tenantAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'password', 'code' => $code])
+        ->post(route('platform.support-sessions.store', $this->tenant), ['target_user_id' => $this->superAdminId, 'reason' => 'Ticket 4711: dashboard does not load', 'password' => 'password', 'code' => $code])
         ->assertSessionHasErrors('code');
 
     expect(SupportSession::query()->count())->toBe(1);
@@ -161,7 +161,7 @@ test('a fresh authenticator code is required when two-factor is enforced', funct
 test('the start response hands over a single-use credential by POST, never in a URL', function () {
     $response = $this->actingAs($this->admin, 'platform')
         ->post(route('platform.support-sessions.store', $this->tenant), [
-            'target_user_id' => $this->tenantAdminId,
+            'target_user_id' => $this->superAdminId,
             'reason' => 'Ticket 4711: dashboard does not load',
             'password' => 'password',
         ])
@@ -178,15 +178,15 @@ test('the start response hands over a single-use credential by POST, never in a 
         ->and($session->handoff_token_hash)->toBe(hash('sha256', $matches[1]))
         ->and($session->status())->toBe(ImpersonationStatus::Pending)
         ->and($session->tenant_id)->toBe($this->tenant->id)
-        ->and($session->target_user_id)->toBe($this->tenantAdminId)
+        ->and($session->target_user_id)->toBe($this->superAdminId)
         ->and($session->platform_admin_id)->toBe($this->admin->id)
         ->and($session->expires_at->diffInMinutes($session->started_at, true))->toEqual(15.0)
         ->and($session->handoff_expires_at->diffInSeconds($session->started_at, true))->toEqual(60.0);
 });
 
-test('starting is audited and every active tenant admin is notified', function () {
-    secondTenantAdmin($this->tenant);
-    secondTenantAdmin($this->tenant, 'former@acme.test', active: false);
+test('starting is audited and every active super admin is notified', function () {
+    secondSuperAdmin($this->tenant);
+    secondSuperAdmin($this->tenant, 'former@acme.test', active: false);
 
     [$session] = startSupportSession($this->admin, $this->tenant, reason: 'Ticket 4711: dashboard does not load');
 
@@ -208,7 +208,7 @@ test('starting is audited and every active tenant admin is notified', function (
     ]);
 });
 
-test('the handoff opens a restricted session as the selected tenant admin', function () {
+test('the handoff opens a restricted session as the selected super admin', function () {
     [$session, $token] = startSupportSession($this->admin, $this->tenant);
 
     postHandoff($this->tenant, $token)->assertRedirect($this->tenant->url('dashboard'));
@@ -222,13 +222,13 @@ test('the handoff opens a restricted session as the selected tenant admin', func
         ->assertSee('End impersonation');
 
     $session->refresh();
-    expect(auth('web')->id())->toBe($this->tenantAdminId)
+    expect(auth('web')->id())->toBe($this->superAdminId)
         ->and($session->status())->toBe(ImpersonationStatus::Active)
         ->and($session->handoff_token_hash)->toBeNull()
         ->and($session->handoff_consumed_at)->not->toBeNull();
 
     // The target account itself is not changed by the support login.
-    $this->tenant->run(fn () => expect(User::query()->findOrFail($this->tenantAdminId)->remember_token)->toBeNull());
+    $this->tenant->run(fn () => expect(User::query()->findOrFail($this->superAdminId)->remember_token)->toBeNull());
 });
 
 test('a handoff credential cannot be replayed', function () {
@@ -349,17 +349,17 @@ test('an active session ends when the subscription stops being active', function
 });
 
 test('inactive or non-admin accounts cannot be targeted', function () {
-    $former = secondTenantAdmin($this->tenant, 'former@acme.test', active: false);
+    $former = secondSuperAdmin($this->tenant, 'former@acme.test', active: false);
     $clerk = $this->tenant->run(fn () => User::factory()->create(['email' => 'clerk@acme.test']));
 
-    expect(fn () => startSupportSession($this->admin, $this->tenant, $former->id))->toThrow(ImpersonationRefused::class, 'not an active Tenant Admin')
+    expect(fn () => startSupportSession($this->admin, $this->tenant, $former->id))->toThrow(ImpersonationRefused::class, 'not an active Super Admin')
         ->and(fn () => startSupportSession($this->admin, $this->tenant, $clerk->id))->toThrow(ImpersonationRefused::class)
         ->and(fn () => startSupportSession($this->admin, $this->tenant, 999))->toThrow(ImpersonationRefused::class)
         ->and(SupportSession::query()->count())->toBe(0);
 });
 
 test('a target deactivated before the handoff or during the session loses the session', function () {
-    $second = secondTenantAdmin($this->tenant);
+    $second = secondSuperAdmin($this->tenant);
     [$before, $tokenBefore] = startSupportSession($this->admin, $this->tenant, $second->id);
     [$during, $tokenDuring] = startSupportSession($this->admin, $this->tenant);
 
@@ -373,10 +373,10 @@ test('a target deactivated before the handoff or during the session loses the se
     auth()->forgetGuards();
     postHandoff($this->tenant, $tokenDuring)->assertRedirect();
 
-    // Another Tenant Admin deactivates the supported admin.
+    // Another Super Admin deactivates the supported admin.
     $this->tenant->run(function () use ($second) {
         $second->forceFill(['is_active' => true])->save();
-        app(SetEmployeeActivation::class)->handle($second, User::query()->findOrFail($this->tenantAdminId), false);
+        app(SetEmployeeActivation::class)->handle($second, User::query()->findOrFail($this->superAdminId), false);
     });
 
     expect($during->refresh()->end_reason)->toBe(ImpersonationEndReason::TargetDeactivated);
@@ -433,7 +433,7 @@ test('logging out ends the support session', function () {
 });
 
 test('ending support access keeps the target\'s remember-me token', function (string $path) {
-    $this->tenant->run(fn () => User::query()->findOrFail($this->tenantAdminId)->forceFill(['remember_token' => 'keep-me'])->save());
+    $this->tenant->run(fn () => User::query()->findOrFail($this->superAdminId)->forceFill(['remember_token' => 'keep-me'])->save());
     [$session, $token] = startSupportSession($this->admin, $this->tenant);
     postHandoff($this->tenant, $token);
 
@@ -441,7 +441,7 @@ test('ending support access keeps the target\'s remember-me token', function (st
 
     expect($session->refresh()->status())->toBe(ImpersonationStatus::Ended)
         ->and(auth('web')->check())->toBeFalse();
-    $this->tenant->run(fn () => expect(User::query()->findOrFail($this->tenantAdminId)->remember_token)->toBe('keep-me'));
+    $this->tenant->run(fn () => expect(User::query()->findOrFail($this->superAdminId)->remember_token)->toBe('keep-me'));
 })->with(['impersonation/end', 'logout']);
 
 test('a platform admin can revoke a session, which loses access on its next request', function () {
@@ -467,8 +467,8 @@ test('a platform admin can revoke a session, which loses access on its next requ
     expect(PlatformAuditLog::query()->where('action', PlatformAuditAction::SupportSessionRevoked)->count())->toBe(1);
 });
 
-test('a tenant admin can see and revoke support access to their company', function () {
-    $second = secondTenantAdmin($this->tenant);
+test('a super admin can see and revoke support access to their company', function () {
+    $second = secondSuperAdmin($this->tenant);
     [$session] = startSupportSession($this->admin, $this->tenant);
 
     tenancy()->initialize($this->tenant);
@@ -492,7 +492,7 @@ test('support history and notices are scoped to their own company', function () 
     startSupportSession($this->admin, $globex, reason: 'Globex ticket about roles');
 
     tenancy()->initialize($globex);
-    $globexAdmin = tenantAdminUser();
+    $globexAdmin = superAdminUser();
 
     Livewire::actingAs($globexAdmin)
         ->test('pages::access-history.index')
@@ -503,7 +503,7 @@ test('support history and notices are scoped to their own company', function () 
     expect($acmeSession->refresh()->status())->toBe(ImpersonationStatus::Pending)
         ->and(DB::table('notifications')->count())->toBe(1);
 
-    // Employees (non Tenant Admins) cannot see the access history.
+    // Employees (non Super Admins) cannot see the access history.
     $clerk = User::factory()->create();
     $this->actingAs($clerk, 'web')->get($globex->url('access-history'))->assertForbidden();
 });

@@ -28,7 +28,7 @@ beforeEach(function () {
     $this->platformAdmin = PlatformAdmin::factory()->create();
     $this->tenant = actingInTenant(subscribed: false);
     $this->term = subscribeTenant($this->tenant, seats: 2, daysAgo: 184);
-    $this->admin = tenantAdminUser();
+    $this->admin = superAdminUser();
 });
 
 function requestSeats(SeatRequestType $type, int $seats): SeatChangeRequest
@@ -36,7 +36,7 @@ function requestSeats(SeatRequestType $type, int $seats): SeatChangeRequest
     return app(RequestSeatChange::class)->handle(test()->admin, $type, $seats);
 }
 
-test('a tenant admin sees the subscription and requests additional seats with an estimate', function () {
+test('a super admin sees the subscription and requests additional seats with an estimate', function () {
     expect($this->term->starts_on->toDateString())->toBe('2026-03-01');
 
     Livewire::actingAs($this->admin)
@@ -194,21 +194,21 @@ test('invalid seat requests are rejected', function (SeatRequestType $type, int 
 ]);
 
 test('employees without the billing permission cannot see billing or request seats', function () {
-    $employee = userWithPermissions([TenantPermission::EmployeesView]);
+    $employee = userWithPermissions([TenantPermission::EmployeesShow]);
 
     $this->actingAs($employee, 'web')->get($this->tenant->url('subscription'))->assertForbidden();
 
     expect(fn () => app(RequestSeatChange::class)->handle($employee, SeatRequestType::Increase, 1))
         ->toThrow(AuthorizationException::class);
 
-    $viewer = userWithPermissions([TenantPermission::BillingView]);
+    $viewer = userWithPermissions([TenantPermission::BillingShow]);
     $this->actingAs($viewer, 'web')->get($this->tenant->url('subscription'))->assertOk()->assertDontSee('Request additional seats');
 });
 
 test('a tenant cannot cancel or see another tenant\'s requests', function () {
     $globex = provisionTenant('globex', subscribed: false)->tenant;
     subscribeTenant($globex, seats: 5);
-    $globexRequest = $globex->run(fn () => app(RequestSeatChange::class)->handle(tenantAdminUser(), SeatRequestType::Increase, 2));
+    $globexRequest = $globex->run(fn () => app(RequestSeatChange::class)->handle(superAdminUser(), SeatRequestType::Increase, 2));
 
     tenancy()->initialize($this->tenant);
 

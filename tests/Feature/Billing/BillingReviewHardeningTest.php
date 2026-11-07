@@ -33,7 +33,7 @@ beforeEach(function () {
 function pendingReduction(int $seats): SeatChangeRequest
 {
     tenancy()->initialize(test()->tenant);
-    $request = app(RequestSeatChange::class)->handle(tenantAdminUser(), SeatRequestType::Reduction, $seats);
+    $request = app(RequestSeatChange::class)->handle(superAdminUser(), SeatRequestType::Reduction, $seats);
     tenancy()->end();
 
     return $request;

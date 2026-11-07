@@ -32,7 +32,7 @@ beforeEach(function () {
     enableSupportAccess();
     $this->platformAdmin = PlatformAdmin::factory()->create(['email' => 'ops@platform.test']);
     $this->tenant = provisionTenant('acme')->tenant;
-    $this->tenantAdminId = $this->tenant->run(fn (): int => tenantAdminUser()->id);
+    $this->superAdminId = $this->tenant->run(fn (): int => superAdminUser()->id);
 
     FclMarkedProbe::$ran = [];
 
@@ -50,9 +50,9 @@ beforeEach(function () {
 });
 
 /**
- * Start a support session acting as the Tenant Admin in this test's browser.
+ * Start a support session acting as the Super Admin in this test's browser.
  */
-function startSupportAsTenantAdmin(): SupportSession
+function startSupportAsSuperAdmin(): SupportSession
 {
     [$session, $token] = startSupportSession(test()->platformAdmin, test()->tenant);
     postHandoff(test()->tenant, $token)->assertRedirect();
@@ -90,7 +90,7 @@ function sendSnapshot(Tenant $tenant, string $snapshot, array $calls = [], array
 }
 
 test('FCL routes work for an authorized user outside an impersonation', function (string $method, string $path) {
-    loginToTenant($this->tenant, $this->tenant->run(fn () => User::query()->findOrFail($this->tenantAdminId)));
+    loginToTenant($this->tenant, $this->tenant->run(fn () => User::query()->findOrFail($this->superAdminId)));
 
     $this->call($method, $this->tenant->url($path))->assertOk();
 })->with([
@@ -100,7 +100,7 @@ test('FCL routes work for an authorized user outside an impersonation', function
 ]);
 
 test('FCL routes are refused during support access, reads included, and the refusal is recorded', function (string $method, string $path) {
-    startSupportAsTenantAdmin();
+    startSupportAsSuperAdmin();
 
     $this->call($method, $this->tenant->url($path))->assertForbidden()->assertDontSee('FCL shipment');
 
@@ -113,7 +113,7 @@ test('FCL routes are refused during support access, reads included, and the refu
 ]);
 
 test('FCL components cannot be mounted during support access', function (string $path, string $component) {
-    startSupportAsTenantAdmin();
+    startSupportAsSuperAdmin();
 
     $this->get($this->tenant->url($path))->assertForbidden()->assertDontSee('FCL-PROBE');
 
@@ -125,11 +125,11 @@ test('FCL components cannot be mounted during support access', function (string 
 ]);
 
 test('an FCL component opened before support access cannot be refreshed, updated or called', function (array $calls, array $updates) {
-    loginToTenant($this->tenant, $this->tenant->run(fn () => User::query()->findOrFail($this->tenantAdminId)));
+    loginToTenant($this->tenant, $this->tenant->run(fn () => User::query()->findOrFail($this->superAdminId)));
     $snapshot = componentSnapshot($this->tenant, 'probe/marked');
     sendSnapshot($this->tenant, $snapshot, [['method' => '$refresh', 'params' => []]])->assertOk();
 
-    startSupportAsTenantAdmin();
+    startSupportAsSuperAdmin();
     FclMarkedProbe::$ran = [];
 
     sendSnapshot($this->tenant, $snapshot, $calls, $updates)->assertForbidden()->assertDontSee('FCL-PROBE');
@@ -144,13 +144,13 @@ test('an FCL component opened before support access cannot be refreshed, updated
 ]);
 
 test('FCL abilities and resources are denied to the impersonated user, also through the generic view abilities', function () {
-    $session = startSupportAsTenantAdmin();
+    $session = startSupportAsSuperAdmin();
     tenancy()->initialize($this->tenant);
-    $admin = User::query()->findOrFail($this->tenantAdminId);
+    $admin = User::query()->findOrFail($this->superAdminId);
     $record = DB::transaction(fn () => TenantAuditLog::record(FclProbeAuditAction::Probed, null));
     $fclPermissions = array_values(array_filter(
         TenantPermission::values(),
-        fn (string $permission): bool => str_starts_with($permission, 'fcl.') || $permission === TenantPermission::AuditView->value,
+        fn (string $permission): bool => str_starts_with($permission, 'fcl.') || $permission === TenantPermission::AuditShow->value,
     ));
 
     $abilities = fn (): array => [
@@ -159,7 +159,7 @@ test('FCL abilities and resources are denied to the impersonated user, also thro
         Gate::forUser($admin)->allows('view', $record),
     ];
 
-    // Outside the impersonation the Tenant Admin holds all of them.
+    // Outside the impersonation the Super Admin holds all of them.
     expect(array_unique($abilities()))->toBe([true]);
 
     request()->attributes->set(ActiveImpersonation::RequestAttribute, new ActiveImpersonation($session));
@@ -167,18 +167,18 @@ test('FCL abilities and resources are denied to the impersonated user, also thro
     expect(array_unique($abilities()))->toBe([false])
         // Reviewed SaaS pages keep their read access.
         ->and(Gate::forUser($admin)->allows('viewAny', User::class))->toBeTrue()
-        ->and(Gate::forUser($admin)->allows(TenantPermission::EmployeesView->value))->toBeTrue();
+        ->and(Gate::forUser($admin)->allows(TenantPermission::EmployeesShow->value))->toBeTrue();
 
     // Another user of the company is not affected by someone else's impersonation.
-    $other = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+    $other = User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
     expect(Gate::forUser($other)->allows(TenantPermission::FclJobsCreate->value))->toBeTrue()
         ->and(Gate::forUser($other)->allows('viewAny', TenantAuditLog::class))->toBeTrue();
 });
 
 test('the generic view abilities are denied on FCL resources even when their policy would allow them', function () {
-    $session = startSupportAsTenantAdmin();
+    $session = startSupportAsSuperAdmin();
     tenancy()->initialize($this->tenant);
-    $admin = User::query()->findOrFail($this->tenantAdminId);
+    $admin = User::query()->findOrFail($this->superAdminId);
     Gate::policy(FclProbeRecord::class, FclProbeAllowEverythingPolicy::class);
 
     expect(Gate::forUser($admin)->allows('viewAny', FclProbeRecord::class))->toBeTrue()
@@ -193,12 +193,12 @@ test('the generic view abilities are denied on FCL resources even when their pol
 test('FCL Operations are refused during an employee view as well', function () {
     $employeeId = $this->tenant->run(function (): int {
         $role = Role::create(['name' => 'Documentation', 'guard_name' => 'web'])
-            ->givePermissionTo([TenantPermission::FclJobsView->value, TenantPermission::FclJobsCreate->value, TenantPermission::AuditView->value]);
+            ->givePermissionTo([TenantPermission::FclJobsShow->value, TenantPermission::FclJobsCreate->value, TenantPermission::AuditShow->value]);
 
         return User::factory()->create(['email' => 'docs@acme.test'])->assignRole($role)->id;
     });
 
-    loginToTenant($this->tenant, $this->tenant->run(fn () => User::query()->findOrFail($this->tenantAdminId)));
+    loginToTenant($this->tenant, $this->tenant->run(fn () => User::query()->findOrFail($this->superAdminId)));
     startEmployeeView($this->tenant, $employeeId)->assertOk();
 
     $this->get($this->tenant->url('fcl/probe'))->assertForbidden();

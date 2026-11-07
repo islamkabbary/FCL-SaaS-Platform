@@ -73,7 +73,7 @@ test('users added during a month are billed monthly from the next month, after t
     app(IssueMonthlyCharges::class)->handle();
 
     tenancy()->initialize($this->tenant);
-    $request = app(RequestSeatChange::class)->handle(tenantAdminUser(), SeatRequestType::Increase, 20);
+    $request = app(RequestSeatChange::class)->handle(superAdminUser(), SeatRequestType::Increase, 20);
     tenancy()->end();
     app(ReviewSeatChangeRequest::class)->approve($this->platformAdmin, $request);
 

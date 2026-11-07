@@ -93,7 +93,7 @@ test('an invalid or taken username is refused without using the change', functio
 ]);
 
 test('only the owner may change a username', function () {
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     expect(Gate::forUser($this->user)->allows('changeUsername', $this->user))->toBeTrue()
         ->and(Gate::forUser($admin)->allows('changeUsername', $this->user))->toBeFalse();
@@ -110,7 +110,7 @@ test('the same username can exist in two companies', function () {
 });
 
 test('an employee is told their generated username when they are created', function () {
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     Livewire::actingAs($admin)
         ->test('pages::employees.index')
@@ -122,7 +122,7 @@ test('an employee is told their generated username when they are created', funct
 });
 
 test('the employee list can be searched by username', function () {
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     Livewire::actingAs($admin)
         ->test('pages::employees.index')
@@ -131,7 +131,7 @@ test('the employee list can be searched by username', function () {
 });
 
 test('a username change is refused during a support session, in every layer', function () {
-    $target = tenantAdminUser();
+    $target = superAdminUser();
     tenancy()->end();
     enableSupportAccess();
 

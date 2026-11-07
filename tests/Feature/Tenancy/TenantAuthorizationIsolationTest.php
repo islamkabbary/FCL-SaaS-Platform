@@ -21,16 +21,19 @@ test('role and permission tables exist only in tenant databases', function () {
     }
 });
 
-test('provisioning seeds the permission catalog, the built-in roles and the tenant admin role', function () {
+test('provisioning seeds the permission catalog, the built-in roles and the super admin role', function () {
     $result = provisionTenant('acme');
 
     $result->tenant->run(function () use ($result) {
         $admin = User::query()->where('email', $result->adminEmail)->sole();
 
         expect(Permission::query()->pluck('name')->sort()->values()->all())->toBe(collect(TenantPermission::values())->sort()->values()->all())
-            ->and(Role::query()->pluck('name')->sort()->values()->all())->toBe([TenantRole::Employee->value, TenantRole::TenantAdmin->value])
-            ->and($admin->getRoleNames()->all())->toBe([TenantRole::TenantAdmin->value])
-            ->and($admin->getAllPermissions()->pluck('name')->sort()->values()->all())->toBe(collect(TenantPermission::values())->sort()->values()->all())
+            ->and(Role::query()->pluck('name')->sort()->values()->all())->toBe([TenantRole::Employee->value, TenantRole::SuperAdmin->value])
+            ->and($admin->getRoleNames()->all())->toBe([TenantRole::SuperAdmin->value])
+            // Exempt from every check: no permission rows, yet every catalog permission passes.
+            ->and($admin->getAllPermissions())->toHaveCount(0)
+            ->and(collect(TenantPermission::values())->every(fn (string $permission): bool => $admin->can($permission)))->toBeTrue()
+            ->and(Role::findByName(TenantRole::SuperAdmin->value, 'web')->permissions)->toHaveCount(0)
             ->and(Role::findByName(TenantRole::Employee->value, 'web')->permissions)->toHaveCount(0);
     });
 });
@@ -49,10 +52,10 @@ test('an existing tenant without roles is backfilled idempotently by tenants:syn
     $this->artisan('tenants:sync-authorization')->assertSuccessful();
 
     $result->tenant->run(function () use ($result) {
-        expect(User::query()->where('email', $result->adminEmail)->sole()->isTenantAdmin())->toBeTrue();
+        expect(User::query()->where('email', $result->adminEmail)->sole()->isSuperAdmin())->toBeTrue();
 
-        // A Tenant Admin customizes the Employee role; a re-run must keep it.
-        Role::findByName(TenantRole::Employee->value, 'web')->syncPermissions([TenantPermission::EmployeesView->value]);
+        // A Super Admin customizes the Employee role; a re-run must keep it.
+        Role::findByName(TenantRole::Employee->value, 'web')->syncPermissions([TenantPermission::EmployeesShow->value]);
     });
 
     $this->artisan('tenants:sync-authorization', ['--tenant' => ['acme']])->assertSuccessful();
@@ -62,7 +65,7 @@ test('an existing tenant without roles is backfilled idempotently by tenants:syn
             ->and(Permission::query()->count())->toBe(count(TenantPermission::cases()))
             ->and(DB::table('model_has_roles')->count())->toBe(1)
             ->and(Role::findByName(TenantRole::Employee->value, 'web')->permissions->pluck('name')->all())
-            ->toBe([TenantPermission::EmployeesView->value]);
+            ->toBe([TenantPermission::EmployeesShow->value]);
     });
 });
 
@@ -70,22 +73,22 @@ test('tenants:sync-authorization does not promote a demoted founder again', func
     $tenant = provisionTenant('acme')->tenant;
 
     $tenant->run(function () {
-        $founder = tenantAdminUser();
-        $second = User::factory()->create()->assignRole(TenantRole::TenantAdmin->value);
+        $founder = superAdminUser();
+        $second = User::factory()->create()->assignRole(TenantRole::SuperAdmin->value);
 
         app(SyncEmployeeRoles::class)->handle($second, $founder, [Role::findByName(TenantRole::Employee->value, 'web')->id]);
-        expect($founder->refresh()->isTenantAdmin())->toBeFalse();
+        expect($founder->refresh()->isSuperAdmin())->toBeFalse();
     });
 
     $this->artisan('tenants:sync-authorization')->assertSuccessful();
 
     $tenant->run(function () {
-        expect(User::query()->where('is_tenant_admin', true)->sole()->isTenantAdmin())->toBeFalse()
-            ->and(User::query()->role(TenantRole::TenantAdmin->value)->count())->toBe(1);
+        expect(User::query()->where('is_tenant_admin', true)->sole()->isSuperAdmin())->toBeFalse()
+            ->and(User::query()->role(TenantRole::SuperAdmin->value)->count())->toBe(1);
     });
 });
 
-test('a tenant admin only sees and manages their own company\'s employees', function () {
+test('a super admin only sees and manages their own company\'s employees', function () {
     $acme = provisionTenant('acme')->tenant;
     $globex = provisionTenant('globex')->tenant;
     $globexUserId = $globex->run(function () {
@@ -96,7 +99,7 @@ test('a tenant admin only sees and manages their own company\'s employees', func
 
     tenancy()->initialize($acme);
     URL::forceRootUrl(rtrim($acme->url(), '/'));
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     $this->actingAs($admin)->get(route('employees.index'))
         ->assertOk()
@@ -128,7 +131,7 @@ test('roles of another tenant cannot be assigned', function () {
     });
 
     tenancy()->initialize($acme);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
     $employee = User::factory()->create()->assignRole(TenantRole::Employee->value);
 
     expect(Role::query()->find($globexRoleId))->toBeNull();
@@ -142,10 +145,10 @@ test('roles of another tenant cannot be assigned', function () {
     expect($employee->refresh()->getRoleNames()->all())->toBe([TenantRole::Employee->value]);
 });
 
-test('a tenant admin cannot reach another tenant\'s administration pages', function () {
+test('a super admin cannot reach another tenant\'s administration pages', function () {
     $acme = provisionTenant('acme')->tenant;
     $globex = provisionTenant('globex')->tenant;
-    $admin = $acme->run(fn () => tenantAdminUser());
+    $admin = $acme->run(fn () => superAdminUser());
 
     // A tenant session replayed on another tenant is rejected (ScopeSessions).
     $this->actingAs($admin)->get($acme->url('employees'))->assertOk();
@@ -162,7 +165,7 @@ test('permission caches and in-memory permission state never leak between tenant
     // but only acme's role holds employees.view. A permission collection left in memory from
     // acme would make globex's "Plain" holder pass the check (roles are matched by id).
     [$acmeRoleId, $acmeUserId] = $acme->run(function () {
-        $role = Role::create(['name' => 'Viewer', 'guard_name' => 'web'])->syncPermissions([TenantPermission::EmployeesView->value]);
+        $role = Role::create(['name' => 'Viewer', 'guard_name' => 'web'])->syncPermissions([TenantPermission::EmployeesShow->value]);
 
         return [$role->id, User::factory()->create()->assignRole($role)->id];
     });
@@ -173,7 +176,7 @@ test('permission caches and in-memory permission state never leak between tenant
     });
     expect($globexRoleId)->toBe($acmeRoleId);
 
-    $canView = fn (int $userId): bool => User::query()->findOrFail($userId)->can(TenantPermission::EmployeesView->value);
+    $canView = fn (int $userId): bool => User::query()->findOrFail($userId)->can(TenantPermission::EmployeesShow->value);
     $registrar = app(PermissionRegistrar::class);
 
     // Switch back and forth in one process; each tenant sees only its own data.
@@ -195,7 +198,7 @@ test('permission caches and in-memory permission state never leak between tenant
 test('permission data is not cached in the central database', function () {
     $tenant = provisionTenant('acme')->tenant;
 
-    $tenant->run(fn () => tenantAdminUser()->can(TenantPermission::EmployeesView->value));
+    $tenant->run(fn () => superAdminUser()->can(TenantPermission::EmployeesShow->value));
 
     expect(DB::connection('mysql')->table('cache')->where('key', 'like', '%spatie.permission%')->count())->toBe(0);
 });

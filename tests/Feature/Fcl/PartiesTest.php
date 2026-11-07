@@ -110,7 +110,7 @@ beforeEach(function () {
 
 test('a user allowed to view parties sees the list and the Operations menu, but cannot create or edit', function () {
     $partyId = $this->tenant->run(fn () => createParty(['legal_name' => 'Nile Imports S.A.E.', 'tax_number' => '100-200-300'])->id);
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow]);
 
     $this->get($this->tenant->url('dashboard'))->assertOk()->assertSee('data-test="sidebar-parties"', false);
     $this->get($this->tenant->url('fcl/parties'))
@@ -128,15 +128,15 @@ test('a user allowed to view parties sees the list and the Operations menu, but 
 });
 
 test('the page and the menu are refused without the view permission', function () {
-    loginWithPartyPermissions($this->tenant, [TenantPermission::EmployeesView]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::EmployeesShow]);
 
     $this->get($this->tenant->url('employees'))->assertOk()->assertDontSee('data-test="sidebar-parties"', false);
     $this->get($this->tenant->url('fcl/parties'))->assertForbidden();
 });
 
 test('a company whose permissions are not synced yet keeps working, without the menu', function () {
-    loginWithPartyPermissions($this->tenant, [TenantPermission::EmployeesView]);
-    $this->tenant->run(fn () => Permission::findByName(TenantPermission::FclPartiesView->value, 'web')->delete());
+    loginWithPartyPermissions($this->tenant, [TenantPermission::EmployeesShow]);
+    $this->tenant->run(fn () => Permission::findByName(TenantPermission::FclPartiesShow->value, 'web')->delete());
 
     $this->get($this->tenant->url('dashboard'))->assertOk()->assertDontSee('data-test="sidebar-parties"', false);
     $this->get($this->tenant->url('fcl/parties'))->assertForbidden();
@@ -152,7 +152,7 @@ test('the parties page is recognised as FCL by its route and by its component na
 
 test('the actions refuse users without the manage permission', function (string $action) {
     tenancy()->initialize($this->tenant);
-    $viewer = userWithPermissions([TenantPermission::FclPartiesView]);
+    $viewer = userWithPermissions([TenantPermission::FclPartiesShow]);
     $party = createParty();
 
     expect(fn () => $action === 'create'
@@ -165,7 +165,7 @@ test('the actions refuse users without the manage permission', function (string 
 })->with(['create', 'update']);
 
 test('a party manager creates a party from the page; it is normalised and audited', function () {
-    $manager = loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    $manager = loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     $response = submitPartyForm($this->tenant, [
         'legalName' => '  Delta   Freight  Agents ',
@@ -206,7 +206,7 @@ test('a party manager creates a party from the page; it is normalised and audite
 });
 
 test('invalid party details are refused with the form field names', function (array $form, string $field) {
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     expect(array_keys(partyFormErrors(submitPartyForm($this->tenant, ['legalName' => 'Valid Name', ...$form]))))->toBe([$field])
         ->and($this->tenant->run(fn () => Party::query()->count()))->toBe(0);
@@ -222,7 +222,7 @@ test('invalid party details are refused with the form field names', function (ar
 test('the actions validate on their own, whoever calls them', function (array $attributes) {
     tenancy()->initialize($this->tenant);
 
-    expect(fn () => app(CreateParty::class)->handle(tenantAdminUser(), $attributes))->toThrow(ValidationException::class)
+    expect(fn () => app(CreateParty::class)->handle(superAdminUser(), $attributes))->toThrow(ValidationException::class)
         ->and(Party::query()->count())->toBe(0);
 })->with([
     'no legal name' => [[]],
@@ -235,7 +235,7 @@ test('a likely duplicate is only a warning: nothing is saved until the user conf
     $first = createParty($existing);
 
     try {
-        app(CreateParty::class)->handle(tenantAdminUser(), $new);
+        app(CreateParty::class)->handle(superAdminUser(), $new);
         $this->fail('A likely duplicate was saved without confirmation.');
     } catch (PossibleDuplicateParty $exception) {
         expect($exception->similarParties->modelKeys())->toBe([$first->id]);
@@ -244,7 +244,7 @@ test('a likely duplicate is only a warning: nothing is saved until the user conf
     expect(Party::query()->count())->toBe(1)
         ->and(TenantAuditLog::query()->count())->toBe(1);
 
-    $second = app(CreateParty::class)->handle(tenantAdminUser(), $new, confirmedSimilarIds: [$first->id]);
+    $second = app(CreateParty::class)->handle(superAdminUser(), $new, confirmedSimilarIds: [$first->id]);
 
     expect(Party::query()->count())->toBe(2)
         ->and(TenantAuditLog::query()->where('subject_id', $second->id)->sole()->metadata)
@@ -288,7 +288,7 @@ test('a confirmation covers only the similar parties that were shown', function 
     $second = createParty(['legal_name' => 'ACME Trading', 'tax_number' => null], confirmedSimilarIds: [$first->id]);
 
     try {
-        app(CreateParty::class)->handle(tenantAdminUser(), ['legal_name' => 'acme trading'], confirmedSimilarIds: [$first->id]);
+        app(CreateParty::class)->handle(superAdminUser(), ['legal_name' => 'acme trading'], confirmedSimilarIds: [$first->id]);
         $this->fail('A similar party the user never saw was confirmed.');
     } catch (PossibleDuplicateParty $exception) {
         expect($exception->similarParties->modelKeys())->toBe([$first->id, $second->id]);
@@ -301,7 +301,7 @@ test('a name without letters or digits is not reported as a duplicate of every o
     tenancy()->initialize($this->tenant);
     createParty(['legal_name' => '***', 'tax_number' => '---']);
 
-    app(CreateParty::class)->handle(tenantAdminUser(), ['legal_name' => '...', 'tax_number' => '//']);
+    app(CreateParty::class)->handle(superAdminUser(), ['legal_name' => '...', 'tax_number' => '//']);
 
     expect(Party::query()->count())->toBe(2)
         ->and(Party::query()->orderBy('id')->pluck('tax_number_key')->all())->toBe([null, null]);
@@ -311,7 +311,7 @@ test('different companies are not reported as duplicates', function () {
     tenancy()->initialize($this->tenant);
     createParty(['legal_name' => 'Acme Trading', 'tax_number' => '111']);
 
-    $party = app(CreateParty::class)->handle(tenantAdminUser(), ['legal_name' => 'Acme Trading Egypt', 'tax_number' => '222']);
+    $party = app(CreateParty::class)->handle(superAdminUser(), ['legal_name' => 'Acme Trading Egypt', 'tax_number' => '222']);
 
     expect(Party::query()->count())->toBe(2)
         ->and(TenantAuditLog::query()->where('subject_id', $party->id)->sole()->metadata)->toBeNull();
@@ -319,7 +319,7 @@ test('different companies are not reported as duplicates', function () {
 
 test('the page shows the duplicate warning and saves only after "Save anyway"', function () {
     $this->tenant->run(fn () => createParty(['legal_name' => 'Acme Trading Co.', 'tax_number' => '900-100']));
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     $warned = submitPartyForm($this->tenant, ['legalName' => 'acme trading co'])
         ->assertOk()
@@ -339,7 +339,7 @@ test('"Save anyway" covers only the warning shown, not a name changed afterwards
         createParty(['legal_name' => 'Acme Trading Co.', 'tax_number' => null]);
         createParty(['legal_name' => 'Pharaoh Logistics', 'tax_number' => null]);
     });
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     // Warned about Acme, the user types another existing name and presses "Save anyway".
     $warned = submitPartyForm($this->tenant, ['legalName' => 'acme trading co']);
@@ -358,7 +358,7 @@ test('"Save anyway" covers only the warning shown, not a name changed afterwards
 test('an update audits only the changed values, and an unchanged save writes nothing', function () {
     tenancy()->initialize($this->tenant);
     $party = createParty(['legal_name' => 'Red Sea Lines', 'tax_number' => '555', 'country_code' => 'EG', 'notes' => null]);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     app(UpdateParty::class)->handle($admin, $party, ['legal_name' => 'Red Sea Lines', 'tax_number' => '555', 'country_code' => 'eg']);
 
@@ -386,7 +386,7 @@ test('an update is checked for duplicates only when its name key or tax-number k
     $original = createParty(['legal_name' => 'Acme Trading', 'tax_number' => null]);
     $copy = createParty(['legal_name' => 'Acme Trading', 'tax_number' => null], confirmedSimilarIds: [$original->id]);
     $other = createParty(['legal_name' => 'Pharaoh Logistics', 'tax_number' => null]);
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     // The confirmed copy can still be edited, renamed by case or given a tax number
     // without a new confirmation: its similarity to the original was already accepted.
@@ -410,7 +410,7 @@ test('renaming a party on the page to an existing name warns, and "Save anyway" 
 
         return [createParty(['legal_name' => 'Pharaoh Logistics', 'tax_number' => null])->id];
     });
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     $warned = editPartyOnPage($this->tenant, $otherId, ['legalName' => 'acme trading'])
         ->assertOk()
@@ -427,7 +427,7 @@ test('an update keeps the attributes it is not given', function () {
     tenancy()->initialize($this->tenant);
     $party = createParty(['legal_name' => 'Delta Agents', 'tax_number' => '100-200', 'country_code' => 'EG', 'notes' => 'Origin agent', 'is_active' => false]);
 
-    app(UpdateParty::class)->handle(tenantAdminUser(), $party, ['legal_name' => 'Delta Agents Ltd']);
+    app(UpdateParty::class)->handle(superAdminUser(), $party, ['legal_name' => 'Delta Agents Ltd']);
 
     expect($party->refresh()->only(Party::EditableAttributes))->toBe([
         'legal_name' => 'Delta Agents Ltd',
@@ -442,13 +442,13 @@ test('an update keeps the attributes it is not given', function () {
 
 test('updates are validated too, on the form and in the action', function () {
     $partyId = $this->tenant->run(fn () => createParty(['legal_name' => 'Valid Co'])->id);
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     expect(array_keys(partyFormErrors(editPartyOnPage($this->tenant, $partyId, ['legalName' => '   ']))))->toBe(['legalName']);
 
     tenancy()->initialize($this->tenant);
 
-    expect(fn () => app(UpdateParty::class)->handle(tenantAdminUser(), Party::query()->findOrFail($partyId), ['legal_name' => str_repeat('a', 256)]))
+    expect(fn () => app(UpdateParty::class)->handle(superAdminUser(), Party::query()->findOrFail($partyId), ['legal_name' => str_repeat('a', 256)]))
         ->toThrow(ValidationException::class)
         ->and(Party::query()->sole()->legal_name)->toBe('Valid Co')
         ->and(TenantAuditLog::query()->where('action', FclAuditAction::PartyUpdated->value)->exists())->toBeFalse();
@@ -456,7 +456,7 @@ test('updates are validated too, on the form and in the action', function () {
 
 test('the warning list and the edited party cannot be changed by the browser', function (string $property, mixed $value) {
     $this->tenant->run(fn () => createParty(['legal_name' => 'Acme Trading', 'tax_number' => null]));
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     $response = livewireRequest($this->tenant, 'fcl/parties', [['method' => 'save', 'params' => [true]]], ['legalName' => 'acme trading', $property => $value]);
 
@@ -469,7 +469,7 @@ test('the warning list and the edited party cannot be changed by the browser', f
 
 test('a party manager edits and deactivates a party from the page', function () {
     $partyId = $this->tenant->run(fn () => createParty(['legal_name' => 'Old Name Co'])->id);
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     editPartyOnPage($this->tenant, $partyId, ['legalName' => 'New Name Co', 'isActive' => false])
         ->assertOk()
@@ -489,7 +489,7 @@ test('the list searches by name and by tax number, with or without separators', 
         createParty(['legal_name' => 'Alexandria Customs Brokers', 'tax_number' => '321-654-987']);
         createParty(['legal_name' => 'Cairo Haulage', 'tax_number' => '111-222-333']);
     });
-    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView]);
+    loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow]);
 
     $this->get($this->tenant->url('fcl/parties?search='.urlencode($search)))
         ->assertSee('Alexandria Customs Brokers')
@@ -499,8 +499,8 @@ test('the list searches by name and by tax number, with or without separators', 
 test('parties are shared by every branch of the company', function () {
     tenancy()->initialize($this->tenant);
     $alexandria = extraBranch();
-    createParty(['legal_name' => 'Shared Customer'], userInBranch(defaultBranch(), [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]));
-    $colleague = userInBranch($alexandria, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    createParty(['legal_name' => 'Shared Customer'], userInBranch(defaultBranch(), [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]));
+    $colleague = userInBranch($alexandria, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
     tenancy()->end();
 
     loginToTenant($this->tenant, $colleague);
@@ -514,7 +514,7 @@ test('a company never sees or edits the parties of another company, even with th
 
     expect($acmeId)->toBe($betaId);
 
-    loginWithPartyPermissions($beta, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($beta, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     $this->get($beta->url('fcl/parties?status='))->assertOk()->assertSee('Beta Own Customer')->assertDontSee('Acme Confidential');
     $this->get($beta->url('fcl/parties?search=777'))->assertDontSee('Acme Confidential');
@@ -539,7 +539,7 @@ test('parties exist in the tenant databases only', function () {
 
 test('the parties page is blocked without an active subscription, like other operational pages', function () {
     $tenant = provisionTenant('lapsed', subscribed: false)->tenant;
-    loginWithPartyPermissions($tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    loginWithPartyPermissions($tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
 
     $this->get($tenant->url('fcl/parties'))->assertRedirect($tenant->url('subscription-required'));
 });
@@ -559,7 +559,7 @@ test('during support access the parties page, its updates and the actions are re
     $partyId = $this->tenant->run(fn () => createParty(['legal_name' => 'Hidden From Support'])->id);
 
     // A page opened before the support session started.
-    loginToTenant($this->tenant, $this->tenant->run(fn () => tenantAdminUser()));
+    loginToTenant($this->tenant, $this->tenant->run(fn () => superAdminUser()));
     $snapshot = partiesPageSnapshot($this->tenant);
 
     [$session, $token] = startSupportSession(PlatformAdmin::factory()->create(), $this->tenant);
@@ -572,7 +572,7 @@ test('during support access the parties page, its updates and the actions are re
     // The Gate layer, independently of the HTTP and Livewire layers.
     tenancy()->initialize($this->tenant);
     request()->attributes->set(ActiveImpersonation::RequestAttribute, new ActiveImpersonation($session));
-    $admin = tenantAdminUser();
+    $admin = superAdminUser();
 
     expect(fn () => app(CreateParty::class)->handle($admin, ['legal_name' => 'Support Write']))->toThrow(AuthorizationException::class)
         ->and(fn () => app(UpdateParty::class)->handle($admin, Party::query()->findOrFail($partyId), ['legal_name' => 'Support Write']))->toThrow(AuthorizationException::class)
@@ -583,11 +583,11 @@ test('during support access the parties page, its updates and the actions are re
 });
 
 test('during an employee view the parties page, its updates and the actions are refused, whatever the employee may do', function () {
-    $employeeId = $this->tenant->run(fn (): int => userWithPermissions([TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage], ['email' => 'docs@acme.test'])->id);
+    $employeeId = $this->tenant->run(fn (): int => userWithPermissions([TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit], ['email' => 'docs@acme.test'])->id);
     $partyId = $this->tenant->run(fn () => createParty(['legal_name' => 'Hidden From Views'])->id);
 
-    // A page the Tenant Admin opened before starting the view.
-    loginToTenant($this->tenant, $this->tenant->run(fn () => tenantAdminUser()));
+    // A page the Super Admin opened before starting the view.
+    loginToTenant($this->tenant, $this->tenant->run(fn () => superAdminUser()));
     $snapshot = partiesPageSnapshot($this->tenant);
     startEmployeeView($this->tenant, $employeeId)->assertOk();
 
@@ -606,17 +606,17 @@ test('during an employee view the parties page, its updates and the actions are 
 });
 
 test('a permission taken away while the page is open is enforced on the next action', function () {
-    $manager = loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesView, TenantPermission::FclPartiesManage]);
+    $manager = loginWithPartyPermissions($this->tenant, [TenantPermission::FclPartiesShow, TenantPermission::FclPartiesCreate, TenantPermission::FclPartiesEdit]);
     $snapshot = partiesPageSnapshot($this->tenant);
     $role = $this->tenant->run(fn () => User::query()->findOrFail($manager->id)->roles->sole());
 
-    $this->tenant->run(fn () => $role->revokePermissionTo(TenantPermission::FclPartiesManage->value));
+    $this->tenant->run(fn () => $role->revokePermissionTo([TenantPermission::FclPartiesCreate->value, TenantPermission::FclPartiesEdit->value]));
 
     updatePartiesPage($this->tenant, $snapshot, [['method' => 'save', 'params' => []]], ['legalName' => 'Late Write'])
         ->assertOk()
         ->assertSee('This action is unauthorized.');
 
-    $this->tenant->run(fn () => $role->revokePermissionTo(TenantPermission::FclPartiesView->value));
+    $this->tenant->run(fn () => $role->revokePermissionTo(TenantPermission::FclPartiesShow->value));
 
     updatePartiesPage($this->tenant, $snapshot, [['method' => 'save', 'params' => []]], ['legalName' => 'Late Write'])->assertForbidden();
 

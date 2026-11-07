@@ -17,13 +17,13 @@ use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->tenant = actingInTenant();
-    $this->admin = tenantAdminUser();
-    $this->secondAdmin = User::factory()->create(['email' => 'second@acme.test'])->assignRole(TenantRole::TenantAdmin->value);
-    $this->clerk = userWithPermissions([TenantPermission::EmployeesView], ['email' => 'clerk@acme.test']);
+    $this->admin = superAdminUser();
+    $this->secondAdmin = User::factory()->create(['email' => 'second@acme.test'])->assignRole(TenantRole::SuperAdmin->value);
+    $this->clerk = userWithPermissions([TenantPermission::EmployeesShow], ['email' => 'clerk@acme.test']);
 });
 
 /**
- * Demote the second Tenant Admin as soon as the action's transaction begins, as a request
+ * Demote the second Super Admin as soon as the action's transaction begins, as a request
  * that committed just before this one's lock would have: this action loaded the second
  * admin's privileges before that.
  */
@@ -39,7 +39,7 @@ function demoteSecondAdminWhenTheTransactionBegins(): void
     });
 }
 
-test('a tenant admin demoted while waiting for the lock cannot deactivate anyone', function () {
+test('a super admin demoted while waiting for the lock cannot deactivate anyone', function () {
     $this->secondAdmin->getAllPermissions(); // privileges loaded before the request waits
     demoteSecondAdminWhenTheTransactionBegins();
 
@@ -49,15 +49,15 @@ test('a tenant admin demoted while waiting for the lock cannot deactivate anyone
     expect($this->clerk->fresh()->is_active)->toBeTrue();
 });
 
-test('a tenant admin demoted while waiting for the lock cannot change roles', function () {
+test('a super admin demoted while waiting for the lock cannot change roles', function () {
     $this->secondAdmin->getAllPermissions();
     demoteSecondAdminWhenTheTransactionBegins();
-    $tenantAdminRoleId = Role::findByName(TenantRole::TenantAdmin->value, 'web')->id;
+    $superAdminRoleId = Role::findByName(TenantRole::SuperAdmin->value, 'web')->id;
 
-    expect(fn () => app(UpdateEmployee::class)->handle($this->secondAdmin, $this->clerk, ['name' => 'Clerk', 'email' => 'clerk@acme.test'], [$tenantAdminRoleId]))
+    expect(fn () => app(UpdateEmployee::class)->handle($this->secondAdmin, $this->clerk, ['name' => 'Clerk', 'email' => 'clerk@acme.test'], [$superAdminRoleId]))
         ->toThrow(AuthorizationException::class);
 
-    expect($this->clerk->fresh()->isTenantAdmin())->toBeFalse();
+    expect($this->clerk->fresh()->isSuperAdmin())->toBeFalse();
 });
 
 test('an employee is placed in the default branch even when its code was changed', function () {
