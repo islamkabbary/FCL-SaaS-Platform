@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * A Tenant Admin viewing the application as one of their employees. Lives in the
+ * A Super Admin viewing the application as one of their employees. Lives in the
  * tenant database (tenant-local audit record).
  *
  * @property int $id

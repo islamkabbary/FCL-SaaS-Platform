@@ -40,14 +40,14 @@ Route::post('impersonation/end', EndImpersonationController::class)
 
 Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
     // Reachable without an active subscription, so users can see why access is limited
-    // and a Tenant Admin can review the subscription and billing history.
+    // and a Super Admin can review the subscription and billing history.
     Route::view('subscription-required', 'subscription-required')->name('subscription.required');
 
     Route::livewire('subscription', 'pages::subscription.index')
-        ->middleware('can:'.TenantPermission::BillingView->value)
+        ->middleware('can:'.TenantPermission::BillingShow->value)
         ->name('subscription.show');
 
-    // Tenant Admins: who accessed the company through support access or an employee view.
+    // Super Admins: who accessed the company through support access or an employee view.
     Route::livewire('access-history', 'pages::access-history.index')
         ->middleware('can:view-access-history')
         ->name('access-history.index');

@@ -10,7 +10,7 @@ return new class extends Migration
      * Run the migrations.
      *
      * Seat increases (charged prorated on approval) and reductions (scheduled for the next
-     * renewal) requested by a Tenant Admin and reviewed by a Platform Admin.
+     * renewal) requested by a Super Admin and reviewed by a Platform Admin.
      */
     public function up(): void
     {

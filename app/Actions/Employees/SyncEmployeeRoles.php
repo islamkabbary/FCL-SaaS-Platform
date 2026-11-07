@@ -44,11 +44,11 @@ class SyncEmployeeRoles
             }
         }
 
-        $removesTenantAdmin = $currentRoleNames->contains(TenantRole::TenantAdmin->value)
-            && ! $roles->contains('name', TenantRole::TenantAdmin->value);
+        $removesSuperAdmin = $currentRoleNames->contains(TenantRole::SuperAdmin->value)
+            && ! $roles->contains('name', TenantRole::SuperAdmin->value);
 
-        if ($removesTenantAdmin && $employee->isLastActiveTenantAdmin()) {
-            throw new AuthorizationException(__('The last active Tenant Admin must keep the Tenant Admin role.'));
+        if ($removesSuperAdmin && $employee->isLastActiveSuperAdmin()) {
+            throw new AuthorizationException(__('The last active Super Admin must keep the Super Admin role.'));
         }
 
         $employee->syncRoles($roles);

@@ -28,21 +28,21 @@ class PartyPolicy
 
     public function viewAny(User $actor): bool
     {
-        return $actor->checkPermissionTo(TenantPermission::FclPartiesView->value);
+        return $actor->checkPermissionTo(TenantPermission::FclPartiesShow->value);
     }
 
     public function view(User $actor, Party $party): bool
     {
-        return $actor->checkPermissionTo(TenantPermission::FclPartiesView->value);
+        return $actor->checkPermissionTo(TenantPermission::FclPartiesShow->value);
     }
 
     public function create(User $actor): bool
     {
-        return $actor->checkPermissionTo(TenantPermission::FclPartiesManage->value);
+        return $actor->checkPermissionTo(TenantPermission::FclPartiesCreate->value);
     }
 
     public function update(User $actor, Party $party): bool
     {
-        return $actor->checkPermissionTo(TenantPermission::FclPartiesManage->value);
+        return $actor->checkPermissionTo(TenantPermission::FclPartiesEdit->value);
     }
 }

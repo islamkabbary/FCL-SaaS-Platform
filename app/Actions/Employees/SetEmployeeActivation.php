@@ -50,9 +50,9 @@ class SetEmployeeActivation
         }
 
         DB::transaction(function () use ($actor, $employee): void {
-            // Lock the active Tenant Admins so two admins cannot deactivate each other at once
-            // (a locking read: see User::activeTenantAdminCount()).
-            User::activeTenantAdminCount();
+            // Lock the active Super Admins so two admins cannot deactivate each other at once
+            // (a locking read: see User::activeSuperAdminCount()).
+            User::activeSuperAdminCount();
 
             // Re-read both users after the lock: the actor may have been demoted (or the target
             // promoted) by a request that held it, and their roles were loaded before.

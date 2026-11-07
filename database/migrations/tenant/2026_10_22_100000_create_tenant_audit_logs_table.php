@@ -12,7 +12,7 @@ return new class extends Migration
      * The company's business audit log, inside the tenant database (never in the central
      * database). Identities are copied, without foreign keys, so the history survives
      * account deletion; the original actor of an impersonated session is a Platform Admin
-     * (central) or a Tenant Admin of this company.
+     * (central) or a Super Admin of this company.
      */
     public function up(): void
     {

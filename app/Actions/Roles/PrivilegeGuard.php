@@ -12,8 +12,8 @@ use Spatie\Permission\Models\Role;
  * Rules that prevent privilege escalation inside a tenant.
  *
  * A user can only grant permissions they hold themselves, and can never act on a
- * user or role whose permissions exceed their own. The built-in Tenant Admin role
- * can only be granted by a Tenant Admin.
+ * user or role whose permissions exceed their own. The built-in Super Admin role
+ * can only be granted by a Super Admin.
  */
 class PrivilegeGuard
 {
@@ -37,7 +37,7 @@ class PrivilegeGuard
      */
     public function canAssignRole(User $actor, Role $role): bool
     {
-        if ($role->name === TenantRole::TenantAdmin->value && ! $actor->isTenantAdmin()) {
+        if ($role->name === TenantRole::SuperAdmin->value && ! $actor->isSuperAdmin()) {
             return false;
         }
 
@@ -49,7 +49,7 @@ class PrivilegeGuard
      */
     public function outranks(User $target, User $actor): bool
     {
-        if ($target->isTenantAdmin() && ! $actor->isTenantAdmin()) {
+        if ($target->isSuperAdmin() && ! $actor->isSuperAdmin()) {
             return true;
         }
 
@@ -57,10 +57,16 @@ class PrivilegeGuard
     }
 
     /**
+     * The catalog permissions the user holds. A Super Admin holds them all, without rows.
+     *
      * @return Collection<int, string>
      */
-    protected function permissionNamesOf(User $user): Collection
+    public function permissionNamesOf(User $user): Collection
     {
+        if ($user->isSuperAdmin()) {
+            return collect(TenantPermission::values());
+        }
+
         return $user->getAllPermissions()->pluck('name')->intersect(TenantPermission::values())->values();
     }
 }

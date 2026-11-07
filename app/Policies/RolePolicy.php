@@ -27,22 +27,22 @@ class RolePolicy
 
     public function viewAny(User $actor): bool
     {
-        return $actor->hasPermissionTo(TenantPermission::RolesView->value);
+        return $actor->hasPermissionTo(TenantPermission::RolesShow->value);
     }
 
     public function create(User $actor): bool
     {
-        return $actor->hasPermissionTo(TenantPermission::RolesManage->value);
+        return $actor->hasPermissionTo(TenantPermission::RolesCreate->value);
     }
 
     public function update(User $actor, Role $role): Response
     {
-        if (! $actor->hasPermissionTo(TenantPermission::RolesManage->value)) {
+        if (! $actor->hasPermissionTo(TenantPermission::RolesEdit->value)) {
             return Response::deny();
         }
 
-        if ($role->name === TenantRole::TenantAdmin->value) {
-            return Response::deny(__('The Tenant Admin role is built in and cannot be modified.'));
+        if ($role->name === TenantRole::SuperAdmin->value) {
+            return Response::deny(__('The Super Admin role is built in and cannot be modified.'));
         }
 
         return $this->privilegeGuard->canGrantPermissions($actor, $role->permissions->pluck('name'))
@@ -52,7 +52,7 @@ class RolePolicy
 
     public function delete(User $actor, Role $role): Response
     {
-        if (! $actor->hasPermissionTo(TenantPermission::RolesManage->value)) {
+        if (! $actor->hasPermissionTo(TenantPermission::RolesDelete->value)) {
             return Response::deny();
         }
 

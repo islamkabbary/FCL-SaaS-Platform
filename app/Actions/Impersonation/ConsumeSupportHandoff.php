@@ -105,7 +105,7 @@ class ConsumeSupportHandoff
             return ImpersonationEndReason::TargetDeactivated;
         }
 
-        if (! $target->isTenantAdmin() || $target->email !== $session->target_email) {
+        if (! $target->isSuperAdmin() || $target->email !== $session->target_email) {
             return ImpersonationEndReason::TargetIneligible;
         }
 

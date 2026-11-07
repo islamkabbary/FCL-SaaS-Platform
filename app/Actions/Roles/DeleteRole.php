@@ -2,8 +2,11 @@
 
 namespace App\Actions\Roles;
 
+use App\Enums\RoleAuditAction;
+use App\Models\TenantAuditLog;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Role;
 
@@ -19,6 +22,12 @@ class DeleteRole
     {
         Gate::forUser($actor)->authorize('delete', $role);
 
-        $role->delete();
+        DB::transaction(function () use ($actor, $role): void {
+            $old = SaveRole::snapshot($role->name, $role->permissions->pluck('name')->all());
+
+            TenantAuditLog::record(RoleAuditAction::RoleDeleted, $actor, $role, $old, null, metadata: ['holders' => $role->users()->count()]);
+
+            $role->delete();
+        });
     }
 }

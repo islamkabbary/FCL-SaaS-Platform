@@ -6,7 +6,7 @@ use App\Models\SupportSession;
 use Illuminate\Notifications\Notification;
 
 /**
- * In-app notice to a company's Tenant Admins that platform support started a session
+ * In-app notice to a company's Super Admins that platform support started a session
  * in their company. Stored in the tenant database; no external channel is required.
  * The current status is read from the central support session when displayed.
  */

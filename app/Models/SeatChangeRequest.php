@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
 use Stancl\Tenancy\Database\Concerns\CentralConnection;
 
 /**
- * A Tenant Admin's request to change purchased seats, reviewed by a Platform Admin.
+ * A Super Admin's request to change purchased seats, reviewed by a Platform Admin.
  * Stored centrally; the requesting user's identity is copied from the tenant database.
  *
  * @property int $id

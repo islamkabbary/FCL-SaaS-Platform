@@ -38,7 +38,7 @@ class UserFactory extends Factory
     /**
      * Indicate that the user is the tenant's administrator.
      */
-    public function tenantAdmin(): static
+    public function superAdmin(): static
     {
         return $this->state(fn (array $attributes) => [
             'is_tenant_admin' => true,

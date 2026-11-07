@@ -62,7 +62,7 @@ class TenantController extends Controller
     /**
      * Create and provision a tenant.
      *
-     * The provisioning result (including the Tenant Admin's temporary password) is
+     * The provisioning result (including the Super Admin's temporary password) is
      * rendered directly in this response and never stored in the session, so it can
      * be seen exactly once. The response is marked as non-cacheable.
      */

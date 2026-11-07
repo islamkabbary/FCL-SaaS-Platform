@@ -33,7 +33,7 @@ class RequestSeatChange
      */
     public function handle(User $actor, SeatRequestType $type, int $seats, ?string $note = null): SeatChangeRequest
     {
-        if ($actor->cannot(TenantPermission::BillingManage->value)) {
+        if ($actor->cannot(TenantPermission::BillingSeatRequestsCreate->value)) {
             throw new AuthorizationException(__('You are not allowed to request seat changes.'));
         }
 
@@ -121,8 +121,8 @@ class RequestSeatChange
      */
     public function cancel(User $actor, int $requestId): void
     {
-        if ($actor->cannot(TenantPermission::BillingManage->value)) {
-            throw new AuthorizationException(__('You are not allowed to request seat changes.'));
+        if ($actor->cannot(TenantPermission::BillingSeatRequestsDelete->value)) {
+            throw new AuthorizationException(__('You are not allowed to withdraw seat requests.'));
         }
 
         $tenant = tenant();

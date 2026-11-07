@@ -9,7 +9,7 @@ return new class extends Migration
     /**
      * Run the migrations.
      *
-     * Tenant-local audit of a Tenant Admin viewing the application as one of their
+     * Tenant-local audit of a Super Admin viewing the application as one of their
      * employees, and the trail of what was viewed or refused during it. Identities are
      * copied, without foreign keys, so the history survives account deletion.
      */

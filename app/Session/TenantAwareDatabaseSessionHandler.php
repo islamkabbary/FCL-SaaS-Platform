@@ -29,11 +29,11 @@ class TenantAwareDatabaseSessionHandler extends DatabaseSessionHandler
     /**
      * The owner stored with the session row. During an impersonation the browser is
      * signed in as the target, but it belongs to whoever started the impersonation: the
-     * Tenant Admin for an employee view, nobody in the company for support access.
+     * Super Admin for an employee view, nobody in the company for support access.
      *
      * Signing a user out everywhere deletes their rows by user_id. Storing the target
-     * there would also delete the impersonating browser (logging the Tenant Admin out
-     * instead of returning them), while ending the Tenant Admin's own sessions would
+     * there would also delete the impersonating browser (logging the Super Admin out
+     * instead of returning them), while ending the Super Admin's own sessions would
      * leave their impersonating browser alive.
      *
      * @return int|string|null

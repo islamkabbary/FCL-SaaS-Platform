@@ -50,7 +50,7 @@ class StartSupportSession
     }
 
     /**
-     * The active Tenant Admins of the tenant, read from its database.
+     * The active Super Admins of the tenant, read from its database.
      *
      * @return Collection<int, array{id: int, name: string, email: string}>
      */
@@ -58,7 +58,7 @@ class StartSupportSession
     {
         return $tenant->run(fn (): Collection => User::query()
             ->active()
-            ->role(TenantRole::TenantAdmin->value)
+            ->role(TenantRole::SuperAdmin->value)
             ->orderBy('name')
             ->get()
             ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email])
@@ -85,7 +85,7 @@ class StartSupportSession
         $target = $this->eligibleTargets($tenant)->firstWhere('id', $targetUserId);
 
         if ($target === null) {
-            throw ImpersonationRefused::because(__('The selected account is not an active Tenant Admin of this company.'));
+            throw ImpersonationRefused::because(__('The selected account is not an active Super Admin of this company.'));
         }
 
         $token = bin2hex(random_bytes(32));
@@ -116,7 +116,7 @@ class StartSupportSession
             return $session;
         });
 
-        // In-app notice to every active Tenant Admin of the company (tenant database). The
+        // In-app notice to every active Super Admin of the company (tenant database). The
         // session is already committed, so a failed notice is reported rather than failing
         // the request, and tenancy is always ended again (Tenant::run() does not end it when
         // its callback throws, which would leave this central request in tenant context).
@@ -126,7 +126,7 @@ class StartSupportSession
             tenancy()->initialize($tenant);
 
             Notification::send(
-                User::query()->active()->role(TenantRole::TenantAdmin->value)->get(),
+                User::query()->active()->role(TenantRole::SuperAdmin->value)->get(),
                 new SupportAccessStarted($session),
             );
         } catch (Throwable $exception) {

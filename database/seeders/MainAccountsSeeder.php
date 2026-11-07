@@ -16,7 +16,7 @@ use RuntimeException;
 use Stancl\Tenancy\Database\Models\Domain;
 
 /**
- * The main development accounts: three Platform Admins, and the same three as Tenant Admins
+ * The main development accounts: three Platform Admins, and the same three as Super Admins
  * of a demo company. Development only, because their shared password is weak and comes from
  * SEED_ACCOUNTS_PASSWORD in .env. It can run again: existing accounts are updated.
  */
@@ -61,7 +61,7 @@ class MainAccountsSeeder extends Seeder
 
         $tenant->run(function () use ($password): void {
             foreach (self::Accounts as $username => $name) {
-                $this->tenantAdmin($username, $name, $password);
+                $this->superAdmin($username, $name, $password);
             }
         });
     }
@@ -103,7 +103,7 @@ class MainAccountsSeeder extends Seeder
         return $tenant;
     }
 
-    protected function tenantAdmin(string $username, string $name, string $password): void
+    protected function superAdmin(string $username, string $name, string $password): void
     {
         $user = User::query()->whereLogin($username)->orWhere('email', $this->email($username))->first()
             ?? new User(['email' => $this->email($username)]);
@@ -119,7 +119,7 @@ class MainAccountsSeeder extends Seeder
             'email_verified_at' => now(),
         ])->save();
 
-        $user->assignRole(TenantRole::TenantAdmin->value);
+        $user->assignRole(TenantRole::SuperAdmin->value);
     }
 
     protected function email(string $username): string

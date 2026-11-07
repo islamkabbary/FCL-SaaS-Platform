@@ -56,7 +56,7 @@ class ProvisionTenantCommand extends Command
 
         $this->components->info("Tenant [{$tenant->name}] is ready.");
         $this->components->twoColumnDetail('Login URL', $tenant->url('login'));
-        $this->components->twoColumnDetail('Tenant Admin', $result->adminEmail);
+        $this->components->twoColumnDetail('Super Admin', $result->adminEmail);
         $this->components->twoColumnDetail('Temporary password (shown once)', $result->temporaryPassword);
 
         return self::SUCCESS;

@@ -39,7 +39,7 @@ class ImpersonationServiceProvider extends ServiceProvider
         Gate::define('view-support-sessions', fn (mixed $user): bool => $user instanceof PlatformAdmin);
         Gate::define('revoke-support-session', fn (mixed $user): bool => $user instanceof PlatformAdmin);
 
-        // Tenant: Tenant Admins only.
+        // Tenant: Super Admins only.
         Gate::define('impersonate', function (mixed $actor, mixed $employee): Response {
             if (! config('impersonation.employee.enabled')) {
                 return Response::denyAsNotFound();
@@ -54,7 +54,7 @@ class ImpersonationServiceProvider extends ServiceProvider
             return $denial === null ? Response::allow() : Response::deny($denial);
         });
 
-        Gate::define('view-access-history', fn (mixed $user): bool => $user instanceof User && $user->is_active && $user->isTenantAdmin());
+        Gate::define('view-access-history', fn (mixed $user): bool => $user instanceof User && $user->is_active && $user->isSuperAdmin());
     }
 
     /**

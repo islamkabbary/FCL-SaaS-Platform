@@ -44,6 +44,6 @@ class TenantAuditLogPolicy
             return false;
         }
 
-        return $actor->is_active && $actor->hasPermissionTo(TenantPermission::AuditView->value);
+        return $actor->is_active && $actor->hasPermissionTo(TenantPermission::AuditShow->value);
     }
 }

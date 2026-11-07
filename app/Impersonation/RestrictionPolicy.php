@@ -35,9 +35,9 @@ final class RestrictionPolicy
     public const AllowedAbilities = [
         'viewAny',
         'view',
-        'employees.view',
-        'roles.view',
-        'billing.view',
+        'employees.show',
+        'roles.show',
+        'billing.show',
     ];
 
     /**

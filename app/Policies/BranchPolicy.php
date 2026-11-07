@@ -10,7 +10,7 @@ class BranchPolicy
      * Determine whether the user can create branches.
      *
      * Branches are provisioned by the platform only; tenant users,
-     * including the Tenant Admin, cannot create additional branches.
+     * including the Super Admin, cannot create additional branches.
      */
     public function create(User $user): bool
     {

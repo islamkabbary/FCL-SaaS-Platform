@@ -10,7 +10,7 @@ return new class extends Migration
      * Run the migrations.
      *
      * Support sessions: a Platform Admin's temporary, restricted access to a tenant as one
-     * of its Tenant Admins, and the trail of what was viewed or refused during it.
+     * of its Super Admins, and the trail of what was viewed or refused during it.
      */
     public function up(): void
     {

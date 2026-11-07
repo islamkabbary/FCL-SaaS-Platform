@@ -33,7 +33,7 @@ class UserPolicy
 
     public function viewAny(User $actor): bool
     {
-        return $actor->hasPermissionTo(TenantPermission::EmployeesView->value);
+        return $actor->hasPermissionTo(TenantPermission::EmployeesShow->value);
     }
 
     public function create(User $actor): bool
@@ -43,7 +43,7 @@ class UserPolicy
 
     public function update(User $actor, User $employee): Response
     {
-        if (! $actor->hasPermissionTo(TenantPermission::EmployeesUpdate->value)) {
+        if (! $actor->hasPermissionTo(TenantPermission::EmployeesEdit->value)) {
             return Response::deny();
         }
 
@@ -54,7 +54,7 @@ class UserPolicy
 
     public function deactivate(User $actor, User $employee): Response
     {
-        if (! $actor->hasPermissionTo(TenantPermission::EmployeesDeactivate->value)) {
+        if (! $actor->hasPermissionTo(TenantPermission::EmployeesActivate->value)) {
             return Response::deny();
         }
 
@@ -66,14 +66,14 @@ class UserPolicy
             return Response::deny(__('You cannot deactivate a user with more privileges than you.'));
         }
 
-        return $employee->isLastActiveTenantAdmin()
-            ? Response::deny(__('The last active Tenant Admin cannot be deactivated.'))
+        return $employee->isLastActiveSuperAdmin()
+            ? Response::deny(__('The last active Super Admin cannot be deactivated.'))
             : Response::allow();
     }
 
     public function activate(User $actor, User $employee): Response
     {
-        if (! $actor->hasPermissionTo(TenantPermission::EmployeesDeactivate->value)) {
+        if (! $actor->hasPermissionTo(TenantPermission::EmployeesActivate->value)) {
             return Response::deny();
         }
 

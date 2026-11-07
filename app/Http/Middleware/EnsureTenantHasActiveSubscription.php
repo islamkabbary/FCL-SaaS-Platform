@@ -16,7 +16,7 @@ class EnsureTenantHasActiveSubscription
      * of components rendered on them (persistent middleware), so neither an existing
      * session nor a Livewire request can bypass it. Legacy tenants (created before
      * subscriptions and not transitioned) keep their access. Sign-in, settings and the
-     * subscription pages stay reachable so a Tenant Admin can see why access is limited.
+     * subscription pages stay reachable so a Super Admin can see why access is limited.
      *
      * Manual suspension and provisioning are enforced earlier by EnsureTenantIsReady and
      * are not affected by the subscription.

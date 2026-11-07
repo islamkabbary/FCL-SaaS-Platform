@@ -171,8 +171,8 @@ class ProvisionTenant
     }
 
     /**
-     * Create the Default Branch, the roles and permissions, and the initial Tenant Admin
-     * (holding the Tenant Admin role) inside the tenant database.
+     * Create the Default Branch, the roles and permissions, and the initial Super Admin
+     * (holding the Super Admin role) inside the tenant database.
      *
      * Returns the admin's newly generated temporary password.
      */
@@ -201,7 +201,7 @@ class ProvisionTenant
                     ])
                     ->save();
 
-                // Roles and permissions; gives the Tenant Admin role to the admin above.
+                // Roles and permissions; gives the Super Admin role to the admin above.
                 $this->syncTenantAuthorization->handle();
 
                 return $temporaryPassword;

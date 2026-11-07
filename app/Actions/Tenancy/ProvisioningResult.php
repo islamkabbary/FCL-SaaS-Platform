@@ -7,7 +7,7 @@ use App\Models\Tenant;
 /**
  * Outcome of a successful tenant provisioning run.
  *
- * Carries the Tenant Admin's temporary password so it can be shown exactly
+ * Carries the Super Admin's temporary password so it can be shown exactly
  * once. It must never be persisted, flashed to the session, or logged.
  */
 final readonly class ProvisioningResult

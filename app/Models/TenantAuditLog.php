@@ -25,7 +25,7 @@ use LogicException;
  *
  * The actor is the authenticated tenant user ("tenant_user") or the application itself
  * ("system"). During an impersonation the effective actor is the impersonated user and
- * the original actor (a Platform Admin or a Tenant Admin) is recorded next to it.
+ * the original actor (a Platform Admin or a Super Admin) is recorded next to it.
  *
  * @property int $id
  * @property string $action

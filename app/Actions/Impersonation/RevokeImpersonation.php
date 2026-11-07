@@ -34,12 +34,12 @@ class RevokeImpersonation
     }
 
     /**
-     * A Tenant Admin revokes a support session in their own company (tenant context).
+     * A Super Admin revokes a support session in their own company (tenant context).
      *
      * @throws AuthorizationException
      * @throws ImpersonationRefused
      */
-    public function supportByTenantAdmin(User $user, int $sessionId): void
+    public function supportBySuperAdmin(User $user, int $sessionId): void
     {
         Gate::forUser($user)->authorize('view-access-history');
 
@@ -52,12 +52,12 @@ class RevokeImpersonation
     }
 
     /**
-     * A Tenant Admin ends an employee view started by any Tenant Admin of the company.
+     * A Super Admin ends an employee view started by any Super Admin of the company.
      *
      * @throws AuthorizationException
      * @throws ImpersonationRefused
      */
-    public function employeeByTenantAdmin(User $user, int $sessionId): void
+    public function employeeBySuperAdmin(User $user, int $sessionId): void
     {
         Gate::forUser($user)->authorize('view-access-history');
 

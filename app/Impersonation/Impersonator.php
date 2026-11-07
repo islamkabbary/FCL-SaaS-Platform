@@ -34,7 +34,7 @@ class Impersonator
 
     /**
      * Start a support session in this browser: any previous tenant login is discarded,
-     * the session id is renewed (no fixation) and the Tenant Admin is logged in without
+     * the session id is renewed (no fixation) and the Super Admin is logged in without
      * "remember me", so nothing about the target's account is changed.
      */
     public function beginSupport(Request $request, SupportSession $session, User $target): void
@@ -57,7 +57,7 @@ class Impersonator
     }
 
     /**
-     * Switch a Tenant Admin's own session to the employee's identity. The Tenant Admin's
+     * Switch a Super Admin's own session to the employee's identity. The Super Admin's
      * other sessions and the employee's own sessions are not touched.
      */
     public function beginEmployee(Request $request, ImpersonationSession $session, User $admin, User $employee): void
@@ -140,7 +140,7 @@ class Impersonator
                 return ImpersonationEndReason::ActorUnauthorized;
             }
 
-            $targetEligible = static fn (User $target): bool => $target->isTenantAdmin();
+            $targetEligible = static fn (User $target): bool => $target->isSuperAdmin();
         } else {
             if (! config('impersonation.employee.enabled')) {
                 return ImpersonationEndReason::FeatureDisabled;
@@ -148,7 +148,7 @@ class Impersonator
 
             $impersonator = User::query()->whereKey($session->impersonator_user_id)->first();
 
-            if (($marker['impersonator'] ?? null) !== $session->impersonator_user_id || $impersonator === null || ! $impersonator->is_active || ! $impersonator->isTenantAdmin()) {
+            if (($marker['impersonator'] ?? null) !== $session->impersonator_user_id || $impersonator === null || ! $impersonator->is_active || ! $impersonator->isSuperAdmin()) {
                 return ImpersonationEndReason::ActorUnauthorized;
             }
 
@@ -172,10 +172,10 @@ class Impersonator
 
     /**
      * End the impersonation and leave the browser in a safe state: a support session is
-     * logged out of the tenant entirely; an employee view returns to the Tenant Admin's
-     * own identity when they are still an active Tenant Admin, otherwise it is logged out.
+     * logged out of the tenant entirely; an employee view returns to the Super Admin's
+     * own identity when they are still an active Super Admin, otherwise it is logged out.
      *
-     * Returns the restored Tenant Admin, if any.
+     * Returns the restored Super Admin, if any.
      */
     public function terminate(Request $request, SupportSession|ImpersonationSession|null $session, ImpersonationEndReason $reason): ?User
     {
@@ -193,7 +193,7 @@ class Impersonator
         if ($session instanceof ImpersonationSession && is_array($marker) && ($marker['impersonator'] ?? null) === $session->impersonator_user_id) {
             $admin = User::query()->whereKey($session->impersonator_user_id)->first();
 
-            if ($admin !== null && $admin->is_active && $admin->isTenantAdmin()) {
+            if ($admin !== null && $admin->is_active && $admin->isSuperAdmin()) {
                 Auth::guard('web')->login($admin);
                 $request->session()->regenerate();
                 $request->session()->regenerateToken();

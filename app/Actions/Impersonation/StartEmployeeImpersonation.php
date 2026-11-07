@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Lets a Tenant Admin view the application as one of their employees (tenant context).
+ * Lets a Super Admin view the application as one of their employees (tenant context).
  *
- * Requires the Tenant Admin's own password for this request (rate limited), a reason,
+ * Requires the Super Admin's own password for this request (rate limited), a reason,
  * and the "impersonate" ability (EmployeeImpersonationRules). The employee's password
  * and sessions are never used or changed. Nested impersonation is refused.
  */
