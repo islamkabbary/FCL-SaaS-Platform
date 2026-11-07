@@ -8,10 +8,10 @@
 | Two workflows share one restriction policy (App\Impersonation\RestrictionPolicy):
 |
 | - Support access: a Platform Admin temporarily enters a tenant as one of its
-|   Tenant Admins. Disabled by default; enable it explicitly per environment once
+|   Super Admins. Disabled by default; enable it explicitly per environment once
 |   the security requirements in docs/MILESTONE_05_SUPPORT_IMPERSONATION_SECURITY.md
 |   are verified there.
-| - Employee view: a Tenant Admin temporarily views the application as one of
+| - Employee view: a Super Admin temporarily views the application as one of
 |   their own lower-privileged employees.
 |
 | Lifetimes are clamped to 1–60 minutes whatever the environment says.
