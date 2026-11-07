@@ -36,7 +36,7 @@ new #[Title('Subscription & billing')] class extends Component {
 
     public function mount(): void
     {
-        abort_unless(Auth::user()->can(TenantPermission::BillingView->value), 403);
+        abort_unless(Auth::user()->can(TenantPermission::BillingShow->value), 403);
     }
 
     #[Computed]
@@ -196,7 +196,8 @@ new #[Title('Subscription & billing')] class extends Component {
     <flux:heading size="xl" level="1">{{ __('Subscription & billing') }}</flux:heading>
     <flux:subheading>{{ __('Your company\'s subscription, users and billing history.') }}</flux:subheading>
 
-    @php($canManage = auth()->user()->can(App\Enums\TenantPermission::BillingManage->value))
+    @php($canRequest = auth()->user()->can(App\Enums\TenantPermission::BillingSeatRequestsCreate->value))
+    @php($canWithdraw = auth()->user()->can(App\Enums\TenantPermission::BillingSeatRequestsDelete->value))
 
     <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <flux:card>
@@ -262,7 +263,7 @@ new #[Title('Subscription & billing')] class extends Component {
                 <flux:callout icon="calendar" class="mt-4" :heading="__('Approved: :seats seats from the next renewal.', ['seats' => $this->scheduledReduction->seats])" />
             @endif
 
-            @if ($canManage)
+            @if ($canRequest)
                 <div class="mt-6 flex flex-wrap gap-2">
                     @if ($this->pendingRequest)
                         <flux:text>{{ __('A request is pending review. You can cancel it below before making another one.') }}</flux:text>
@@ -307,7 +308,7 @@ new #[Title('Subscription & billing')] class extends Component {
                         @endif
                     </flux:table.cell>
                     <flux:table.cell align="end">
-                        @if ($canManage && $request->status === App\Enums\SeatRequestStatus::Pending)
+                        @if ($canWithdraw && $request->status === App\Enums\SeatRequestStatus::Pending)
                             <flux:button size="sm" variant="ghost" inset="top bottom" wire:click="cancelRequest({{ $request->id }})" wire:confirm="{{ __('Cancel this request?') }}">{{ __('Cancel') }}</flux:button>
                         @endif
                     </flux:table.cell>
@@ -380,7 +381,7 @@ new #[Title('Subscription & billing')] class extends Component {
         </flux:table>
     @endif
 
-    @if ($canManage && $this->currentTerm)
+    @if ($canRequest && $this->currentTerm)
         <flux:modal name="request-increase" class="md:w-lg">
             <form wire:submit="requestIncrease" class="space-y-6">
                 <div>

@@ -25,11 +25,11 @@
                 </x-slot>
             </flux:callout>
         @elseif ($targets->isEmpty())
-            <flux:callout variant="warning" icon="exclamation-triangle" class="mt-6" :heading="__('This company has no active Tenant Admin to act as.')" />
+            <flux:callout variant="warning" icon="exclamation-triangle" class="mt-6" :heading="__('This company has no active Super Admin to act as.')" />
         @else
             <flux:callout icon="information-circle" class="mt-6" :heading="__('Restricted, temporary and recorded')">
-                <flux:callout.text>{{ __('You will see the application as the selected Tenant Admin for at most :minutes minutes. Changes (passwords, roles, employees, billing and every other modification) are refused.', ['minutes' => $lifetime]) }}</flux:callout.text>
-                <flux:callout.text>{{ __('The company\'s Tenant Admins are notified with your name and the reason, and the pages you open are recorded.') }}</flux:callout.text>
+                <flux:callout.text>{{ __('You will see the application as the selected Super Admin for at most :minutes minutes. Changes (passwords, roles, employees, billing and every other modification) are refused.', ['minutes' => $lifetime]) }}</flux:callout.text>
+                <flux:callout.text>{{ __('The company\'s Super Admins are notified with your name and the reason, and the pages you open are recorded.') }}</flux:callout.text>
             </flux:callout>
 
             <form method="POST" action="{{ route('platform.support-sessions.store', $tenant) }}" class="mt-6 flex flex-col gap-6">
@@ -45,7 +45,7 @@
                 <flux:textarea
                     name="reason"
                     :label="__('Reason or support reference')"
-                    :description="__('Required. Shown to the company\'s Tenant Admins and recorded in the audit trail.')"
+                    :description="__('Required. Shown to the company\'s Super Admins and recorded in the audit trail.')"
                     rows="3"
                     required
                 >{{ old('reason') }}</flux:textarea>

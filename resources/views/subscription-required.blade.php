@@ -20,7 +20,7 @@
                 </flux:callout.text>
             </flux:callout>
 
-            @can(App\Enums\TenantPermission::BillingView->value)
+            @can(App\Enums\TenantPermission::BillingShow->value)
                 <flux:button class="mt-6" icon="credit-card" :href="route('subscription.show')" wire:navigate>
                     {{ __('View subscription & billing') }}
                 </flux:button>

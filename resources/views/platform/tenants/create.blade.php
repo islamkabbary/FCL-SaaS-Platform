@@ -2,7 +2,7 @@
     <div class="max-w-xl">
         <flux:heading size="xl" level="1">{{ __('New tenant') }}</flux:heading>
         <flux:subheading>
-            {{ __('Creates the company, its own database, its Default Branch and its first Tenant Admin.') }}
+            {{ __('Creates the company, its own database, its Default Branch and its first Super Admin.') }}
         </flux:subheading>
 
         <form method="POST" action="{{ route('platform.tenants.store') }}" class="mt-6 flex flex-col gap-6">
@@ -20,9 +20,9 @@
 
             <flux:separator variant="subtle" />
 
-            <flux:input name="admin_name" :label="__('Tenant Admin name')" :value="old('admin_name')" required />
+            <flux:input name="admin_name" :label="__('Super Admin name')" :value="old('admin_name')" required />
 
-            <flux:input name="admin_email" type="email" dir="ltr" :label="__('Tenant Admin email')" :value="old('admin_email')" required />
+            <flux:input name="admin_email" type="email" dir="ltr" :label="__('Super Admin email')" :value="old('admin_email')" required />
 
             <div class="flex items-center gap-4">
                 <flux:button variant="primary" type="submit" data-test="create-tenant-button">

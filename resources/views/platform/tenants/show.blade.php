@@ -84,7 +84,7 @@
                     @endif
                 </dd>
 
-                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Initial Tenant Admin') }}</dt>
+                <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Initial Super Admin') }}</dt>
                 <dd class="sm:col-span-2">{{ $tenant->initial_admin_name ?? '—' }} @if ($tenant->initial_admin_email) &lt;{{ $tenant->initial_admin_email }}&gt; @endif</dd>
 
                 <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Created') }}</dt>

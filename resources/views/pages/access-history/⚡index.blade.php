@@ -39,7 +39,7 @@ new #[Title('Access history')] class extends Component {
     }
 
     /**
-     * Employee views started by the company's Tenant Admins (tenant database).
+     * Employee views started by the company's Super Admins (tenant database).
      *
      * @return Collection<int, ImpersonationSession>
      */
@@ -66,7 +66,7 @@ new #[Title('Access history')] class extends Component {
     public function revokeSupport(int $sessionId, RevokeImpersonation $revoke): void
     {
         try {
-            $revoke->supportByTenantAdmin(Auth::user(), $sessionId);
+            $revoke->supportBySuperAdmin(Auth::user(), $sessionId);
         } catch (AuthorizationException|ImpersonationRefused $exception) {
             Flux::toast(variant: 'danger', text: $exception->getMessage());
 
@@ -80,7 +80,7 @@ new #[Title('Access history')] class extends Component {
     public function endEmployeeView(int $sessionId, RevokeImpersonation $revoke): void
     {
         try {
-            $revoke->employeeByTenantAdmin(Auth::user(), $sessionId);
+            $revoke->employeeBySuperAdmin(Auth::user(), $sessionId);
         } catch (AuthorizationException|ImpersonationRefused $exception) {
             Flux::toast(variant: 'danger', text: $exception->getMessage());
 
@@ -94,7 +94,7 @@ new #[Title('Access history')] class extends Component {
 
 <section class="w-full">
     <flux:heading size="xl" level="1">{{ __('Access history') }}</flux:heading>
-    <flux:subheading>{{ __('Platform support access to your company, and employee views by your Tenant Admins.') }}</flux:subheading>
+    <flux:subheading>{{ __('Platform support access to your company, and employee views by your Super Admins.') }}</flux:subheading>
 
     @if ($this->unreadNoticeCount > 0)
         <flux:callout variant="warning" icon="lifebuoy" class="mt-6" :heading="trans_choice('{1} Platform support accessed your company once since you last checked.|[2,*] Platform support accessed your company :count times since you last checked.', $this->unreadNoticeCount, ['count' => $this->unreadNoticeCount])" data-test="support-notice">
@@ -145,7 +145,7 @@ new #[Title('Access history')] class extends Component {
     <flux:table class="mt-4" data-test="employee-impersonation-sessions">
         <flux:table.columns>
             <flux:table.column>{{ __('Started') }}</flux:table.column>
-            <flux:table.column>{{ __('Tenant Admin') }}</flux:table.column>
+            <flux:table.column>{{ __('Super Admin') }}</flux:table.column>
             <flux:table.column>{{ __('Viewed as') }}</flux:table.column>
             <flux:table.column>{{ __('Reason') }}</flux:table.column>
             <flux:table.column>{{ __('Status') }}</flux:table.column>

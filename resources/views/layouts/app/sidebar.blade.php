@@ -41,9 +41,9 @@
                     </flux:sidebar.group>
                 @endcan
 
-                @if (auth()->user()->can(App\Enums\TenantPermission::BillingView->value) || auth()->user()->can('view-access-history'))
+                @if (auth()->user()->can(App\Enums\TenantPermission::BillingShow->value) || auth()->user()->can('view-access-history'))
                     <flux:sidebar.group :heading="__('Company')" class="grid">
-                        @can(App\Enums\TenantPermission::BillingView->value)
+                        @can(App\Enums\TenantPermission::BillingShow->value)
                             <flux:sidebar.item icon="credit-card" :href="route('subscription.show')" :current="request()->routeIs('subscription.*')" wire:navigate>
                                 {{ __('Subscription & billing') }}
                             </flux:sidebar.item>

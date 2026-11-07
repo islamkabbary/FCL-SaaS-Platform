@@ -25,7 +25,7 @@
         @endif
 
         <form method="GET" action="{{ route('platform.subscriptions.activate', $tenant) }}" class="mt-6 flex flex-col gap-6">
-            <flux:input name="seats" type="number" min="1" :label="__('Users')" :value="$seats" :description="__('Every active user, including Tenant Admins, uses one seat.')" required />
+            <flux:input name="seats" type="number" min="1" :label="__('Users')" :value="$seats" :description="__('Every active user, including Super Admins, uses one seat.')" required />
             <flux:input name="starts_on" type="date" :label="__('Start date')" :value="$startsOn" :max="now()->toDateString()" :description="__('Today or earlier. The term runs one calendar year from this date.')" required />
             <flux:input name="discount_percent" inputmode="decimal" dir="ltr" :label="__('Discount on the setup fee (%)')" :value="$discountPercent" :description="__('Optional, from 0 to 100 with up to two decimals.')" />
 

@@ -25,12 +25,12 @@ new class extends Component {
         // Rate limited: a hijacked session must not be able to guess the password.
         $currentPassword->ensure($user, $this->password, 'password');
 
-        // Deleting the last active Tenant Admin would leave the company without an administrator.
-        // The active Tenant Admins are locked first (a locking read, see
-        // User::activeTenantAdminCount()), so two admins deleting themselves, or a concurrent
+        // Deleting the last active Super Admin would leave the company without an administrator.
+        // The active Super Admins are locked first (a locking read, see
+        // User::activeSuperAdminCount()), so two admins deleting themselves, or a concurrent
         // demotion, cannot both pass the check.
         $deleted = DB::transaction(function () use ($user): bool {
-            User::activeTenantAdminCount();
+            User::activeSuperAdminCount();
 
             $current = $user->fresh();
 
@@ -38,7 +38,7 @@ new class extends Component {
                 return true;
             }
 
-            if ($current->isLastActiveTenantAdmin()) {
+            if ($current->isLastActiveSuperAdmin()) {
                 return false;
             }
 
@@ -49,7 +49,7 @@ new class extends Component {
 
         if (! $deleted) {
             throw ValidationException::withMessages([
-                'password' => __('The last active Tenant Admin cannot delete their account.'),
+                'password' => __('The last active Super Admin cannot delete their account.'),
             ]);
         }
 

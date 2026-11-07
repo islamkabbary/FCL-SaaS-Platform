@@ -4,7 +4,7 @@
 
         <flux:callout variant="warning" icon="exclamation-triangle" class="mt-6"
             :heading="__('This temporary password is shown only once.')"
-            :text="__('Copy it now and hand it to the Tenant Admin through a secure channel. It is not stored anywhere in plain text and cannot be displayed again. The Tenant Admin must change it at first login.')"
+            :text="__('Copy it now and hand it to the Super Admin through a secure channel. It is not stored anywhere in plain text and cannot be displayed again. The Super Admin must change it at first login.')"
         />
 
         <flux:card class="mt-6 space-y-4">
@@ -14,12 +14,12 @@
             </div>
 
             <div>
-                <flux:label>{{ __('Tenant Admin email') }}</flux:label>
+                <flux:label>{{ __('Super Admin email') }}</flux:label>
                 <flux:text>{{ $result->adminEmail }}</flux:text>
             </div>
 
             <div>
-                <flux:label>{{ __('Tenant Admin username') }}</flux:label>
+                <flux:label>{{ __('Super Admin username') }}</flux:label>
                 <flux:text><bdi dir="ltr">{{ $adminUsername }}</bdi></flux:text>
             </div>
 

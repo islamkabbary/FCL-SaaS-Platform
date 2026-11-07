@@ -4,6 +4,7 @@ use App\Actions\Employees\CreateEmployee;
 use App\Actions\Impersonation\StartEmployeeImpersonation;
 use App\Actions\Employees\SetEmployeeActivation;
 use App\Actions\Employees\UpdateEmployee;
+use App\Actions\Roles\PrivilegeGuard;
 use App\Billing\SeatGuard;
 use App\Billing\SeatUsage;
 use App\Exceptions\ImpersonationRefused;
@@ -18,6 +19,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -44,6 +46,14 @@ new #[Title('Employees')] class extends Component {
 
     /** @var list<int|string> */
     public array $selectedRoles = [];
+
+    /**
+     * The roles the edited employee held when the form was opened.
+     *
+     * @var list<int>
+     */
+    #[Locked]
+    public array $heldRoleIds = [];
 
     /**
      * Shown once after an employee is created, then discarded. Never stored server-side.
@@ -115,6 +125,24 @@ new #[Title('Employees')] class extends Component {
         return Role::query()->orderBy('name')->get();
     }
 
+    /**
+     * The roles offered in the employee form: those the current user may give, plus those the
+     * edited employee already holds (so saving never drops them). Super Admin and roles with
+     * permissions the user lacks are hidden. The server checks every role again on save.
+     *
+     * @return Collection<int, Role>
+     */
+    #[Computed]
+    public function assignableRoles(): Collection
+    {
+        $guard = app(PrivilegeGuard::class);
+        $actor = Auth::user();
+
+        return Role::query()->with('permissions')->orderBy('name')->get()
+            ->filter(fn (Role $role): bool => in_array($role->id, $this->heldRoleIds, true) || $guard->canAssignRole($actor, $role))
+            ->values();
+    }
+
     public function create(): void
     {
         $this->authorize('create', User::class);
@@ -132,7 +160,8 @@ new #[Title('Employees')] class extends Component {
         $this->editingId = $employee->id;
         $this->name = $employee->name;
         $this->email = $employee->email;
-        $this->selectedRoles = $employee->roles->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->heldRoleIds = $employee->roles->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $this->selectedRoles = array_map('strval', $this->heldRoleIds);
 
         Flux::modal('employee-form')->show();
     }
@@ -270,7 +299,8 @@ new #[Title('Employees')] class extends Component {
     protected function resetForm(): void
     {
         $this->resetErrorBag();
-        $this->reset('editingId', 'name', 'email', 'selectedRoles');
+        $this->reset('editingId', 'name', 'email', 'selectedRoles', 'heldRoleIds');
+        unset($this->assignableRoles);
     }
 }; ?>
 
@@ -390,7 +420,7 @@ new #[Title('Employees')] class extends Component {
 
             @can('roles.assign')
                 <flux:checkbox.group wire:model="selectedRoles" :label="__('Roles')" :description="$editingId === null ? __('Leave empty to assign the Employee role.') : null">
-                    @foreach ($this->roles as $roleOption)
+                    @foreach ($this->assignableRoles as $roleOption)
                         <flux:checkbox :value="(string) $roleOption->id" :label="App\Enums\TenantRole::displayName($roleOption->name)" wire:key="role-option-{{ $roleOption->id }}" />
                     @endforeach
                 </flux:checkbox.group>

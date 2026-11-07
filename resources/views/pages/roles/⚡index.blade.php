@@ -144,10 +144,15 @@ new #[Title('Roles & Permissions')] class extends Component {
                     </flux:table.cell>
                     <flux:table.cell>
                         <div class="flex flex-wrap gap-1">
+                            @if ($role->name === App\Enums\TenantRole::SuperAdmin->value)
+                                <flux:badge size="sm" color="amber" data-test="super-admin-all-permissions">{{ __('All permissions (exempt from every check)') }}</flux:badge>
+                            @endif
                             @forelse ($role->permissions as $permission)
                                 <flux:badge size="sm" wire:key="role-{{ $role->id }}-permission-{{ $permission->id }}">{{ App\Enums\TenantPermission::tryFrom($permission->name)?->label() ?? $permission->name }}</flux:badge>
                             @empty
-                                <flux:text size="sm">{{ __('No permissions') }}</flux:text>
+                                @if ($role->name !== App\Enums\TenantRole::SuperAdmin->value)
+                                    <flux:text size="sm">{{ __('No permissions') }}</flux:text>
+                                @endif
                             @endforelse
                         </div>
                     </flux:table.cell>
@@ -167,18 +172,60 @@ new #[Title('Roles & Permissions')] class extends Component {
         </flux:table.rows>
     </flux:table>
 
-    <flux:modal name="role-form" class="md:w-lg">
+    <flux:modal name="role-form" class="w-full md:max-w-3xl">
         <form wire:submit="save" class="space-y-6">
             <flux:heading size="lg">{{ $editingId ? __('Edit role') : __('New role') }}</flux:heading>
 
             <flux:input wire:model="name" :label="__('Name')" required :disabled="App\Enums\TenantRole::isSystem($name) && $editingId !== null" />
 
-            <flux:checkbox.group wire:model="selectedPermissions" :label="__('Permissions')" :description="__('You can only grant permissions you hold yourself.')">
-                @foreach (App\Enums\TenantPermission::cases() as $permission)
-                    <flux:checkbox :value="$permission->value" :label="$permission->label()" :description="$permission->value"
-                        :disabled="! auth()->user()->can($permission->value)" wire:key="permission-{{ $permission->value }}" />
-                @endforeach
-            </flux:checkbox.group>
+            <div>
+                <flux:heading size="sm">{{ __('Permissions') }}</flux:heading>
+                <flux:text size="sm" class="mt-1">{{ __('You can only grant permissions you hold yourself.') }}</flux:text>
+
+                <div class="mt-3 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700" data-test="permission-matrix">
+                    <table class="w-full min-w-[36rem] text-sm">
+                        <thead class="bg-zinc-50 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                            <tr>
+                                <th scope="col" class="px-3 py-2 text-start font-medium">{{ __('Section') }}</th>
+                                <th scope="col" class="px-3 py-2 text-center font-medium">{{ __('Show') }}</th>
+                                <th scope="col" class="px-3 py-2 text-center font-medium">{{ __('Create') }}</th>
+                                <th scope="col" class="px-3 py-2 text-center font-medium">{{ __('Edit') }}</th>
+                                <th scope="col" class="px-3 py-2 text-center font-medium">{{ __('Delete') }}</th>
+                                <th scope="col" class="px-3 py-2 text-start font-medium">{{ __('Other actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                            @foreach (App\Enums\TenantPermission::byResource() as $resource => $permissions)
+                                <tr wire:key="permission-row-{{ $resource }}">
+                                    <th scope="row" class="px-3 py-2 text-start font-medium text-zinc-800 dark:text-white">{{ App\Enums\TenantPermission::resourceLabel($resource) }}</th>
+                                    @foreach (App\Enums\TenantPermission::BasicActions as $action)
+                                        <td class="px-3 py-2 text-center">
+                                            @if ($permission = App\Enums\TenantPermission::tryFrom($resource.'.'.$action))
+                                                <div class="inline-flex" title="{{ $permission->label() }}">
+                                                    <flux:checkbox wire:model="selectedPermissions" :value="$permission->value" :aria-label="$permission->label()"
+                                                        :disabled="! auth()->user()->can($permission->value)" wire:key="permission-{{ $permission->value }}" />
+                                                </div>
+                                            @else
+                                                <span class="text-zinc-300 dark:text-zinc-600" aria-hidden="true">—</span>
+                                            @endif
+                                        </td>
+                                    @endforeach
+                                    <td class="px-3 py-2">
+                                        <div class="flex flex-col gap-2">
+                                            @foreach ($permissions as $permission)
+                                                @unless ($permission->isBasic())
+                                                    <flux:checkbox wire:model="selectedPermissions" :value="$permission->value" :label="$permission->label()"
+                                                        :disabled="! auth()->user()->can($permission->value)" wire:key="permission-{{ $permission->value }}" />
+                                                @endunless
+                                            @endforeach
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close>
