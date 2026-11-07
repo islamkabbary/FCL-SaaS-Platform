@@ -18,6 +18,8 @@ paths:
 - Hash passwords with `Hash::make()` or the model's `hashed` cast. Never store plain text.
 - Validate all input at the boundary and again in the Action's validation class.
 - Use Policies for all authorization. No inline role checks. Authorize in the Action, not only in the UI.
+- Authorize with permissions, never with a role a company composed. Only the built-in roles of `TenantRole` may appear in code (BD-SEC06).
+- Name a permission `{resource}.{action}` with `show`, `create`, `edit` or `delete`. Never `manage`. A special action needs an owner decision (BD-D05). Map a renamed or split permission in `TenantPermission::renamed()`.
 - Rate limit authentication and sensitive endpoints with `throttle`.
 - Protect models against mass assignment.
 - If an API is added, use Sanctum or Passport (Q-X04). Never build custom API auth.

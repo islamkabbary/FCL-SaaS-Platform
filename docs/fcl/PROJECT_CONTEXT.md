@@ -155,14 +155,14 @@ Central tables include:
 
 ### 4.6 Authorization
 
-- **Permission catalog.** The enum `App\Enums\TenantPermission` currently has: `employees.view|create|update|deactivate`, `roles.view|manage|assign`, `billing.view|manage`. Its docblock reserves room for FCL permissions.
-- **Roles.** `TenantRole`: `Tenant Admin` and `Employee`.
+- **Permission catalog.** The enum `App\Enums\TenantPermission` names every permission `{resource}.{action}` with show/create/edit/delete and four special actions (BD-D05). The full list is in `docs/MILESTONE_09_PERMISSIONS_AND_SUPER_ADMIN.md`.
+- **Roles.** `TenantRole`: `Super Admin` (exempt from every permission check, BD-SEC06) and `Employee`.
 - **Sync.** `SyncTenantAuthorization`, run by `php artisan tenants:sync-authorization`, does three things:
   - creates every enum permission;
-  - gives **Tenant Admin all permissions** automatically;
+  - renames the former `Tenant Admin` role to `Super Admin`, which holds no permission rows;
   - creates `Employee` with **no** permissions and never resets it.
 
-  This means a new FCL permission is held only by Tenant Admins until someone grants it.
+  This means a new FCL permission is held only by Super Admins until someone grants it.
 - **Policies.** `before()` denies a non-tenant identity. Checks go through `hasPermissionTo`, and `PrivilegeGuard` prevents granting permissions the actor does not hold.
 - **Gate ordering.** The spatie Gate registration is disabled in config and re-registered by `ImpersonationServiceProvider` *after* the impersonation `Gate::before`, so restrictions can deny permission-named abilities.
 - **Livewire authorization is defence in depth:**
