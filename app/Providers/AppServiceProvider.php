@@ -39,6 +39,9 @@ class AppServiceProvider extends ServiceProvider
         // Any other identity is denied explicitly: Laravel calls a gate with an
         // authenticated user of another type, so a type hint alone would throw instead.
         Gate::define('manage-billing', fn (mixed $user): bool => $user instanceof PlatformAdmin);
+
+        // The database schema viewer (albertoarena/laravel-truss), also in production: Platform Admins only.
+        Gate::define('viewTruss', fn (mixed $user = null): bool => $user instanceof PlatformAdmin);
     }
 
     /**

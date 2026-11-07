@@ -94,7 +94,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform.two-factor-available' => EnsureTwoFactorIsAvailable::class,
         ]);
 
-        $middleware->redirectGuestsTo(fn (Request $request): string => $request->routeIs('platform.*')
+        $middleware->redirectGuestsTo(fn (Request $request): string => $request->routeIs('platform.*', 'truss.*')
             ? route('platform.login')
             : route('login'));
 
