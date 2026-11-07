@@ -1,0 +1,77 @@
+{
+  "_cairo-400-normal-Dh7otpdh.woff2": {
+    "file": "assets/cairo-400-normal-Dh7otpdh.woff2",
+    "src": "_cairo-400-normal-Dh7otpdh.woff2"
+  },
+  "_cairo-400-normal-b1R3q6Pf.woff": {
+    "file": "assets/cairo-400-normal-b1R3q6Pf.woff",
+    "src": "_cairo-400-normal-b1R3q6Pf.woff"
+  },
+  "_cairo-500-normal-D-WQsSKQ.woff2": {
+    "file": "assets/cairo-500-normal-D-WQsSKQ.woff2",
+    "src": "_cairo-500-normal-D-WQsSKQ.woff2"
+  },
+  "_cairo-500-normal-DkdkMETP.woff": {
+    "file": "assets/cairo-500-normal-DkdkMETP.woff",
+    "src": "_cairo-500-normal-DkdkMETP.woff"
+  },
+  "_cairo-600-normal-buYOP1M3.woff": {
+    "file": "assets/cairo-600-normal-buYOP1M3.woff",
+    "src": "_cairo-600-normal-buYOP1M3.woff"
+  },
+  "_cairo-600-normal-mGS0uvCM.woff2": {
+    "file": "assets/cairo-600-normal-mGS0uvCM.woff2",
+    "src": "_cairo-600-normal-mGS0uvCM.woff2"
+  },
+  "_cairo-700-normal-6fcUy4Rc.woff": {
+    "file": "assets/cairo-700-normal-6fcUy4Rc.woff",
+    "src": "_cairo-700-normal-6fcUy4Rc.woff"
+  },
+  "_cairo-700-normal-C3GYtKbV.woff2": {
+    "file": "assets/cairo-700-normal-C3GYtKbV.woff2",
+    "src": "_cairo-700-normal-C3GYtKbV.woff2"
+  },
+  "_fonts-CjCMrxoh.css": {
+    "file": "assets/fonts-CjCMrxoh.css",
+    "src": "_fonts-CjCMrxoh.css"
+  },
+  "_instrument-sans-400-normal-D1W7dsQl.woff": {
+    "file": "assets/instrument-sans-400-normal-D1W7dsQl.woff",
+    "src": "_instrument-sans-400-normal-D1W7dsQl.woff"
+  },
+  "_instrument-sans-400-normal-DRC__1Mx.woff2": {
+    "file": "assets/instrument-sans-400-normal-DRC__1Mx.woff2",
+    "src": "_instrument-sans-400-normal-DRC__1Mx.woff2"
+  },
+  "_instrument-sans-500-normal-Dk9ku72i.woff2": {
+    "file": "assets/instrument-sans-500-normal-Dk9ku72i.woff2",
+    "src": "_instrument-sans-500-normal-Dk9ku72i.woff2"
+  },
+  "_instrument-sans-500-normal-Z6ESRlEs.woff": {
+    "file": "assets/instrument-sans-500-normal-Z6ESRlEs.woff",
+    "src": "_instrument-sans-500-normal-Z6ESRlEs.woff"
+  },
+  "_instrument-sans-600-normal-B7fBEWYG.woff2": {
+    "file": "assets/instrument-sans-600-normal-B7fBEWYG.woff2",
+    "src": "_instrument-sans-600-normal-B7fBEWYG.woff2"
+  },
+  "_instrument-sans-600-normal-B9e8oLYv.woff": {
+    "file": "assets/instrument-sans-600-normal-B9e8oLYv.woff",
+    "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-CD42t38O.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-BvRk9kiK.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  }
+}
